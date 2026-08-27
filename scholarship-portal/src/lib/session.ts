@@ -1,10 +1,11 @@
 // Demo-login session: a signed cookie holding just a role. There are no real
 // credentials in this app ("Log in as applicant" / "Log in as admin" work for
 // anyone) — the signature only stops a viewer from hand-editing the cookie to
-// grant themselves the admin role. Uses Web Crypto so it also runs in the
+// grant themselves a staff role. Uses Web Crypto so it also runs in the
 // Edge middleware runtime.
 
-export type Role = "student" | "admin";
+export type Role = "student" | "admin" | "super_admin" | "screener";
+const ROLES: Role[] = ["student", "admin", "super_admin", "screener"];
 
 export const SESSION_COOKIE = "sp_session";
 
@@ -44,7 +45,7 @@ export async function verifySessionCookieValue(value: string | undefined): Promi
   if (expected !== sig) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    if (parsed.role === "student" || parsed.role === "admin") return { role: parsed.role };
+    if (ROLES.includes(parsed.role)) return { role: parsed.role };
     return null;
   } catch {
     return null;

@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { href: "surveys", label: "Check-in surveys", icon: <><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></> },
 ];
 
-export function AdminSidebar({ programKey, workspaceName }: { programKey: string; workspaceName: string }) {
+export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { programKey: string; workspaceName: string; isSuperAdmin?: boolean }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -44,6 +44,12 @@ export function AdminSidebar({ programKey, workspaceName }: { programKey: string
           </Link>
         );
       })}
+      {isSuperAdmin && (
+        <Link href="/admin/users" className={`side-item ${pathname.startsWith("/admin/users") ? "active" : ""}`} aria-current={pathname.startsWith("/admin/users") ? "page" : undefined}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+          <span className="side-item-label">Manage Users</span>
+        </Link>
+      )}
     </nav>
   );
 }

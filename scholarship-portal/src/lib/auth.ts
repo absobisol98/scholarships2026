@@ -9,28 +9,68 @@ export async function getSession(): Promise<{ role: Role } | null> {
   return verifySessionCookieValue(jar.get(SESSION_COOKIE)?.value);
 }
 
+// Where a logged-in session belongs when it lands somewhere it doesn't have access to.
+export function homeForRole(role: Role): string {
+  switch (role) {
+    case "student":
+      return "/browse";
+    case "screener":
+      return "/screener";
+    case "admin":
+    case "super_admin":
+      return "/admin";
+  }
+}
+
 export async function requireStudent() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "student") redirect("/admin");
+  if (session.role !== "student") redirect(homeForRole(session.role));
   return session;
 }
 
-export async function requireAdmin() {
+// Program Admin and Super Admin share the /admin/[key]/... program workspace screens —
+// Super Admin can enter any program's workspace, Admin only their assigned one(s)
+// (enforced separately, per-route, since it needs the program key).
+export async function requireAdminLike() {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.role !== "admin") redirect("/browse");
+  if (session.role !== "admin" && session.role !== "super_admin") redirect(homeForRole(session.role));
+  return session as { role: "admin" | "super_admin" };
+}
+
+export async function requireSuperAdmin() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (session.role !== "super_admin") redirect(homeForRole(session.role));
   return session;
 }
 
-// There's exactly one demo student and one demo admin persona — this app's
-// "log in as applicant" / "log in as program admin" buttons don't collect an
-// identity, they just pick which persona's data to show.
+export async function requireScreener() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  if (session.role !== "screener") redirect(homeForRole(session.role));
+  return session;
+}
+
+// There's exactly one demo student persona — this app's "log in as applicant" button
+// doesn't collect an identity, it just picks which persona's data to show.
 export async function getDemoStudent() {
   const student = await db.student.findFirst({ orderBy: { id: "asc" } });
   if (!student) throw new Error("Demo student not seeded — run `npm run db:seed`.");
   return student;
 }
 
-export const DEMO_ADMIN_NAME = "Dr. R. Okafor, Reviewer";
-export const DEMO_ADMIN_INITIALS = "RO";
+// Same idea for staff roles: exactly one seeded StaffAccount per role is flagged isDemo —
+// that's the identity "Log in as ..." assumes. Manage Users can hold a fuller illustrative
+// roster without every row being something you can actually log in as.
+export async function getDemoStaff(role: "admin" | "screener" | "super_admin") {
+  const staff = await db.staffAccount.findFirst({ where: { role, isDemo: true } });
+  if (!staff) throw new Error(`Demo ${role} not seeded — run \`npm run db:seed\`.`);
+  return staff;
+}
+
+export function initialsFor(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
+}

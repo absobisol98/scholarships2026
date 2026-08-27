@@ -57,8 +57,26 @@ export function evaluateCriteria(
   return flags;
 }
 
-export async function listWorkspacePrograms() {
-  const programs = await db.program.findMany({ orderBy: { order: "asc" } });
+// Super Admin can enter any program's workspace; a plain Admin only the program(s)
+// they're assigned to (via their seeded demo StaffAccount).
+export async function getAccessibleProgramIds(role: "admin" | "super_admin"): Promise<number[] | "all"> {
+  if (role === "super_admin") return "all";
+  const staff = await db.staffAccount.findFirst({ where: { role: "admin", isDemo: true } });
+  if (!staff) return [];
+  const assignments = await db.staffProgramAssignment.findMany({ where: { staffId: staff.id }, select: { programId: true } });
+  return assignments.map((a) => a.programId);
+}
+
+export async function canAccessProgram(role: "admin" | "super_admin", programId: number): Promise<boolean> {
+  const ids = await getAccessibleProgramIds(role);
+  return ids === "all" || ids.includes(programId);
+}
+
+export async function listWorkspacePrograms(accessibleProgramIds: number[] | "all" = "all") {
+  const programs = await db.program.findMany({
+    where: accessibleProgramIds === "all" ? undefined : { id: { in: accessibleProgramIds } },
+    orderBy: { order: "asc" },
+  });
   const counts = await db.applicant.groupBy({ by: ["programId"], _count: { id: true } });
   const countByProgramId = new Map(counts.map((c) => [c.programId, c._count.id]));
   return programs.map((p) => ({ program: p, applicantCount: countByProgramId.get(p.id) ?? 0 }));

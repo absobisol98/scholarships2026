@@ -97,6 +97,9 @@ async function main() {
   await db.surveyQuestion.deleteMany();
   await db.surveyWave.deleteMany();
   await db.fieldConfig.deleteMany();
+  await db.rubricScore.deleteMany();
+  await db.recommendation.deleteMany();
+  await db.applicantAssignment.deleteMany();
   await db.applicant.deleteMany();
   await db.familyMember.deleteMany();
   await db.application.deleteMany();
@@ -104,6 +107,9 @@ async function main() {
   await db.criteriaHistoryEntry.deleteMany();
   await db.criterion.deleteMany();
   await db.cohort.deleteMany();
+  await db.auditLogEntry.deleteMany();
+  await db.staffProgramAssignment.deleteMany();
+  await db.staffAccount.deleteMany();
   await db.program.deleteMany();
 
   const ugo = await db.program.create({
@@ -272,13 +278,64 @@ async function main() {
     { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: "3.79", submitted: "Aug 15", status: "review", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", gwa: 87, phaseIndex: 3 },
   ];
 
+  const createdApplicants: Record<string, { id: number }> = {};
   for (const a of applicantSeeds) {
-    await db.applicant.create({
+    const created = await db.applicant.create({
       data: {
         ...a,
         essay: a.essay ?? "",
         attachmentsJson: JSON.stringify(["Certificate of school registration.pdf", "2x2 picture.jpg"]),
       },
+    });
+    createdApplicants[a.name] = created;
+  }
+
+  // — Staff accounts (RBAC demo) —
+  // Exactly one seeded StaffAccount per staff role is isDemo:true — that's who "Log in as
+  // program admin" / "Log in as paper screener" actually becomes. The rest exist purely to
+  // give the Super Admin's Manage Users screen a real, illustrative roster.
+  await db.staffAccount.create({
+    data: {
+      name: "Dr. R. Okafor",
+      role: "admin",
+      isDemo: true,
+      programAssignments: { create: [{ programId: ugo.id }] },
+    },
+  });
+  await db.staffAccount.create({
+    data: {
+      name: "Liza Fernandez",
+      role: "admin",
+      programAssignments: { create: [{ programId: generika.id }] },
+    },
+  });
+  await db.staffAccount.create({
+    data: {
+      name: "James Cruz",
+      role: "admin",
+      programAssignments: { create: [{ programId: eo.id }] },
+    },
+  });
+
+  await db.staffAccount.create({
+    data: { name: "Elena Cruz", role: "super_admin", isDemo: true },
+  });
+
+  const demoScreener = await db.staffAccount.create({
+    data: { name: "Marco Villanueva", role: "screener", isDemo: true },
+  });
+  await db.staffAccount.create({
+    data: { name: "Grace Tan", role: "screener" },
+  });
+  await db.staffAccount.create({
+    data: { name: "Noel Reyes", role: "screener", active: false },
+  });
+
+  // Marco (the demo screener) is assigned three of U-GO's applicants to review.
+  const screenerAssignees = ["Amara Chen", "Priya Nair", "Diego Ramirez"];
+  for (const name of screenerAssignees) {
+    await db.applicantAssignment.create({
+      data: { screenerId: demoScreener.id, applicantId: createdApplicants[name].id },
     });
   }
 

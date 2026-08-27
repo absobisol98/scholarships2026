@@ -40,6 +40,8 @@ model Program {
   applicants   Applicant[]
   fieldConfigs FieldConfig[]
   surveyWaves  SurveyWave[]
+  staffAssignments StaffProgramAssignment[]
+  auditLogEntries  AuditLogEntry[]
 }
 
 // An application cycle/batch for a program. Only one is "active" at a time.
@@ -204,7 +206,98 @@ model Applicant {
   essay           String   @default("")
   attachmentsJson String   @default("[]")
 
+  // Super Admin exception handling: a flagged applicant can be manually cleared without
+  // deleting the underlying flags — the reasons stay visible, just marked resolved.
+  flagOverridden     Boolean   @default(false)
+  flagOverrideReason String?
+  flagOverriddenBy   String?
+  flagOverriddenAt   DateTime?
+
   surveySends SurveySend[]
+  screenerAssignments ApplicantAssignment[]
+  rubricScores        RubricScore[]
+  recommendations     Recommendation[]
+
+  @@index([programId])
+}
+
+// A staff account: a Program Admin (scoped to one or more programs) or a Paper Screener
+// (scoped to individually-assigned applicants). Demo login still has no real credentials —
+// this models real scope/roster data (what Manage Users administers) without requiring one.
+model StaffAccount {
+  id        String   @id @default(cuid())
+  name      String
+  role      String // "admin" | "screener"
+  active    Boolean  @default(true)
+  isDemo    Boolean  @default(false) // the one account "Log in as ..." actually assumes, per role
+  createdAt DateTime @default(now())
+
+  programAssignments   StaffProgramAssignment[]
+  applicantAssignments ApplicantAssignment[]
+  rubricScores         RubricScore[]
+  recommendations      Recommendation[]
+}
+
+// Which program(s) a Program Admin manages. (Paper Screeners are scoped by applicant
+// assignment instead — see ApplicantAssignment.)
+model StaffProgramAssignment {
+  id        String  @id @default(cuid())
+  staffId   String
+  staff     StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  programId Int
+  program   Program @relation(fields: [programId], references: [id])
+
+  @@unique([staffId, programId])
+}
+
+// Which applicants a Paper Screener has been assigned to review, set by an Admin.
+model ApplicantAssignment {
+  id          String   @id @default(cuid())
+  applicantId Int
+  applicant   Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  screenerId  String
+  screener    StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime @default(now())
+
+  @@unique([applicantId, screenerId])
+}
+
+// A Paper Screener's 1-5 score on one soft (human-judged) criterion for one applicant.
+model RubricScore {
+  id           String   @id @default(cuid())
+  applicantId  Int
+  applicant    Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  screenerId   String
+  screener     StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  criterionKey String // "financial_hardship" | "leadership" | "essay_quality"
+  score        Int
+  updatedAt    DateTime @updatedAt
+
+  @@unique([applicantId, screenerId, criterionKey])
+}
+
+// A Paper Screener's overall recommend / not-recommend call on an applicant, with comments.
+model Recommendation {
+  id          String   @id @default(cuid())
+  applicantId Int
+  applicant   Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  screenerId  String
+  screener    StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  decision    String // "recommend" | "not_recommend"
+  comment     String   @default("")
+  updatedAt   DateTime @updatedAt
+
+  @@unique([applicantId, screenerId])
+}
+
+// System/program activity log — user management, red-flag overrides, award decisions.
+model AuditLogEntry {
+  id        String   @id @default(cuid())
+  programId Int? // null = system-wide (not tied to one program)
+  program   Program? @relation(fields: [programId], references: [id])
+  actor     String // display name of who did it
+  action    String
+  createdAt DateTime @default(now())
 
   @@index([programId])
 }

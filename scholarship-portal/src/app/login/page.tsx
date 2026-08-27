@@ -1,17 +1,28 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { loginAsAdmin, loginAsStudent } from "./actions";
+import { getSession, homeForRole } from "@/lib/auth";
+import { loginAsAdmin, loginAsScreener, loginAsStudent, loginAsSuperAdmin } from "./actions";
 
-export default async function LoginPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+  admin_deactivated: "The demo Program Admin account has been deactivated by a Super Admin.",
+  screener_deactivated: "The demo Paper Screener account has been deactivated by a Super Admin.",
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await getSession();
-  if (session?.role === "student") redirect("/browse");
-  if (session?.role === "admin") redirect("/admin");
+  if (session) redirect(homeForRole(session.role));
+  const { error } = await searchParams;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "var(--space-4)" }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
         <h6 style={{ color: "var(--color-accent)", textAlign: "center" }}>SCHOLARSHIP MANAGEMENT SYSTEM</h6>
         <h2 style={{ textAlign: "center", marginBottom: "var(--space-6)", fontSize: 30 }}>Sign in</h2>
+
+        {error && ERROR_MESSAGES[error] && (
+          <div className="card" role="alert" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-2-100)" }}>
+            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</p>
+          </div>
+        )}
 
         <form action={loginAsStudent} className="card elev-md" style={{ padding: "var(--space-6)", gap: "var(--space-3)" }}>
           <button type="submit" formAction={loginAsStudent} className="btn btn-secondary btn-block" style={{ justifyContent: "flex-start", gap: 10 }}>
@@ -42,9 +53,23 @@ export default async function LoginPage() {
           <button type="submit" formAction={loginAsStudent} className="btn btn-primary btn-block" style={{ marginTop: "var(--space-2)" }}>
             Log in as applicant
           </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "var(--space-2) 0" }}>
+            <span style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
+            <span className="text-muted" style={{ fontSize: 11 }}>STAFF LOGIN</span>
+            <span style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
+          </div>
+
           <button type="submit" formAction={loginAsAdmin} className="btn btn-secondary btn-block">
             Log in as program admin
           </button>
+          <button type="submit" formAction={loginAsScreener} className="btn btn-secondary btn-block">
+            Log in as paper screener
+          </button>
+          <button type="submit" formAction={loginAsSuperAdmin} className="btn btn-secondary btn-block">
+            Log in as super admin
+          </button>
+
           <p className="text-muted" style={{ fontSize: 11, textAlign: "center", margin: "var(--space-2) 0 0" }}>
             Demo login — no real credentials required.
           </p>
