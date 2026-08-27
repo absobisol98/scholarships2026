@@ -4,6 +4,7 @@ import { requireAdminLike } from "@/lib/auth";
 import { getProgramByKey, getApplicant, getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision } from "@/lib/actions/decisions";
+import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 
 const DECISION_LABELS: Record<string, string> = { awarded: "Awarded", waitlisted: "Waitlisted", declined: "Declined" };
@@ -16,10 +17,11 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const applicant = await getApplicant(Number(applicantId));
   if (!applicant || applicant.programId !== program.id) notFound();
 
-  const [activeCohort, recommendations, rubricScores] = await Promise.all([
+  const [activeCohort, recommendations, rubricScores, activeScreeners] = await Promise.all([
     getActiveCohortWithCriteria(program.id),
     db.recommendation.findMany({ where: { applicantId: applicant.id }, include: { screener: true } }),
     db.rubricScore.findMany({ where: { applicantId: applicant.id }, include: { screener: true } }),
+    db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
   ]);
   const flags = evaluateCriteria(applicant, activeCohort);
   const attachments: string[] = JSON.parse(applicant.attachmentsJson);
@@ -34,6 +36,10 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const onOverride = overrideFlag.bind(null, program.key, applicant.id);
   const onClearOverride = clearFlagOverride.bind(null, program.key, applicant.id);
   const onSetDecision = setApplicantDecision.bind(null, program.key, applicant.id);
+  const onAssignScreener = assignScreener.bind(null, program.key, applicant.id);
+
+  const assignedScreenerIds = new Set(applicant.screenerAssignments.map((sa) => sa.screenerId));
+  const availableScreeners = activeScreeners.filter((s) => !assignedScreenerIds.has(s.id));
 
   return (
     <div className="page-wrap">
@@ -118,6 +124,35 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
           ) : null}
         </div>
       )}
+
+      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
+        <div className="card-kicker">Paper Screener assignment</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 8 }}>
+          {applicant.screenerAssignments.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>No screener assigned yet</span>}
+          {applicant.screenerAssignments.map((sa) => {
+            const onUnassign = unassignScreener.bind(null, program.key, applicant.id, sa.screenerId);
+            return (
+              <span key={sa.id} className="tag tag-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                {sa.screener.name}
+                <form action={onUnassign} style={{ display: "inline" }}>
+                  <button type="submit" aria-label={`Unassign ${sa.screener.name}`} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
+                </form>
+              </span>
+            );
+          })}
+          {availableScreeners.length > 0 && (
+            <form action={onAssignScreener} style={{ display: "inline-flex", gap: 4 }}>
+              <select name="screenerId" className="input" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
+                <option value="" disabled>+ Assign screener…</option>
+                {availableScreeners.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <button type="submit" className="btn btn-ghost" style={{ padding: "2px 6px" }}>Add</button>
+            </form>
+          )}
+        </div>
+      </div>
 
       {(recommendations.length > 0 || scoresByScreener.size > 0) && (
         <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
