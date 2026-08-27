@@ -1,0 +1,66 @@
+export const FORM_STEP_LABELS = ["Personal Info", "Family Info", "Academic Info", "Community", "Statement"];
+export const GENERIKA_STEP_LABELS = ["Personal Info", "Family Info", "Leadership", "Community", "Statement"];
+export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision"];
+export const APPLICANT_PHASES = ["Application", "Submitted", "Paper Screening", "Panel Interview", "Decided"];
+
+export const PIPELINE_STAGES = [
+  { key: "signedUpCount", label: "Signed up", hint: "Not yet started", icon: "M8 5v14l11-7z" },
+  { key: "applicationCount", label: "Application", hint: "Started, in progress", icon: "M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" },
+  { key: "submittedCount", label: "Submitted", hint: "Application complete", icon: "M20 6 9 17l-5-5" },
+  { key: "paperScreeningCount", label: "Paper screening", hint: "", icon: "M9 2h6v4H9z M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" },
+  { key: "panelInterviewCount", label: "Panel interview", hint: "", icon: "M20 7h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" },
+] as const;
+
+export type StepDot = {
+  label: string;
+  isLast: boolean;
+  dotClass: "done" | "current" | "";
+  icon: string;
+  labelColor: string;
+  showConnector: boolean;
+  connectorClass: "done" | "";
+};
+
+export function buildSteps(currentIndex: number, labels: string[]): StepDot[] {
+  return labels.map((label, i) => {
+    const done = i < currentIndex;
+    const current = i === currentIndex;
+    return {
+      label,
+      isLast: i === labels.length - 1,
+      dotClass: done ? "done" : current ? "current" : "",
+      icon: done ? "✓" : String(i + 1),
+      labelColor: done || current ? "var(--color-text)" : "color-mix(in srgb, var(--color-text) 45%, transparent)",
+      showConnector: i < labels.length - 1,
+      connectorClass: done ? "done" : "",
+    };
+  });
+}
+
+export function statusMeta(appStatus: string) {
+  switch (appStatus) {
+    case "in_progress":
+      return { label: "In progress", tagClass: "tag-accent", buttonLabel: "Continue application", buttonClass: "btn-primary" };
+    case "submitted":
+      return { label: "Submitted", tagClass: "tag-accent", buttonLabel: "View status", buttonClass: "btn-secondary" };
+    case "awarded":
+      return { label: "Awarded", tagClass: "tag-neutral", buttonLabel: "View award letter", buttonClass: "btn-secondary" };
+    case "declined":
+      return { label: "Not selected", tagClass: "tag-neutral", buttonLabel: "View decision", buttonClass: "btn-secondary" };
+    default:
+      return { label: "Not started", tagClass: "tag-outline", buttonLabel: "Start application", buttonClass: "btn-primary" };
+  }
+}
+
+// Maps an application's status to a position on the 4-stage status tracker.
+export function stageIndexForStatus(appStatus: string): number {
+  switch (appStatus) {
+    case "submitted":
+      return 1; // Submitted done, Under review current
+    case "awarded":
+    case "declined":
+      return 4; // all stages done, decision rendered separately
+    default:
+      return 0;
+  }
+}

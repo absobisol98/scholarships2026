@@ -1,0 +1,258 @@
+// Scholarship Portal — data model.
+// SQLite via Prisma. Enums aren't supported on the sqlite connector, so
+// status/kind fields are plain strings with allowed values enforced in code.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A scholarship program (U-GO, Generika, EO Skolar, ...).
+model Program {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique
+  name          String
+  amount        String
+  deadlineLabel String
+  deadlineFull  String
+  blurb         String
+  tagsJson      String // JSON string array
+  formKind      String // "standard" | "generika" (swaps academic step for leadership step)
+  photoUrl      String?
+  order         Int      @default(0)
+
+  // Population-level pipeline KPIs shown on the admin Dashboard's "Applicants" card.
+  // These describe program-wide funnel volume (incl. everyone who merely signed up),
+  // which is a different, coarser data source than the individual Applicant roster below.
+  signedUpCount        Int @default(0)
+  applicationCount     Int @default(0)
+  submittedCount       Int @default(0)
+  paperScreeningCount  Int @default(0)
+  panelInterviewCount  Int @default(0)
+
+  cohorts      Cohort[]
+  applications Application[]
+  applicants   Applicant[]
+  fieldConfigs FieldConfig[]
+  surveyWaves  SurveyWave[]
+}
+
+// An application cycle/batch for a program. Only one is "active" at a time.
+model Cohort {
+  id                  String   @id @default(cuid())
+  programId           Int
+  program             Program  @relation(fields: [programId], references: [id])
+  name                String
+  status              String   @default("inactive") // "active" | "inactive" | "closed"
+  openDate            String   @default("Not set")
+  cutoffDate          String   @default("Not set")
+  autoSubmitPolicy    String   @default("leave_incomplete") // "auto_submit" | "leave_incomplete"
+  signupsOpen         Boolean  @default(true)
+  loginsOpen          Boolean  @default(true)
+  oldAccountsCanLogin Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  criteria     Criterion[]
+  history      CriteriaHistoryEntry[]
+  applications Application[]
+
+  @@index([programId])
+}
+
+// One hard-filter criterion belonging to a cohort.
+model Criterion {
+  id       String  @id @default(cuid())
+  cohortId String
+  cohort   Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  key      String // "nat" | "sex" | "year" | "inst" | "gwa"
+  label    String
+  type     String // "equals" | "gte"
+  value    String
+  enabled  Boolean @default(true)
+  order    Int     @default(0)
+
+  @@index([cohortId])
+}
+
+// Versioned log of criteria/window edits, so past evaluations aren't silently reinterpreted.
+model CriteriaHistoryEntry {
+  id        String   @id @default(cuid())
+  cohortId  String
+  cohort    Cohort   @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  date      String
+  summary   String
+  createdAt DateTime @default(now())
+
+  @@index([cohortId])
+}
+
+// The single demo applicant persona ("Amara Chen") — the account behind "Log in as applicant".
+model Student {
+  id        Int      @id @default(autoincrement())
+  name      String
+  initials  String
+  email     String
+  createdAt DateTime @default(now())
+
+  applications Application[]
+}
+
+// A student's application to one program. Independent progress/state per program.
+model Application {
+  id            Int      @id @default(autoincrement())
+  studentId     Int
+  student       Student  @relation(fields: [studentId], references: [id])
+  programId     Int
+  program       Program  @relation(fields: [programId], references: [id])
+  cohortId      String?
+  cohort        Cohort?  @relation(fields: [cohortId], references: [id])
+  status        String   @default("not_started") // "not_started" | "in_progress" | "submitted" | "awarded" | "declined"
+  formStep      Int      @default(0)
+  submittedDate String?
+  awardDate     String?
+  awardResponse String? // "accepted" | "declined" | null
+
+  // Personal
+  fullName String @default("")
+  dob      String @default("")
+  email    String @default("")
+  phone    String @default("")
+  address  String @default("")
+
+  // Family
+  guardianName String @default("")
+  guardianOcc  String @default("")
+  income       String @default("")
+  dependents   String @default("")
+
+  // Academic (standard programs)
+  school      String @default("")
+  gpa         String @default("")
+  graduation  String @default("")
+  major       String @default("")
+  certFileName  String?
+  videoFileName String?
+
+  // Leadership (Generika-style programs)
+  leadRole     String @default("")
+  leadOrg      String @default("")
+  leadDuration String @default("")
+  leadPeople   String @default("")
+  leadDesc     String @default("")
+
+  // Community
+  volunteerOrg    String @default("")
+  volunteerHours  String @default("")
+  volunteerYears  String @default("")
+  communityDesc   String @default("")
+
+  // Personal statement
+  essayText  String @default("")
+  essayText2 String @default("")
+
+  // Checklist completion, tracked per-application
+  personalDone   Boolean @default(false)
+  familyDone     Boolean @default(false)
+  academicsDone  Boolean @default(false)
+  communityDone  Boolean @default(false)
+  essaysDone     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  familyMembers FamilyMember[]
+
+  @@unique([studentId, programId])
+}
+
+// Repeatable family-member rows (Generika's "add as many as relevant").
+model FamilyMember {
+  id            Int         @id @default(autoincrement())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  name          String      @default("")
+  relationship  String      @default("")
+  occupation    String      @default("")
+  order         Int         @default(0)
+
+  @@index([applicationId])
+}
+
+// Admin-side queue of applicants (distinct from the demo student's own applications) —
+// the working list program admins review, promote/demote, and evaluate against cohort criteria.
+model Applicant {
+  id              Int      @id @default(autoincrement())
+  programId       Int
+  program         Program  @relation(fields: [programId], references: [id])
+  name            String
+  school          String
+  gpa             String
+  submitted       String
+  status          String   @default("review") // "review" | "decided"
+  decision        String? // "awarded" | "waitlisted" | "declined" | null
+  nationality     String
+  sex             String
+  yearLevel       String
+  institutionType String
+  gwa             Int
+  phaseIndex      Int      @default(0)
+  essay           String   @default("")
+  attachmentsJson String   @default("[]")
+
+  surveySends SurveySend[]
+
+  @@index([programId])
+}
+
+// Per-program, per-step application field configuration (mockup — governs the "Manage fields" screen).
+model FieldConfig {
+  id        String  @id @default(cuid())
+  programId Int
+  program   Program @relation(fields: [programId], references: [id])
+  step      String // "personal" | "family" | "academic" | "leadership" | "community" | "statement"
+  label     String
+  required  Boolean @default(false)
+  enabled   Boolean @default(true)
+  order     Int     @default(0)
+
+  @@index([programId, step])
+}
+
+// A check-in survey wave (Mid-Year / Year-End) for a program.
+model SurveyWave {
+  id        String @id @default(cuid())
+  programId Int
+  program   Program @relation(fields: [programId], references: [id])
+  wave      String // "midYear" | "yearEnd"
+  status    String  @default("draft") // "draft" | "deployed"
+
+  questions SurveyQuestion[]
+
+  @@unique([programId, wave])
+}
+
+model SurveyQuestion {
+  id           String     @id @default(cuid())
+  surveyWaveId String
+  surveyWave   SurveyWave @relation(fields: [surveyWaveId], references: [id], onDelete: Cascade)
+  label        String
+  order        Int        @default(0)
+
+  @@index([surveyWaveId])
+}
+
+// Records that a survey wave was sent to a given admin-side applicant.
+model SurveySend {
+  id          Int       @id @default(autoincrement())
+  applicantId Int
+  applicant   Applicant @relation(fields: [applicantId], references: [id])
+  wave        String // "midYear" | "yearEnd"
+  sentDate    String
+
+  @@unique([applicantId, wave])
+}
