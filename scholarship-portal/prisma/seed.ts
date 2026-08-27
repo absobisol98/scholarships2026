@@ -19,7 +19,12 @@ function generikaCriteria() {
     { key: "course", label: "Course", type: "equals", value: "BS Pharmacy", enabled: true, order: 1 },
     { key: "year", label: "Year level", type: "equals", value: "3rd Year (SY 2026–2027)", enabled: true, order: 2 },
     { key: "region", label: "Eligible region / province", type: "equals",
-      value: "Luzon: Camarines Sur, Pampanga, Pangasinan, Tarlac · Visayas: Cebu · Mindanao: Agusan del Sur, Bukidnon", enabled: true, order: 3 },
+      value: JSON.stringify({
+        Luzon: ["Camarines Sur", "Pampanga", "Pangasinan", "Tarlac"],
+        Visayas: ["Cebu"],
+        Mindanao: ["Agusan del Sur", "Bukidnon"],
+      }),
+      enabled: true, order: 3 },
     { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: "85", enabled: true, order: 4 },
     { key: "moral", label: "Good moral character", type: "equals", value: "Yes", enabled: true, order: 5 },
     { key: "otherScholarship", label: "Recipient of another scholarship", type: "equals", value: "No", enabled: true, order: 6 },

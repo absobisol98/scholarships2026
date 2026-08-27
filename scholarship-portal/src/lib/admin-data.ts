@@ -6,6 +6,19 @@ export type CriteriaFlagCohort = {
   criteria: { key: string; label: string; type: string; value: string; enabled: boolean }[];
 };
 
+// A region/province criterion's value is a JSON map of region -> province[] (e.g.
+// {"Luzon":["Camarines Sur","Pampanga"]}) rather than plain text, since the list of
+// nominated provinces is expected to grow and shrink one entry at a time.
+export function parseRegionMap(value: string): Record<string, string[]> {
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // legacy plain-text value (or empty) — start fresh
+  }
+  return {};
+}
+
 export function evaluateCriteria(
   applicant: { nationality: string; sex: string; yearLevel: string; institutionType: string; gwa: number },
   cohort: CriteriaFlagCohort | null | undefined

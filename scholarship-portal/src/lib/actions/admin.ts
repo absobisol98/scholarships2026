@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
 import { APPLICANT_PHASES } from "@/lib/steps";
+import { parseRegionMap } from "@/lib/admin-data";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -61,6 +62,29 @@ export async function updateCriterionValue(programKey: string, cohortId: string,
 export async function toggleCriterionEnabled(programKey: string, cohortId: string, criterionId: string) {
   const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
   await db.criterion.update({ where: { id: criterionId }, data: { enabled: !criterion.enabled } });
+  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
+}
+
+export async function addRegionProvince(programKey: string, cohortId: string, criterionId: string, region: string, province: string) {
+  const r = region.trim();
+  const p = province.trim();
+  if (!r || !p) return;
+  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const map = parseRegionMap(criterion.value);
+  const list = map[r] ?? [];
+  if (!list.includes(p)) map[r] = [...list, p];
+  await db.criterion.update({ where: { id: criterionId }, data: { value: JSON.stringify(map) } });
+  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
+}
+
+export async function removeRegionProvince(programKey: string, cohortId: string, criterionId: string, region: string, province: string) {
+  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const map = parseRegionMap(criterion.value);
+  if (map[region]) {
+    map[region] = map[region].filter((p) => p !== province);
+    if (map[region].length === 0) delete map[region];
+  }
+  await db.criterion.update({ where: { id: criterionId }, data: { value: JSON.stringify(map) } });
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
 }
 
