@@ -12,6 +12,24 @@ function defaultCriteria(gwaMin: number) {
   ];
 }
 
+// U-GO Scholarship Grant — eligibility criteria as specified by the program. The remaining
+// character/need-based requirements from the same list (financial need, no disciplinary
+// cases beyond the fact-check below, active community involvement, aspiring to positive
+// change, integrity, willingness to pursue development) are soft/human-judged rather than
+// checkable facts — they're meant for the rubric-scoring system, not this hard-filter list.
+function ugoCriteria() {
+  return [
+    { key: "sex", label: "Sex", type: "equals", value: "Female", enabled: true, order: 0 },
+    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 1 },
+    { key: "year", label: "Year level / enrollment status", type: "equals",
+      value: "Incoming 1st–3rd year (4th year only if 5-year course); not graduating in SY 2026–2027", enabled: true, order: 2 },
+    { key: "inst", label: "Institution type", type: "equals", value: "Public or state university/college", enabled: true, order: 3 },
+    { key: "scholarship", label: "Existing scholarship", type: "equals", value: "No", enabled: true, order: 4 },
+    { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: "85", enabled: true, order: 5 },
+    { key: "disciplinary", label: "Disciplinary or administrative cases", type: "equals", value: "None", enabled: true, order: 6 },
+  ];
+}
+
 // Generika Pharmacist Scholarship Program — eligibility criteria as specified by the program.
 function generikaCriteria() {
   return [
@@ -147,7 +165,7 @@ async function main() {
 
   const cohortSeeds = [
     { program: ugo, name: "U-GO Batch 2027", cutoffDate: "Sep 15, 2026, 11:59 PM", autoSubmitPolicy: "leave_incomplete",
-      criteria: defaultCriteria(85), historySummary: "Cohort created with default criteria (GWA ≥ 85%)." },
+      criteria: ugoCriteria(), historySummary: "Cohort created with the U-GO Scholarship Grant's eligibility criteria." },
     { program: generika, name: "Generika Batch 2027", cutoffDate: "Oct 1, 2026, 11:59 PM", autoSubmitPolicy: "auto_submit",
       criteria: generikaCriteria(), historySummary: "Cohort created with the Generika Pharmacist Scholarship Program's eligibility criteria." },
     { program: eo, name: "EO Skolar Batch 2027", cutoffDate: "Nov 10, 2026, 11:59 PM", autoSubmitPolicy: "leave_incomplete",
