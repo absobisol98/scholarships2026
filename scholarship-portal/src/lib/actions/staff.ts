@@ -9,7 +9,7 @@ function str(fd: FormData, name: string): string {
   return typeof v === "string" ? v : "";
 }
 
-async function logAudit(action: string, programId?: number) {
+export async function logAudit(action: string, programId?: number) {
   const superAdmin = await getDemoStaff("super_admin");
   await db.auditLogEntry.create({ data: { actor: superAdmin.name, action, programId: programId ?? null } });
 }

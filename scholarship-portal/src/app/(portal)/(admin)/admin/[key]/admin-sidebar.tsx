@@ -45,10 +45,16 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
         );
       })}
       {isSuperAdmin && (
-        <Link href="/admin/users" className={`side-item ${pathname.startsWith("/admin/users") ? "active" : ""}`} aria-current={pathname.startsWith("/admin/users") ? "page" : undefined}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-          <span className="side-item-label">Manage Users</span>
-        </Link>
+        <>
+          <Link href="/admin/users" className={`side-item ${pathname.startsWith("/admin/users") ? "active" : ""}`} aria-current={pathname.startsWith("/admin/users") ? "page" : undefined}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+            <span className="side-item-label">Manage Users</span>
+          </Link>
+          <Link href="/admin/audit-log" className={`side-item ${pathname.startsWith("/admin/audit-log") ? "active" : ""}`} aria-current={pathname.startsWith("/admin/audit-log") ? "page" : undefined}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 15h6" /><path d="M9 11h1" /></svg>
+            <span className="side-item-label">Audit Log</span>
+          </Link>
+        </>
       )}
     </nav>
   );
