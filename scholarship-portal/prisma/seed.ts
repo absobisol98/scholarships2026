@@ -268,14 +268,30 @@ async function main() {
 
   // Amara's applicants (admin-side roster) — independent of her own student login, matching the
   // original mock's 8-row demo roster (including a same-named "Amara Chen" row under U-GO).
+  // U-GO's "year" and "inst" criteria describe college enrollment (see ugoCriteria above), so
+  // its applicants get college-appropriate values there — not the generic high-school "Grade 11
+  // or higher" / "Public school" used for EO Skolar, which would auto-fail every U-GO applicant
+  // against its own criteria regardless of intent. Same reasoning for Generika's "year" below.
+  const UGO_YEAR_ELIGIBLE = "Incoming 1st–3rd year (4th year only if 5-year course); not graduating in SY 2026–2027";
+  const UGO_INST_ELIGIBLE = "Public or state university/college";
+  const GENERIKA_YEAR_ELIGIBLE = "3rd Year (SY 2026–2027)";
+
   const applicantSeeds = [
-    { programId: ugo.id, name: "Amara Chen", school: "Lincoln High School", gpa: "3.92", submitted: "Aug 10", status: "review", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 90, phaseIndex: 0,
+    // Cleanly eligible: Female, Filipino, correct year/institution, GWA above threshold — no flags.
+    { programId: ugo.id, name: "Amara Chen", school: "Lincoln High School", gpa: "3.92", submitted: "Aug 10", status: "review", nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, gwa: 90, phaseIndex: 0,
       essay: "\"Growing up, I was the one who fixed everything electronic in our house out of necessity, not curiosity. It wasn't until I joined my school's robotics team that I realized fixing things could become building things...\"" },
-    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: "3.71", submitted: "Aug 11", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Grade 11 or higher", institutionType: "Private school", gwa: 82, phaseIndex: 4 },
-    { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: "4.0", submitted: "Aug 9", status: "review", nationality: "Indian", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 96, phaseIndex: 1 },
-    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: "3.55", submitted: "Aug 13", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Grade 10", institutionType: "Public school", gwa: 88, phaseIndex: 4 },
-    { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: "3.88", submitted: "Aug 12", status: "review", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 84, phaseIndex: 2 },
-    { programId: generika.id, name: "Jamal Reed", school: "Central High", gpa: "3.64", submitted: "Aug 14", status: "review", nationality: "Filipino", sex: "Male", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 79, phaseIndex: 0 },
+    // Flagged: wrong sex, graduating this cycle (excluded), private institution, GWA below threshold.
+    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: "3.71", submitted: "Aug 11", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", gwa: 82, phaseIndex: 4 },
+    // Flagged: not a Filipino citizen, private institution — year and GWA otherwise pass.
+    { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: "4.0", submitted: "Aug 9", status: "review", nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", gwa: 96, phaseIndex: 1 },
+    // Flagged: wrong sex, graduating this cycle (excluded) — institution and GWA otherwise pass.
+    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: "3.55", submitted: "Aug 13", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, gwa: 88, phaseIndex: 4 },
+    // Cleanly eligible, second example for the "randomly assign eligible applicants" demo.
+    { programId: ugo.id, name: "Grace Delacruz", school: "Cordillera State College", gpa: "3.85", submitted: "Aug 14", status: "review", nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, gwa: 89, phaseIndex: 0 },
+    // Cleanly eligible for Generika: right nationality, right year, GWA above its 85% threshold.
+    { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: "3.88", submitted: "Aug 12", status: "review", nationality: "Filipino", sex: "Female", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", gwa: 87, phaseIndex: 2 },
+    // Flagged: GWA well below Generika's 85% threshold.
+    { programId: generika.id, name: "Jamal Reed", school: "Central High", gpa: "3.64", submitted: "Aug 14", status: "review", nationality: "Filipino", sex: "Male", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", gwa: 79, phaseIndex: 0 },
     { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: "3.97", submitted: "Aug 8", status: "decided", decision: "awarded", nationality: "Japanese", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 91, phaseIndex: 4 },
     { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: "3.79", submitted: "Aug 15", status: "review", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", gwa: 87, phaseIndex: 3 },
   ];
@@ -333,8 +349,10 @@ async function main() {
     data: { name: "Noel Reyes", role: "screener", active: false },
   });
 
-  // Marco (the demo screener) is assigned three of U-GO's applicants to review.
-  const screenerAssignees = ["Amara Chen", "Priya Nair", "Diego Ramirez"];
+  // Marco (the demo screener) is assigned three of U-GO's flagged applicants to review.
+  // Amara Chen and Grace Delacruz are left unassigned — both cleanly eligible, so they're
+  // exactly what "Randomly assign eligible applicants" (Screener Groups) has to work with.
+  const screenerAssignees = ["Priya Nair", "Diego Ramirez", "Malik Owusu"];
   for (const name of screenerAssignees) {
     await db.applicantAssignment.create({
       data: { screenerId: demoScreener.id, applicantId: createdApplicants[name].id },
