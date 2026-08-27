@@ -28,7 +28,7 @@ export default async function ApplicationFormPage({ params }: { params: Promise<
   if (!program) notFound();
 
   const student = await getDemoStudent();
-  const application = await ensureApplication(student.id, program.id);
+  const application = await ensureApplication(student, program.id);
   const isGenerika = program.formKind === "generika";
   const step = application.formStep;
   const labels = isGenerika ? GENERIKA_STEP_LABELS : FORM_STEP_LABELS;

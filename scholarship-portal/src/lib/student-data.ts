@@ -51,12 +51,15 @@ export async function getApplication(studentId: number, programId: number) {
   });
 }
 
-export async function ensureApplication(studentId: number, programId: number) {
-  const existing = await getApplication(studentId, programId);
+// Starting a new application prefills Full name/Email from the applicant's own account
+// (captured once at sign-up) rather than asking them to retype identity details they've
+// already given the platform — those fields stay fully editable on the form itself.
+export async function ensureApplication(student: { id: number; name: string; email: string }, programId: number) {
+  const existing = await getApplication(student.id, programId);
   if (existing) return existing;
   const cohort = await getActiveCohort(programId);
   const created = await db.application.create({
-    data: { studentId, programId, cohortId: cohort?.id, status: "in_progress" },
+    data: { studentId: student.id, programId, cohortId: cohort?.id, status: "in_progress", fullName: student.name, email: student.email },
   });
   return db.application.findUniqueOrThrow({
     where: { id: created.id },
