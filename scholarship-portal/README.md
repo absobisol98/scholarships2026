@@ -15,10 +15,13 @@ Login is intentionally a no-credential demo ("Log in as applicant" / "Log in as 
 
 ```bash
 npm install
+cp .env.example .env     # on Windows: copy .env.example .env
 npx prisma migrate dev   # creates prisma/dev.db from prisma/schema.prisma
 npm run db:seed          # seeds 3 programs, cohorts, applicants, fields, surveys
 npm run dev
 ```
+
+`.env` is gitignored (it holds a signing secret, not a real credential) so it doesn't come from the clone — copy it from `.env.example` first, or `migrate`/`dev` will fail with a missing `DATABASE_URL`.
 
 Then open http://localhost:3000.
 
