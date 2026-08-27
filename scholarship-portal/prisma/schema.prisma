@@ -66,15 +66,17 @@ model Cohort {
 
 // One hard-filter criterion belonging to a cohort.
 model Criterion {
-  id       String  @id @default(cuid())
-  cohortId String
-  cohort   Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-  key      String // "nat" | "sex" | "year" | "inst" | "gwa"
-  label    String
-  type     String // "equals" | "gte"
-  value    String
-  enabled  Boolean @default(true)
-  order    Int     @default(0)
+  id          String  @id @default(cuid())
+  cohortId    String
+  cohort      Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  key         String // "nat" | "sex" | "year" | "inst" | "gwa"
+  label       String
+  type        String // "equals" | "gte"
+  value       String
+  enabled     Boolean @default(true)
+  order       Int     @default(0)
+  fieldType   String  @default("text") // "text" | "paragraph" | "dropdown" | "number" — how the value is edited
+  optionsJson String  @default("[]") // dropdown only: JSON string array of selectable options
 
   @@index([cohortId])
 }

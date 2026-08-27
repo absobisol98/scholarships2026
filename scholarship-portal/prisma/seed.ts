@@ -2,33 +2,35 @@ import { PrismaClient } from "../src/generated/prisma";
 
 const db = new PrismaClient();
 
+const YES_NO = JSON.stringify(["Yes", "No"]);
+
 function defaultCriteria(gwaMin: number) {
   return [
-    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0 },
-    { key: "sex", label: "Sex", type: "equals", value: "Any", enabled: false, order: 1 },
-    { key: "year", label: "Year level", type: "equals", value: "Grade 11 or higher", enabled: true, order: 2 },
-    { key: "inst", label: "Institution type", type: "equals", value: "Public school", enabled: true, order: 3 },
-    { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: String(gwaMin), enabled: true, order: 4 },
+    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0, fieldType: "text" },
+    { key: "sex", label: "Sex", type: "equals", value: "Any", enabled: false, order: 1, fieldType: "dropdown", optionsJson: JSON.stringify(["Male", "Female", "Any"]) },
+    { key: "year", label: "Year level", type: "equals", value: "Grade 11 or higher", enabled: true, order: 2, fieldType: "text" },
+    { key: "inst", label: "Institution type", type: "equals", value: "Public school", enabled: true, order: 3, fieldType: "dropdown", optionsJson: JSON.stringify(["Public school", "Private school", "Any"]) },
+    { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: String(gwaMin), enabled: true, order: 4, fieldType: "number" },
   ];
 }
 
 // Generika Pharmacist Scholarship Program — eligibility criteria as specified by the program.
 function generikaCriteria() {
   return [
-    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0 },
-    { key: "course", label: "Course", type: "equals", value: "BS Pharmacy", enabled: true, order: 1 },
-    { key: "year", label: "Year level", type: "equals", value: "3rd Year (SY 2026–2027)", enabled: true, order: 2 },
+    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0, fieldType: "text" },
+    { key: "course", label: "Course", type: "equals", value: "BS Pharmacy", enabled: true, order: 1, fieldType: "text" },
+    { key: "year", label: "Year level", type: "equals", value: "3rd Year (SY 2026–2027)", enabled: true, order: 2, fieldType: "text" },
     { key: "region", label: "Eligible region / province", type: "equals",
       value: JSON.stringify({
         Luzon: ["Camarines Sur", "Pampanga", "Pangasinan", "Tarlac"],
         Visayas: ["Cebu"],
         Mindanao: ["Agusan del Sur", "Bukidnon"],
       }),
-      enabled: true, order: 3 },
-    { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: "85", enabled: true, order: 4 },
-    { key: "moral", label: "Good moral character", type: "equals", value: "Yes", enabled: true, order: 5 },
-    { key: "otherScholarship", label: "Recipient of another scholarship", type: "equals", value: "No", enabled: true, order: 6 },
-    { key: "eduPlan", label: "Holder of an educational plan", type: "equals", value: "No", enabled: true, order: 7 },
+      enabled: true, order: 3, fieldType: "text" },
+    { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: "85", enabled: true, order: 4, fieldType: "number" },
+    { key: "moral", label: "Good moral character", type: "equals", value: "Yes", enabled: true, order: 5, fieldType: "dropdown", optionsJson: YES_NO },
+    { key: "otherScholarship", label: "Recipient of another scholarship", type: "equals", value: "No", enabled: true, order: 6, fieldType: "dropdown", optionsJson: YES_NO },
+    { key: "eduPlan", label: "Holder of an educational plan", type: "equals", value: "No", enabled: true, order: 7, fieldType: "dropdown", optionsJson: YES_NO },
   ];
 }
 

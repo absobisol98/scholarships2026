@@ -19,6 +19,17 @@ export function parseRegionMap(value: string): Record<string, string[]> {
   return {};
 }
 
+// A dropdown-type criterion's selectable options, stored as a JSON string array.
+export function parseOptions(optionsJson: string): string[] {
+  try {
+    const parsed = JSON.parse(optionsJson);
+    if (Array.isArray(parsed)) return parsed.filter((v) => typeof v === "string");
+  } catch {
+    // empty/invalid — start fresh
+  }
+  return [];
+}
+
 export function evaluateCriteria(
   applicant: { nationality: string; sex: string; yearLevel: string; institutionType: string; gwa: number },
   cohort: CriteriaFlagCohort | null | undefined

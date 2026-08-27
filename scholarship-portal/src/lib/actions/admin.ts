@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
 import { APPLICANT_PHASES } from "@/lib/steps";
-import { parseRegionMap } from "@/lib/admin-data";
+import { parseRegionMap, parseOptions } from "@/lib/admin-data";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -62,6 +62,28 @@ export async function updateCriterionValue(programKey: string, cohortId: string,
 export async function toggleCriterionEnabled(programKey: string, cohortId: string, criterionId: string) {
   const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
   await db.criterion.update({ where: { id: criterionId }, data: { enabled: !criterion.enabled } });
+  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
+}
+
+export async function setCriterionFieldType(programKey: string, cohortId: string, criterionId: string, fieldType: string) {
+  await db.criterion.update({ where: { id: criterionId }, data: { fieldType } });
+  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
+}
+
+export async function addCriterionOption(programKey: string, cohortId: string, criterionId: string, option: string) {
+  const opt = option.trim();
+  if (!opt) return;
+  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const options = parseOptions(criterion.optionsJson);
+  if (!options.includes(opt)) options.push(opt);
+  await db.criterion.update({ where: { id: criterionId }, data: { optionsJson: JSON.stringify(options) } });
+  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
+}
+
+export async function removeCriterionOption(programKey: string, cohortId: string, criterionId: string, option: string) {
+  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const options = parseOptions(criterion.optionsJson).filter((o) => o !== option);
+  await db.criterion.update({ where: { id: criterionId }, data: { optionsJson: JSON.stringify(options) } });
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
 }
 

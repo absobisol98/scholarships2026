@@ -2,30 +2,25 @@
 
 import { useState, useTransition } from "react";
 
-export function AutoSaveTextInput({
+export function AutoSaveTextarea({
   action,
   defaultValue,
   ariaLabel,
   style,
-  className = "input",
-  inputType = "text",
 }: {
   action: (value: string) => Promise<void>;
   defaultValue: string;
   ariaLabel?: string;
   style?: React.CSSProperties;
-  className?: string;
-  inputType?: "text" | "number";
 }) {
   const [value, setValue] = useState(defaultValue);
   const [saved, setSaved] = useState(defaultValue);
   const [, startTransition] = useTransition();
 
   return (
-    <input
-      type={inputType}
-      className={className}
-      style={style}
+    <textarea
+      className="input"
+      style={{ minHeight: 60, ...style }}
       aria-label={ariaLabel}
       value={value}
       onChange={(e) => setValue(e.target.value)}
