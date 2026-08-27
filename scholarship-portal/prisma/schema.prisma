@@ -42,6 +42,7 @@ model Program {
   surveyWaves  SurveyWave[]
   staffAssignments StaffProgramAssignment[]
   auditLogEntries  AuditLogEntry[]
+  screenerGroups   ScreenerGroup[]
 }
 
 // An application cycle/batch for a program. Only one is "active" at a time.
@@ -236,6 +237,31 @@ model StaffAccount {
   applicantAssignments ApplicantAssignment[]
   rubricScores         RubricScore[]
   recommendations      Recommendation[]
+  groupMemberships     ScreenerGroupMember[]
+}
+
+// A named team of Paper Screeners within a program (e.g. "U-GO Screening Panel"), used to
+// randomly distribute eligible, unassigned applicants across its members in one action.
+model ScreenerGroup {
+  id        String   @id @default(cuid())
+  programId Int
+  program   Program  @relation(fields: [programId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+
+  members ScreenerGroupMember[]
+
+  @@index([programId])
+}
+
+model ScreenerGroupMember {
+  id      String        @id @default(cuid())
+  groupId String
+  group   ScreenerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  staffId String
+  staff   StaffAccount  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, staffId])
 }
 
 // Which program(s) a Program Admin manages. (Paper Screeners are scoped by applicant

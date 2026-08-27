@@ -78,7 +78,6 @@ export default async function QueuePage({
                       {a.flags.length > 0 && !a.flagOverridden && <span className="tag tag-outline" style={{ borderColor: "var(--color-accent)", color: "var(--color-accent-700)" }}>Red Flag</span>}
                       {a.flags.length > 0 && a.flagOverridden && <span className="tag tag-neutral">Flag overridden</span>}
                       {a.decision && <span className="tag tag-accent">{a.decision === "awarded" ? "Awarded" : a.decision === "waitlisted" ? "Waitlisted" : "Declined"}</span>}
-                      {a.screenerCount > 0 && <span className="tag tag-outline">{a.screenerCount} screener{a.screenerCount === 1 ? "" : "s"}</span>}
                     </div>
                     <span className="text-muted" style={{ fontSize: 12 }}>{a.school}</span>
                   </td>

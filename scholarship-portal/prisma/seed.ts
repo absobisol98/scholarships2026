@@ -109,6 +109,8 @@ async function main() {
   await db.cohort.deleteMany();
   await db.auditLogEntry.deleteMany();
   await db.staffProgramAssignment.deleteMany();
+  await db.screenerGroupMember.deleteMany();
+  await db.screenerGroup.deleteMany();
   await db.staffAccount.deleteMany();
   await db.program.deleteMany();
 
@@ -324,7 +326,7 @@ async function main() {
   const demoScreener = await db.staffAccount.create({
     data: { name: "Marco Villanueva", role: "screener", isDemo: true },
   });
-  await db.staffAccount.create({
+  const graceTan = await db.staffAccount.create({
     data: { name: "Grace Tan", role: "screener" },
   });
   await db.staffAccount.create({
@@ -338,6 +340,15 @@ async function main() {
       data: { screenerId: demoScreener.id, applicantId: createdApplicants[name].id },
     });
   }
+
+  // A ready-made screener group for U-GO, to demo "randomly assign eligible applicants".
+  await db.screenerGroup.create({
+    data: {
+      programId: ugo.id,
+      name: "U-GO Screening Panel",
+      members: { create: [{ staffId: demoScreener.id }, { staffId: graceTan.id }] },
+    },
+  });
 
   console.log("Seed complete.");
 }

@@ -106,13 +106,17 @@ export async function getApplicantsForProgram(programId: number) {
     db.applicant.findMany({ where: { programId }, orderBy: { id: "asc" }, include: { _count: { select: { screenerAssignments: true } } } }),
     getActiveCohortWithCriteria(programId),
   ]);
-  return applicants.map((a) => ({
-    ...a,
-    appId: `APP-${String(a.id).padStart(4, "0")}`,
-    phaseLabel: APPLICANT_PHASES[a.phaseIndex] ?? APPLICANT_PHASES[0],
-    flags: evaluateCriteria(a, activeCohort),
-    screenerCount: a._count.screenerAssignments,
-  }));
+  return applicants.map((a) => {
+    const flags = evaluateCriteria(a, activeCohort);
+    return {
+      ...a,
+      appId: `APP-${String(a.id).padStart(4, "0")}`,
+      phaseLabel: APPLICANT_PHASES[a.phaseIndex] ?? APPLICANT_PHASES[0],
+      flags,
+      eligible: flags.length === 0 || a.flagOverridden,
+      screenerCount: a._count.screenerAssignments,
+    };
+  });
 }
 
 export async function getApplicant(applicantId: number) {
