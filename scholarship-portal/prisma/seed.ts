@@ -12,6 +12,21 @@ function defaultCriteria(gwaMin: number) {
   ];
 }
 
+// Generika Pharmacist Scholarship Program — eligibility criteria as specified by the program.
+function generikaCriteria() {
+  return [
+    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0 },
+    { key: "course", label: "Course", type: "equals", value: "BS Pharmacy", enabled: true, order: 1 },
+    { key: "year", label: "Year level", type: "equals", value: "3rd Year (SY 2026–2027)", enabled: true, order: 2 },
+    { key: "region", label: "Eligible region / province", type: "equals",
+      value: "Luzon: Camarines Sur, Pampanga, Pangasinan, Tarlac · Visayas: Cebu · Mindanao: Agusan del Sur, Bukidnon", enabled: true, order: 3 },
+    { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: "85", enabled: true, order: 4 },
+    { key: "moral", label: "Good moral character", type: "equals", value: "Yes", enabled: true, order: 5 },
+    { key: "otherScholarship", label: "Recipient of another scholarship", type: "equals", value: "No", enabled: true, order: 6 },
+    { key: "eduPlan", label: "Holder of an educational plan", type: "equals", value: "No", enabled: true, order: 7 },
+  ];
+}
+
 const DEFAULT_FIELDS_BY_STEP: Record<string, string[]> = {
   personal: ["Full name", "Date of birth", "Email", "Phone", "Mailing address"],
   family: ["Parent / guardian name", "Parent / guardian occupation", "Household annual income", "Number of dependents"],
@@ -112,9 +127,12 @@ async function main() {
   });
 
   const cohortSeeds = [
-    { program: ugo, name: "U-GO Batch 2027", cutoffDate: "Sep 15, 2026, 11:59 PM", autoSubmitPolicy: "leave_incomplete", gwaMin: 85 },
-    { program: generika, name: "Generika Batch 2027", cutoffDate: "Oct 1, 2026, 11:59 PM", autoSubmitPolicy: "auto_submit", gwaMin: 80 },
-    { program: eo, name: "EO Skolar Batch 2027", cutoffDate: "Nov 10, 2026, 11:59 PM", autoSubmitPolicy: "leave_incomplete", gwaMin: 83 },
+    { program: ugo, name: "U-GO Batch 2027", cutoffDate: "Sep 15, 2026, 11:59 PM", autoSubmitPolicy: "leave_incomplete",
+      criteria: defaultCriteria(85), historySummary: "Cohort created with default criteria (GWA ≥ 85%)." },
+    { program: generika, name: "Generika Batch 2027", cutoffDate: "Oct 1, 2026, 11:59 PM", autoSubmitPolicy: "auto_submit",
+      criteria: generikaCriteria(), historySummary: "Cohort created with the Generika Pharmacist Scholarship Program's eligibility criteria." },
+    { program: eo, name: "EO Skolar Batch 2027", cutoffDate: "Nov 10, 2026, 11:59 PM", autoSubmitPolicy: "leave_incomplete",
+      criteria: defaultCriteria(83), historySummary: "Cohort created with default criteria (GWA ≥ 83%)." },
   ];
 
   const cohortsByProgramId: Record<number, string> = {};
@@ -127,8 +145,8 @@ async function main() {
         openDate: "Aug 1, 2026",
         cutoffDate: cs.cutoffDate,
         autoSubmitPolicy: cs.autoSubmitPolicy,
-        criteria: { create: defaultCriteria(cs.gwaMin) },
-        history: { create: [{ date: "Aug 1, 2026", summary: `Cohort created with default criteria (GWA ≥ ${cs.gwaMin}%).` }] },
+        criteria: { create: cs.criteria },
+        history: { create: [{ date: "Aug 1, 2026", summary: cs.historySummary }] },
       },
     });
     cohortsByProgramId[cs.program.id] = cohort.id;
