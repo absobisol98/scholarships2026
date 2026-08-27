@@ -65,28 +65,6 @@ export async function toggleCriterionEnabled(programKey: string, cohortId: strin
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
 }
 
-export async function setCriterionFieldType(programKey: string, cohortId: string, criterionId: string, fieldType: string) {
-  await db.criterion.update({ where: { id: criterionId }, data: { fieldType } });
-  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
-}
-
-export async function addCriterionOption(programKey: string, cohortId: string, criterionId: string, option: string) {
-  const opt = option.trim();
-  if (!opt) return;
-  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
-  const options = parseOptions(criterion.optionsJson);
-  if (!options.includes(opt)) options.push(opt);
-  await db.criterion.update({ where: { id: criterionId }, data: { optionsJson: JSON.stringify(options) } });
-  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
-}
-
-export async function removeCriterionOption(programKey: string, cohortId: string, criterionId: string, option: string) {
-  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
-  const options = parseOptions(criterion.optionsJson).filter((o) => o !== option);
-  await db.criterion.update({ where: { id: criterionId }, data: { optionsJson: JSON.stringify(options) } });
-  revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
-}
-
 export async function addRegionProvince(programKey: string, cohortId: string, criterionId: string, region: string, province: string) {
   const r = region.trim();
   const p = province.trim();
@@ -178,6 +156,28 @@ export async function removeField(programKey: string, fieldId: string) {
 export async function addField(programKey: string, programId: number, step: string) {
   const count = await db.fieldConfig.count({ where: { programId, step } });
   await db.fieldConfig.create({ data: { programId, step, label: "New field", required: false, enabled: true, order: count } });
+  revalidatePath(`/admin/${programKey}/fields`);
+}
+
+export async function setFieldType(programKey: string, fieldId: string, fieldType: string) {
+  await db.fieldConfig.update({ where: { id: fieldId }, data: { fieldType } });
+  revalidatePath(`/admin/${programKey}/fields`);
+}
+
+export async function addFieldOption(programKey: string, fieldId: string, option: string) {
+  const opt = option.trim();
+  if (!opt) return;
+  const field = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  const options = parseOptions(field.optionsJson);
+  if (!options.includes(opt)) options.push(opt);
+  await db.fieldConfig.update({ where: { id: fieldId }, data: { optionsJson: JSON.stringify(options) } });
+  revalidatePath(`/admin/${programKey}/fields`);
+}
+
+export async function removeFieldOption(programKey: string, fieldId: string, option: string) {
+  const field = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  const options = parseOptions(field.optionsJson).filter((o) => o !== option);
+  await db.fieldConfig.update({ where: { id: fieldId }, data: { optionsJson: JSON.stringify(options) } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
 

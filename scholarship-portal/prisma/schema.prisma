@@ -66,17 +66,15 @@ model Cohort {
 
 // One hard-filter criterion belonging to a cohort.
 model Criterion {
-  id          String  @id @default(cuid())
-  cohortId    String
-  cohort      Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-  key         String // "nat" | "sex" | "year" | "inst" | "gwa"
-  label       String
-  type        String // "equals" | "gte"
-  value       String
-  enabled     Boolean @default(true)
-  order       Int     @default(0)
-  fieldType   String  @default("text") // "text" | "paragraph" | "dropdown" | "number" — how the value is edited
-  optionsJson String  @default("[]") // dropdown only: JSON string array of selectable options
+  id       String  @id @default(cuid())
+  cohortId String
+  cohort   Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  key      String // "nat" | "sex" | "year" | "inst" | "gwa"
+  label    String
+  type     String // "equals" | "gte"
+  value    String
+  enabled  Boolean @default(true)
+  order    Int     @default(0)
 
   @@index([cohortId])
 }
@@ -213,14 +211,16 @@ model Applicant {
 
 // Per-program, per-step application field configuration (mockup — governs the "Manage fields" screen).
 model FieldConfig {
-  id        String  @id @default(cuid())
-  programId Int
-  program   Program @relation(fields: [programId], references: [id])
-  step      String // "personal" | "family" | "academic" | "leadership" | "community" | "statement"
-  label     String
-  required  Boolean @default(false)
-  enabled   Boolean @default(true)
-  order     Int     @default(0)
+  id          String  @id @default(cuid())
+  programId   Int
+  program     Program @relation(fields: [programId], references: [id])
+  step        String // "personal" | "family" | "academic" | "leadership" | "community" | "statement"
+  label       String
+  required    Boolean @default(false)
+  enabled     Boolean @default(true)
+  order       Int     @default(0)
+  fieldType   String  @default("text") // "text" | "paragraph" | "dropdown" | "number" — the applicant-facing input type
+  optionsJson String  @default("[]") // dropdown choices, or quick-pick suggestions for the other types: JSON string array
 
   @@index([programId, step])
 }
