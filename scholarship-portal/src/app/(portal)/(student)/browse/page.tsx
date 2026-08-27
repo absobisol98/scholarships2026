@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { getDemoStudent } from "@/lib/auth";
+import { getCurrentStudent } from "@/lib/auth";
 import { listProgramsForBrowse } from "@/lib/student-data";
 
 export default async function BrowsePage() {
-  const student = await getDemoStudent();
+  const student = await getCurrentStudent();
   const rows = await listProgramsForBrowse(student.id);
 
   return (

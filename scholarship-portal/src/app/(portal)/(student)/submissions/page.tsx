@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getDemoStudent } from "@/lib/auth";
+import { getCurrentStudent } from "@/lib/auth";
 import { getSubmissionHistory } from "@/lib/student-data";
 import { checklistFor } from "@/lib/student-data";
 import { db } from "@/lib/db";
 
 export default async function SubmissionsPage() {
-  const student = await getDemoStudent();
+  const student = await getCurrentStudent();
   const rows = await getSubmissionHistory(student.id);
   const applications = await db.application.findMany({ where: { studentId: student.id } });
   const appByProgramId = new Map(applications.map((a) => [a.programId, a]));

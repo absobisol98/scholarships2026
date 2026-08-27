@@ -1,10 +1,13 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, homeForRole } from "@/lib/auth";
-import { loginAsAdmin, loginAsScreener, loginAsStudent, loginAsSuperAdmin } from "./actions";
+import { loginAsAdmin, loginAsScreener, loginAsStudent, loginAsSuperAdmin, loginWithEmail } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   admin_deactivated: "The demo Program Admin account has been deactivated by a Super Admin.",
   screener_deactivated: "The demo Paper Screener account has been deactivated by a Super Admin.",
+  no_account: "No account found with that email. New here? Create an account below.",
+  missing_email: "Enter your email to log in.",
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -24,7 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
         )}
 
-        <form action={loginAsStudent} className="card elev-md" style={{ padding: "var(--space-6)", gap: "var(--space-3)" }}>
+        <form action={loginWithEmail} className="card elev-md" style={{ padding: "var(--space-6)", gap: "var(--space-3)" }}>
           <button type="submit" formAction={loginAsStudent} className="btn btn-secondary btn-block" style={{ justifyContent: "flex-start", gap: 10 }}>
             <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
               <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v9h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.09c4.15-3.82 6.58-9.46 6.58-16.16z" />
@@ -50,8 +53,22 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <input id="login-password" name="password" className="input" type="password" placeholder="••••••••" />
           </div>
 
-          <button type="submit" formAction={loginAsStudent} className="btn btn-primary btn-block" style={{ marginTop: "var(--space-2)" }}>
-            Log in as applicant
+          <button type="submit" formAction={loginWithEmail} className="btn btn-primary btn-block" style={{ marginTop: "var(--space-2)" }}>
+            Log in
+          </button>
+
+          <p className="text-muted" style={{ fontSize: 12, textAlign: "center", margin: "var(--space-2) 0 0" }}>
+            Don&apos;t have an account? <Link href="/signup" style={{ fontWeight: 600 }}>Sign up</Link>
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "var(--space-2) 0" }}>
+            <span style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
+            <span className="text-muted" style={{ fontSize: 11 }}>TRY THE DEMO</span>
+            <span style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
+          </div>
+
+          <button type="submit" formAction={loginAsStudent} className="btn btn-secondary btn-block">
+            Log in as demo applicant
           </button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "var(--space-2) 0" }}>
@@ -71,7 +88,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </button>
 
           <p className="text-muted" style={{ fontSize: 11, textAlign: "center", margin: "var(--space-2) 0 0" }}>
-            Demo login — no real credentials required.
+            Demo/staff logins — no real credentials required.
           </p>
         </form>
       </div>

@@ -31,13 +31,18 @@ async function hmac(payload: string): Promise<string> {
   return base64url(sig);
 }
 
-export async function createSessionCookieValue(role: Role): Promise<string> {
-  const payload = Buffer.from(JSON.stringify({ role })).toString("base64url");
+export type SessionData = { role: Role; studentId?: number };
+
+// studentId is only meaningful for role "student" — it's how a real signed-up applicant's
+// session points back to their own Student row, instead of everyone sharing the one demo
+// persona. Staff roles keep resolving to their fixed demo account (see getDemoStaff).
+export async function createSessionCookieValue(role: Role, studentId?: number): Promise<string> {
+  const payload = Buffer.from(JSON.stringify({ role, studentId })).toString("base64url");
   const sig = await hmac(payload);
   return `${payload}.${sig}`;
 }
 
-export async function verifySessionCookieValue(value: string | undefined): Promise<{ role: Role } | null> {
+export async function verifySessionCookieValue(value: string | undefined): Promise<SessionData | null> {
   if (!value) return null;
   const [payload, sig] = value.split(".");
   if (!payload || !sig) return null;
@@ -45,7 +50,9 @@ export async function verifySessionCookieValue(value: string | undefined): Promi
   if (expected !== sig) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    if (ROLES.includes(parsed.role)) return { role: parsed.role };
+    if (ROLES.includes(parsed.role)) {
+      return { role: parsed.role, studentId: typeof parsed.studentId === "number" ? parsed.studentId : undefined };
+    }
     return null;
   } catch {
     return null;

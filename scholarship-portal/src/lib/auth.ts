@@ -2,9 +2,9 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { SESSION_COOKIE, verifySessionCookieValue, type Role } from "@/lib/session";
+import { SESSION_COOKIE, verifySessionCookieValue, type SessionData, type Role } from "@/lib/session";
 
-export async function getSession(): Promise<{ role: Role } | null> {
+export async function getSession(): Promise<SessionData | null> {
   const jar = await cookies();
   return verifySessionCookieValue(jar.get(SESSION_COOKIE)?.value);
 }
@@ -53,12 +53,23 @@ export async function requireScreener() {
   return session;
 }
 
-// There's exactly one demo student persona — this app's "log in as applicant" button
+// There's exactly one demo student persona — this app's "Log in as applicant" shortcut
 // doesn't collect an identity, it just picks which persona's data to show.
 export async function getDemoStudent() {
   const student = await db.student.findFirst({ orderBy: { id: "asc" } });
   if (!student) throw new Error("Demo student not seeded — run `npm run db:seed`.");
   return student;
+}
+
+// A real signed-up (or logged-in-by-email) applicant's session carries their own studentId.
+// Falls back to the demo persona for the "Log in as applicant" shortcut or a stale session.
+export async function getCurrentStudent() {
+  const session = await getSession();
+  if (session?.role === "student" && session.studentId) {
+    const student = await db.student.findUnique({ where: { id: session.studentId } });
+    if (student) return student;
+  }
+  return getDemoStudent();
 }
 
 // Same idea for staff roles: exactly one seeded StaffAccount per role is flagged isDemo —

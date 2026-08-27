@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getDemoStudent } from "@/lib/auth";
+import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, getApplication } from "@/lib/student-data";
 import { acceptAward, declineAward } from "@/lib/actions/student";
 import { AwardActions } from "./award-actions";
@@ -9,7 +9,7 @@ export default async function AwardPage({ params }: { params: Promise<{ key: str
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const student = await getDemoStudent();
+  const student = await getCurrentStudent();
   const application = await getApplication(student.id, program.id);
   const status = application?.status ?? "not_started";
   const isAwarded = status === "awarded";

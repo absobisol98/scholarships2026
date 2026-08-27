@@ -99,7 +99,7 @@ model Student {
   id        Int      @id @default(autoincrement())
   name      String
   initials  String
-  email     String
+  email     String   @unique
   createdAt DateTime @default(now())
 
   applications Application[]

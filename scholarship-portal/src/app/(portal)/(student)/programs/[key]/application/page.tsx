@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getDemoStudent } from "@/lib/auth";
-import { getProgramByKey, ensureApplication, checklistFor } from "@/lib/student-data";
+import { getCurrentStudent } from "@/lib/auth";
+import { getProgramByKey, ensureApplication, checklistFor, getActiveCohort, getApplication } from "@/lib/student-data";
 import { buildSteps, FORM_STEP_LABELS, GENERIKA_STEP_LABELS } from "@/lib/steps";
 import { saveStepAndContinue, goPrevStep, saveDraft, submitApplication } from "@/lib/actions/student";
 import { StepForm } from "./step-form";
@@ -27,7 +27,47 @@ export default async function ApplicationFormPage({ params }: { params: Promise<
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const student = await getDemoStudent();
+  const student = await getCurrentStudent();
+
+  // The program's active cohort controls whether new applicants can start applying
+  // (signupsOpen), whether an applicant already in this cycle can still get in
+  // (loginsOpen), and whether an application from a now-superseded cycle is still
+  // reachable (oldAccountsCanLogin). No active cohort means nothing to gate against.
+  const [activeCohort, existingApplication] = await Promise.all([
+    getActiveCohort(program.id),
+    getApplication(student.id, program.id),
+  ]);
+
+  if (activeCohort) {
+    if (!existingApplication && !activeCohort.signupsOpen) {
+      return (
+        <div className="card">
+          <p className="card-body" style={{ margin: 0 }}>
+            Applications for {program.name} aren&apos;t open right now. Check back once the next cycle opens, or view your other applications from the Browse page.
+          </p>
+        </div>
+      );
+    }
+    if (existingApplication && existingApplication.cohortId === activeCohort.id && !activeCohort.loginsOpen) {
+      return (
+        <div className="card">
+          <p className="card-body" style={{ margin: 0 }}>
+            Access to {program.name}&apos;s application is temporarily closed. Please check back later.
+          </p>
+        </div>
+      );
+    }
+    if (existingApplication && existingApplication.cohortId !== activeCohort.id && !activeCohort.oldAccountsCanLogin) {
+      return (
+        <div className="card">
+          <p className="card-body" style={{ margin: 0 }}>
+            This application is from a previous {program.name} cycle that&apos;s no longer accessible.
+          </p>
+        </div>
+      );
+    }
+  }
+
   const application = await ensureApplication(student, program.id);
   const isGenerika = program.formKind === "generika";
   const step = application.formStep;

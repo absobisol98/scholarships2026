@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { getDemoStudent } from "@/lib/auth";
+import { getCurrentStudent } from "@/lib/auth";
 import { formatDateLong } from "@/lib/date";
 
 function str(fd: FormData, name: string): string {
@@ -18,7 +18,7 @@ function fileName(fd: FormData, name: string): string | undefined {
 }
 
 async function getProgramAndApp(programKey: string) {
-  const student = await getDemoStudent();
+  const student = await getCurrentStudent();
   const program = await db.program.findUniqueOrThrow({ where: { key: programKey } });
   const application = await db.application.findUniqueOrThrow({
     where: { studentId_programId: { studentId: student.id, programId: program.id } },
