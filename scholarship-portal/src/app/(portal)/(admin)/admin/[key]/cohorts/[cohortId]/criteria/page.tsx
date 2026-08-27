@@ -14,12 +14,12 @@ import {
   removeCriterionOption,
 } from "@/lib/actions/admin";
 import { AutoSaveTextInput } from "@/components/auto-save-text-input";
-import { AutoSaveTextarea } from "@/components/auto-save-textarea";
 import { AutoToggleCheckbox } from "@/components/auto-toggle-checkbox";
 import { SegRadioGroup } from "@/components/seg-radio-group";
 import { FieldTypeSelect } from "@/components/field-type-select";
 import { RegionListEditor } from "./region-list-editor";
 import { DropdownCriterionEditor } from "./dropdown-criterion-editor";
+import { TextCriterionEditor } from "./text-criterion-editor";
 
 export default async function CriteriaPage({ params }: { params: Promise<{ key: string; cohortId: string }> }) {
   const { key, cohortId } = await params;
@@ -102,14 +102,7 @@ export default async function CriteriaPage({ params }: { params: Promise<{ key: 
                   ariaLabel={`${cr.label} field type`}
                   action={async (fieldType) => { "use server"; await setCriterionFieldType(program.key, cohort.id, cr.id, fieldType); }}
                 />
-                {cr.fieldType === "paragraph" ? (
-                  <AutoSaveTextarea
-                    defaultValue={cr.value}
-                    ariaLabel={`${cr.label} value`}
-                    style={{ maxWidth: 260, flex: "none" }}
-                    action={async (value) => { "use server"; await updateCriterionValue(program.key, cohort.id, cr.id, value); }}
-                  />
-                ) : cr.fieldType === "dropdown" ? (
+                {cr.fieldType === "dropdown" ? (
                   <DropdownCriterionEditor
                     options={parseOptions(cr.optionsJson)}
                     value={cr.value}
@@ -118,12 +111,14 @@ export default async function CriteriaPage({ params }: { params: Promise<{ key: 
                     onRemoveOption={async (option) => { "use server"; await removeCriterionOption(program.key, cohort.id, cr.id, option); }}
                   />
                 ) : (
-                  <AutoSaveTextInput
+                  <TextCriterionEditor
+                    fieldType={cr.fieldType === "paragraph" ? "paragraph" : cr.fieldType === "number" ? "number" : "text"}
                     defaultValue={cr.value}
+                    options={parseOptions(cr.optionsJson)}
                     ariaLabel={`${cr.label} value`}
-                    inputType={cr.fieldType === "number" ? "number" : "text"}
-                    style={{ maxWidth: 220 }}
-                    action={async (value) => { "use server"; await updateCriterionValue(program.key, cohort.id, cr.id, value); }}
+                    onSetValue={async (value) => { "use server"; await updateCriterionValue(program.key, cohort.id, cr.id, value); }}
+                    onAddOption={async (option) => { "use server"; await addCriterionOption(program.key, cohort.id, cr.id, option); }}
+                    onRemoveOption={async (option) => { "use server"; await removeCriterionOption(program.key, cohort.id, cr.id, option); }}
                   />
                 )}
                 <div style={{ paddingTop: 8 }}>

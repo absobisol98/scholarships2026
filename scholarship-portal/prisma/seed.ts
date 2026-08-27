@@ -6,9 +6,9 @@ const YES_NO = JSON.stringify(["Yes", "No"]);
 
 function defaultCriteria(gwaMin: number) {
   return [
-    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0, fieldType: "text" },
+    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0, fieldType: "text", optionsJson: JSON.stringify(["Filipino", "Foreign national"]) },
     { key: "sex", label: "Sex", type: "equals", value: "Any", enabled: false, order: 1, fieldType: "dropdown", optionsJson: JSON.stringify(["Male", "Female", "Any"]) },
-    { key: "year", label: "Year level", type: "equals", value: "Grade 11 or higher", enabled: true, order: 2, fieldType: "text" },
+    { key: "year", label: "Year level", type: "equals", value: "Grade 11 or higher", enabled: true, order: 2, fieldType: "text", optionsJson: JSON.stringify(["Grade 9", "Grade 10", "Grade 11 or higher"]) },
     { key: "inst", label: "Institution type", type: "equals", value: "Public school", enabled: true, order: 3, fieldType: "dropdown", optionsJson: JSON.stringify(["Public school", "Private school", "Any"]) },
     { key: "gwa", label: "GWA threshold (minimum %)", type: "gte", value: String(gwaMin), enabled: true, order: 4, fieldType: "number" },
   ];
@@ -17,9 +17,10 @@ function defaultCriteria(gwaMin: number) {
 // Generika Pharmacist Scholarship Program — eligibility criteria as specified by the program.
 function generikaCriteria() {
   return [
-    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0, fieldType: "text" },
-    { key: "course", label: "Course", type: "equals", value: "BS Pharmacy", enabled: true, order: 1, fieldType: "text" },
-    { key: "year", label: "Year level", type: "equals", value: "3rd Year (SY 2026–2027)", enabled: true, order: 2, fieldType: "text" },
+    { key: "nat", label: "Nationality", type: "equals", value: "Filipino", enabled: true, order: 0, fieldType: "text", optionsJson: JSON.stringify(["Filipino", "Foreign national"]) },
+    { key: "course", label: "Course", type: "equals", value: "BS Pharmacy", enabled: true, order: 1, fieldType: "text", optionsJson: JSON.stringify(["BS Pharmacy"]) },
+    { key: "year", label: "Year level", type: "equals", value: "3rd Year (SY 2026–2027)", enabled: true, order: 2, fieldType: "text",
+      optionsJson: JSON.stringify(["1st Year (SY 2026–2027)", "2nd Year (SY 2026–2027)", "3rd Year (SY 2026–2027)", "4th Year (SY 2026–2027)"]) },
     { key: "region", label: "Eligible region / province", type: "equals",
       value: JSON.stringify({
         Luzon: ["Camarines Sur", "Pampanga", "Pangasinan", "Tarlac"],
