@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, homeForRole } from "@/lib/auth";
 import { loginAsStudent, loginWithEmail } from "./actions";
+import { Card, CardBody } from "@/components/ui/card";
+import { Field, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 const ERROR_MESSAGES: Record<string, string> = {
   admin_deactivated: "This Program Admin account has been deactivated by a Super Admin.",
@@ -25,12 +28,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h2 style={{ textAlign: "center", marginBottom: "var(--space-6)", fontSize: 30 }}>Sign in</h2>
 
         {error && ERROR_MESSAGES[error] && (
-          <div className="card" role="alert" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-2-100)" }}>
-            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</p>
-          </div>
+          <Card role="alert" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-2-100)" }}>
+            <CardBody style={{ color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</CardBody>
+          </Card>
         )}
 
-        <div className="card elev-md" style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <Card elevation="md" style={{ padding: "var(--space-6)", gap: "var(--space-3)" }}>
           {/* A real navigation into a Route Handler that itself redirects off-site to
               Google — plain <a>, not next/link's Link, which would fight that with its
               own client-side prefetch/navigation handling. */}
@@ -55,18 +58,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               shortcuts below, which previously shared this form and, being first in DOM
               order, silently won implicit form submission on Enter. */}
           <form action={loginWithEmail} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            <div className="field">
-              <label htmlFor="login-email">Email</label>
-              <input id="login-email" name="email" className="input" type="email" placeholder="you@example.com" />
-            </div>
-            <div className="field">
-              <label htmlFor="login-password">Password</label>
-              <input id="login-password" name="password" className="input" type="password" placeholder="••••••••" />
-            </div>
+            <Field label="Email" htmlFor="login-email">
+              <Input id="login-email" name="email" type="email" placeholder="you@example.com" />
+            </Field>
+            <Field label="Password" htmlFor="login-password">
+              <Input id="login-password" name="password" type="password" placeholder="••••••••" />
+            </Field>
 
-            <button type="submit" className="btn btn-primary btn-block">
+            <Button type="submit" variant="primary" block>
               Log in
-            </button>
+            </Button>
           </form>
 
           <p className="text-muted" style={{ fontSize: 12, textAlign: "center", margin: 0 }}>
@@ -80,15 +81,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
 
           <form action={loginAsStudent}>
-            <button type="submit" className="btn btn-secondary btn-block">
+            <Button type="submit" variant="secondary" block>
               Log in as demo applicant
-            </button>
+            </Button>
           </form>
 
           <p className="text-muted" style={{ fontSize: 11, textAlign: "center", margin: 0 }}>
             Staff: log in above with your email — no separate staff login needed.
           </p>
-        </div>
+        </Card>
       </div>
     </div>
   );

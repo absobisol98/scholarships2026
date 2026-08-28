@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, homeForRole } from "@/lib/auth";
 import { signUpAsStudent } from "@/app/login/actions";
+import { Card, CardBody } from "@/components/ui/card";
+import { Field, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "Enter your full name and email to create an account.",
@@ -21,28 +24,25 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <h2 style={{ textAlign: "center", marginBottom: "var(--space-6)", fontSize: 30 }}>Create your account</h2>
 
         {error && ERROR_MESSAGES[error] && (
-          <div className="card" role="alert" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-2-100)" }}>
-            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</p>
-          </div>
+          <Card role="alert" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-2-100)" }}>
+            <CardBody style={{ color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</CardBody>
+          </Card>
         )}
 
         <form action={signUpAsStudent} className="card elev-md" style={{ padding: "var(--space-6)", gap: "var(--space-3)" }}>
-          <div className="field">
-            <label htmlFor="signup-name">Full name</label>
-            <input id="signup-name" name="name" className="input" placeholder="Juan Dela Cruz" required aria-required="true" />
-          </div>
-          <div className="field">
-            <label htmlFor="signup-email">Email</label>
-            <input id="signup-email" name="email" className="input" type="email" placeholder="you@example.com" required aria-required="true" />
-          </div>
-          <div className="field">
-            <label htmlFor="signup-password">Password</label>
-            <input id="signup-password" name="password" className="input" type="password" placeholder="••••••••" />
-          </div>
+          <Field label="Full name" htmlFor="signup-name" required>
+            <Input id="signup-name" name="name" placeholder="Juan Dela Cruz" required aria-required="true" />
+          </Field>
+          <Field label="Email" htmlFor="signup-email" required>
+            <Input id="signup-email" name="email" type="email" placeholder="you@example.com" required aria-required="true" />
+          </Field>
+          <Field label="Password" htmlFor="signup-password">
+            <Input id="signup-password" name="password" type="password" placeholder="••••••••" />
+          </Field>
 
-          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: "var(--space-2)" }}>
+          <Button type="submit" variant="primary" block style={{ marginTop: "var(--space-2)" }}>
             Create account
-          </button>
+          </Button>
 
           <p className="text-muted" style={{ fontSize: 12, textAlign: "center", margin: "var(--space-2) 0 0" }}>
             Already have an account? <Link href="/login" style={{ fontWeight: 600 }}>Log in</Link>

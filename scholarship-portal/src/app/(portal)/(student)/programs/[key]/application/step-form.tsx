@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogActions } from "@/components/ui/dialog";
 
 type BoundAction = (formData: FormData) => void | Promise<void>;
 
@@ -40,45 +42,35 @@ export function StepForm({
 
       <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
         {showBack && (
-          <button type="submit" formNoValidate className="btn btn-secondary" formAction={onPrev}>Back</button>
+          <Button type="submit" formNoValidate variant="secondary" formAction={onPrev}>Back</Button>
         )}
-        <button type="button" className="btn btn-secondary" onClick={() => setShowSaveModal(true)}>Save and continue later</button>
+        <Button type="button" variant="secondary" onClick={() => setShowSaveModal(true)}>Save and continue later</Button>
         {isLastStep ? (
-          <button type="button" className="btn btn-primary" onClick={() => setShowSubmitModal(true)}>{continueLabel}</button>
+          <Button type="button" variant="primary" onClick={() => setShowSubmitModal(true)}>{continueLabel}</Button>
         ) : (
-          <button type="submit" className="btn btn-primary" formAction={onContinue}>{continueLabel}</button>
+          <Button type="submit" variant="primary" formAction={onContinue}>{continueLabel}</Button>
         )}
       </div>
 
-      {showSubmitModal && (
-        <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="submit-modal-title" aria-describedby="submit-modal-desc">
-            <div className="dialog-title" id="submit-modal-title">Review before you submit</div>
-            <p className="dialog-body" id="submit-modal-desc">
-              Please make sure everything you entered is accurate — your name, family and academic details, community involvement, and personal statement. Once submitted, you won&apos;t be able to make changes to this application.
-            </p>
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" autoFocus onClick={() => setShowSubmitModal(false)}>Go back and review</button>
-              <button type="submit" className="btn btn-primary" formAction={onSubmit}>Submit application</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={showSubmitModal} onClose={() => setShowSubmitModal(false)} titleId="submit-modal-title" descriptionId="submit-modal-desc" title="Review before you submit">
+        <p className="dialog-body" id="submit-modal-desc">
+          Please make sure everything you entered is accurate — your name, family and academic details, community involvement, and personal statement. Once submitted, you won&apos;t be able to make changes to this application.
+        </p>
+        <DialogActions>
+          <Button type="button" variant="secondary" autoFocus onClick={() => setShowSubmitModal(false)}>Go back and review</Button>
+          <Button type="submit" variant="primary" formAction={onSubmit}>Submit application</Button>
+        </DialogActions>
+      </Dialog>
 
-      {showSaveModal && (
-        <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="save-modal-title" aria-describedby="save-modal-desc">
-            <div className="dialog-title" id="save-modal-title">Save your progress?</div>
-            <p className="dialog-body" id="save-modal-desc">
-              Your progress will be saved as a draft. You can pick up right where you left off anytime from the scholarships list.
-            </p>
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-secondary" autoFocus onClick={() => setShowSaveModal(false)}>Keep editing</button>
-              <button type="submit" formNoValidate className="btn btn-primary" formAction={onSaveDraft}>Save &amp; go to homepage</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={showSaveModal} onClose={() => setShowSaveModal(false)} titleId="save-modal-title" descriptionId="save-modal-desc" title="Save your progress?">
+        <p className="dialog-body" id="save-modal-desc">
+          Your progress will be saved as a draft. You can pick up right where you left off anytime from the scholarships list.
+        </p>
+        <DialogActions>
+          <Button type="button" variant="secondary" autoFocus onClick={() => setShowSaveModal(false)}>Keep editing</Button>
+          <Button type="submit" formNoValidate variant="primary" formAction={onSaveDraft}>Save &amp; go to homepage</Button>
+        </DialogActions>
+      </Dialog>
     </form>
   );
 }

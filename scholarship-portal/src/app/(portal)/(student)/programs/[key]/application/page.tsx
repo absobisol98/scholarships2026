@@ -4,6 +4,9 @@ import { getProgramByKey, ensureApplication, checklistFor, getActiveCohort, getA
 import { buildSteps, FORM_STEP_LABELS, GENERIKA_STEP_LABELS } from "@/lib/steps";
 import { saveStepAndContinue, goPrevStep, saveDraft, submitApplication } from "@/lib/actions/student";
 import { getFieldsConfig, STEPS_BY_FORM_KIND, valueForField, parseCustomFields } from "@/lib/field-config";
+import { Card, CardKicker, CardTitle, CardBody } from "@/components/ui/card";
+import { Field, Input } from "@/components/ui/field";
+import { Stepper } from "@/components/ui/stepper";
 import { StepForm } from "./step-form";
 import { FamilyMembersEditor } from "./family-members-editor";
 import { EssayField } from "./essay-field";
@@ -53,21 +56,21 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
   if (activeCohort) {
     if (!existingApplication && !activeCohort.signupsOpen) {
       return (
-        <div className="card">
-          <p className="card-body" style={{ margin: 0 }}>
+        <Card>
+          <CardBody>
             Applications for {program.name} aren&apos;t open right now. Check back once the next cycle opens, or view your other applications from the Browse page.
-          </p>
-        </div>
+          </CardBody>
+        </Card>
       );
     }
     if (existingApplication && existingApplication.cohortId === activeCohort.id && !activeCohort.loginsOpen) {
       return (
         <>
-          <div className="card">
-            <p className="card-body" style={{ margin: 0 }}>
+          <Card>
+            <CardBody>
               Access to {program.name}&apos;s application is temporarily closed. Please check back later. You can still review what you submitted below.
-            </p>
-          </div>
+            </CardBody>
+          </Card>
           <ReadOnlyApplicationView application={existingApplication} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
         </>
       );
@@ -75,11 +78,11 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
     if (existingApplication && existingApplication.cohortId !== activeCohort.id && !activeCohort.oldAccountsCanLogin) {
       return (
         <>
-          <div className="card">
-            <p className="card-body" style={{ margin: 0 }}>
+          <Card>
+            <CardBody>
               This application is from a previous {program.name} cycle that&apos;s no longer accessible for changes. You can still review what you submitted below.
-            </p>
-          </div>
+            </CardBody>
+          </Card>
           <ReadOnlyApplicationView application={existingApplication} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
         </>
       );
@@ -101,11 +104,11 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
   if (application.status === "submitted" || application.status === "awarded" || application.status === "declined") {
     return (
       <>
-        <div className="card">
-          <p className="card-body" style={{ margin: 0 }}>
+        <Card>
+          <CardBody>
             This application was already submitted{application.submittedDate ? ` on ${application.submittedDate}` : ""}. You can no longer make changes — check the Status tab for updates.
-          </p>
-        </div>
+          </CardBody>
+        </Card>
         <ReadOnlyApplicationView application={application} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
       </>
     );
@@ -118,22 +121,12 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
   return (
     <>
       {error && ERROR_MESSAGES[error] && (
-        <div className="card" role="alert" style={{ marginTop: "var(--space-6)", background: "var(--color-accent-2-100)" }}>
-          <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</p>
-        </div>
+        <Card role="alert" style={{ marginTop: "var(--space-6)", background: "var(--color-accent-2-100)" }}>
+          <CardBody style={{ color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</CardBody>
+        </Card>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 0, margin: "var(--space-6) 0" }}>
-        {stepDots.map((s) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", flex: s.isLast ? 0 : 1 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 110 }}>
-              <div className={`stepdot ${s.dotClass}`}>{s.icon}</div>
-              <span style={{ fontSize: 11, textAlign: "center", fontWeight: 600, color: s.labelColor }}>{s.label}</span>
-            </div>
-            {s.showConnector && <div className={`timerail ${s.connectorClass}`} />}
-          </div>
-        ))}
-      </div>
+      <Stepper steps={stepDots} />
 
       <div className="cols-flex">
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
@@ -151,18 +144,16 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
                 {currentStepFields.map((f) => {
                   if (f.fieldKey === "dob") {
                     return (
-                      <div className="field" key={f.id}>
-                        <label htmlFor="f-dob">{f.label} {f.required && <span aria-hidden="true">*</span>}</label>
-                        <input id="f-dob" name="dob" className="input" type="date" required={f.required} aria-required={f.required} defaultValue={application.dob} />
-                      </div>
+                      <Field key={f.id} label={f.label} htmlFor="f-dob" required={f.required}>
+                        <Input id="f-dob" name="dob" type="date" required={f.required} aria-required={f.required} defaultValue={application.dob} />
+                      </Field>
                     );
                   }
                   if (f.fieldKey === "email") {
                     return (
-                      <div className="field" key={f.id}>
-                        <label htmlFor="f-email">{f.label} {f.required && <span aria-hidden="true">*</span>}</label>
-                        <input id="f-email" name="email" className="input" type="email" required={f.required} aria-required={f.required} defaultValue={application.email} />
-                      </div>
+                      <Field key={f.id} label={f.label} htmlFor="f-email" required={f.required}>
+                        <Input id="f-email" name="email" type="email" required={f.required} aria-required={f.required} defaultValue={application.email} />
+                      </Field>
                     );
                   }
                   return <DynamicField key={f.id} field={f} value={valueForField(f, application, custom)} />;
@@ -188,27 +179,33 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
                 {currentStepFields.map((f) => {
                   if (f.fieldKey === "cert") {
                     return (
-                      <div className="field" style={{ gridColumn: "1 / -1" }} key={f.id}>
-                        <label htmlFor="f-cert">{f.label} {f.required && <span aria-hidden="true">*</span>}</label>
-                        {/* Not marked `required` even when f.required is true: a file input
-                            can't be pre-filled, so requiring it would wrongly block someone
-                            who already has a file on record from re-saving this step. */}
-                        <input id="f-cert" name="cert" className="input" type="file" accept=".pdf,.jpg,.png" aria-describedby="f-cert-hint" />
-                        <span id="f-cert-hint" className="text-muted" style={{ fontSize: 11 }}>
-                          PDF or image, up to 10MB.{application.certFileName ? ` Currently on file: ${application.certFileName}.` : ""}
-                        </span>
-                      </div>
+                      // Not marked `required` even when f.required is true: a file input
+                      // can't be pre-filled, so requiring it would wrongly block someone
+                      // who already has a file on record from re-saving this step.
+                      <Field
+                        key={f.id}
+                        fullWidth
+                        label={f.label}
+                        htmlFor="f-cert"
+                        required={f.required}
+                        hint={<>PDF or image, up to 10MB.{application.certFileName ? ` Currently on file: ${application.certFileName}.` : ""}</>}
+                      >
+                        <Input id="f-cert" name="cert" type="file" accept=".pdf,.jpg,.png" aria-describedby="f-cert-hint" />
+                      </Field>
                     );
                   }
                   if (f.fieldKey === "video") {
                     return (
-                      <div className="field" style={{ gridColumn: "1 / -1" }} key={f.id}>
-                        <label htmlFor="f-video">{f.label} {f.required && <span aria-hidden="true">*</span>}</label>
-                        <input id="f-video" name="video" className="input" type="file" accept="video/*" aria-describedby="f-video-hint" />
-                        <span id="f-video-hint" className="text-muted" style={{ fontSize: 11 }}>
-                          A short video introducing yourself, up to 2 minutes.{application.videoFileName ? ` Currently on file: ${application.videoFileName}.` : ""}
-                        </span>
-                      </div>
+                      <Field
+                        key={f.id}
+                        fullWidth
+                        label={f.label}
+                        htmlFor="f-video"
+                        required={f.required}
+                        hint={<>A short video introducing yourself, up to 2 minutes.{application.videoFileName ? ` Currently on file: ${application.videoFileName}.` : ""}</>}
+                      >
+                        <Input id="f-video" name="video" type="file" accept="video/*" aria-describedby="f-video-hint" />
+                      </Field>
                     );
                   }
                   return <DynamicField key={f.id} field={f} value={valueForField(f, application, custom)} />;
@@ -247,8 +244,8 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
         </div>
 
         <div style={{ width: 260, flex: "none", minWidth: 260 }}>
-          <div className="card elev-sm">
-            <div className="card-kicker">Checklist</div>
+          <Card elevation="sm">
+            <CardKicker>Checklist</CardKicker>
             {checklist.map((item) => (
               <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 0", borderBottom: "1px solid var(--color-divider)" }}>
                 <span aria-hidden="true" style={{ width: 16, height: 16, flex: "none", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, background: item.bg, color: item.fg, border: `1.5px solid ${item.border}` }}>
@@ -257,12 +254,12 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
                 <span style={item.done ? {} : { opacity: 0.6 }}>{item.label}</span>
               </div>
             ))}
-          </div>
-          <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-            <div className="card-kicker">Deadline</div>
-            <div className="card-title" style={{ fontSize: 15 }}>{program.deadlineFull}</div>
-            <p className="card-body">Most students finish in about 40 minutes.</p>
-          </div>
+          </Card>
+          <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+            <CardKicker>Deadline</CardKicker>
+            <CardTitle style={{ fontSize: 15 }}>{program.deadlineFull}</CardTitle>
+            <CardBody>Most students finish in about 40 minutes.</CardBody>
+          </Card>
         </div>
       </div>
     </>

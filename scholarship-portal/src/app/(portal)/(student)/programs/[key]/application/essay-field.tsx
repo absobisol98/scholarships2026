@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Field, Textarea } from "@/components/ui/field";
 
 export function EssayField({
   defaultValue,
@@ -15,14 +16,10 @@ export function EssayField({
   const wordCount = value.trim() === "" ? 0 : value.trim().split(/\s+/).length;
 
   return (
-    <div className="field">
-      <label htmlFor="f-essay1">
-        {label} {required && <span aria-hidden="true">*</span>}
-      </label>
-      <textarea
+    <Field label={label} htmlFor="f-essay1" required={required}>
+      <Textarea
         id="f-essay1"
         name="essayText"
-        className="input"
         rows={8}
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -34,6 +31,6 @@ export function EssayField({
         <span className="text-muted" style={{ fontSize: 11 }}>Autosaves as you type</span>
         <span id="f-essay1-count" className="text-muted" style={{ fontSize: 11 }}>{wordCount} / 500 words</span>
       </div>
-    </div>
+    </Field>
   );
 }

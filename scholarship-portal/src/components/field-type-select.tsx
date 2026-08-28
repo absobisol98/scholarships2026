@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Select } from "@/components/ui/field";
 
 const FIELD_TYPES = [
   { value: "text", label: "Single Text" },
@@ -24,8 +25,7 @@ export function FieldTypeSelect({
   const [isPending, startTransition] = useTransition();
 
   return (
-    <select
-      className="input"
+    <Select
       style={{ maxWidth: 130, flex: "none" }}
       aria-label={ariaLabel ?? "Field type"}
       value={value}
@@ -39,6 +39,6 @@ export function FieldTypeSelect({
       {FIELD_TYPES.map((ft) => (
         <option key={ft.value} value={ft.value}>{ft.label}</option>
       ))}
-    </select>
+    </Select>
   );
 }

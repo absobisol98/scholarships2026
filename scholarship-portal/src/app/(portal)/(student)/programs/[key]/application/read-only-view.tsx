@@ -1,4 +1,5 @@
 import { valueForField, parseCustomFields } from "@/lib/field-config";
+import { Card, CardKicker } from "@/components/ui/card";
 
 type FieldConfigRow = {
   id: string;
@@ -39,8 +40,8 @@ function Section({
   const rows = fields.filter((f) => f.enabled && f.fieldKey !== "familyMembers");
   if (rows.length === 0) return null;
   return (
-    <div className="card elev-sm">
-      <div className="card-kicker">{title}</div>
+    <Card elevation="sm">
+      <CardKicker>{title}</CardKicker>
       <div className="grid-2" style={{ marginTop: 8, rowGap: "var(--space-3)" }}>
         {rows.map((f) => (
           <div key={f.id} style={f.fieldType === "paragraph" ? { gridColumn: "1 / -1" } : undefined}>
@@ -48,7 +49,7 @@ function Section({
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -78,8 +79,8 @@ export function ReadOnlyApplicationView({
       <Section title="Family information" fields={family} application={application} custom={custom} />
 
       {isGenerika && familyMembersEnabled && application.familyMembers.length > 0 && (
-        <div className="card elev-sm">
-          <div className="card-kicker">Family members</div>
+        <Card elevation="sm">
+          <CardKicker>Family members</CardKicker>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
             {application.familyMembers.map((m, i) => (
               <div key={i} style={{ display: "flex", gap: "var(--space-4)", fontSize: 13, padding: "6px 0", borderBottom: "1px solid var(--color-divider)" }}>
@@ -89,7 +90,7 @@ export function ReadOnlyApplicationView({
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       <Section title={isGenerika ? "Leadership experience" : "Academic information"} fields={academicOrLeadership} application={application} custom={custom} />

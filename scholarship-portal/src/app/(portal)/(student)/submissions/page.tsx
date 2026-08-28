@@ -3,6 +3,9 @@ import { getCurrentStudent } from "@/lib/auth";
 import { getSubmissionHistory } from "@/lib/student-data";
 import { checklistFor } from "@/lib/student-data";
 import { db } from "@/lib/db";
+import { Card, CardTitle, CardBody } from "@/components/ui/card";
+import { Tag, type TagVariant } from "@/components/ui/tag";
+import { LinkButton } from "@/components/ui/button";
 
 export default async function SubmissionsPage() {
   const student = await getCurrentStudent();
@@ -27,15 +30,15 @@ export default async function SubmissionsPage() {
           const pendingItems = checklist.filter((c) => !c.done).map((c) => c.label);
           const hasPending = !isAwarded && pendingItems.length > 0;
           return (
-            <div key={p.id} className="card elev-sm">
+            <Card key={p.id} elevation="sm">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
                 <div>
-                  <div className="card-title">{p.name}</div>
+                  <CardTitle>{p.name}</CardTitle>
                   <span className="text-muted" style={{ fontSize: 12 }}>
                     {app?.submittedDate ? `Submitted ${app.submittedDate}` : "Not yet submitted"}
                   </span>
                 </div>
-                <span className={`tag ${statusTagClass}`} style={{ whiteSpace: "nowrap" }}>{statusLabel}</span>
+                <Tag variant={statusTagClass.replace(/^tag-/, "") as TagVariant} style={{ whiteSpace: "nowrap" }}>{statusLabel}</Tag>
               </div>
 
               {hasPending ? (
@@ -48,22 +51,22 @@ export default async function SubmissionsPage() {
                   </ul>
                 </div>
               ) : !isAwarded ? (
-                <p className="card-body" style={{ margin: "var(--space-3) 0 0", color: "var(--color-accent-700)", fontWeight: 600 }}>
+                <CardBody style={{ marginTop: "var(--space-3)", color: "var(--color-accent-700)", fontWeight: 600 }}>
                   All requirements submitted.
-                </p>
+                </CardBody>
               ) : null}
 
               <div style={{ marginTop: "var(--space-3)" }}>
-                <Link href={href} className="btn btn-secondary">{buttonLabel}</Link>
+                <LinkButton href={href} variant="secondary">{buttonLabel}</LinkButton>
               </div>
-            </div>
+            </Card>
           );
         })}
 
         {rows.length === 0 && (
-          <div className="card">
-            <p className="card-body" style={{ margin: 0 }}>You haven&apos;t started any applications yet.</p>
-          </div>
+          <Card>
+            <CardBody>You haven&apos;t started any applications yet.</CardBody>
+          </Card>
         )}
       </div>
     </div>
