@@ -266,19 +266,19 @@ async function main() {
     { programId: ugo.id, name: "Amara Chen", school: "Lincoln High School", gpa: "3.92", submitted: "Aug 10", status: "review", nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, gwa: 90, phaseIndex: 0,
       essay: "\"Growing up, I was the one who fixed everything electronic in our house out of necessity, not curiosity. It wasn't until I joined my school's robotics team that I realized fixing things could become building things...\"" },
     // Flagged: wrong sex, graduating this cycle (excluded), private institution, GWA below threshold.
-    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: "3.71", submitted: "Aug 11", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", gwa: 82, phaseIndex: 4 },
+    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: "3.71", submitted: "Aug 11", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", gwa: 82, phaseIndex: 3 },
     // Flagged: not a Filipino citizen, private institution — year and GWA otherwise pass.
-    { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: "4.0", submitted: "Aug 9", status: "review", nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", gwa: 96, phaseIndex: 1 },
+    { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: "4.0", submitted: "Aug 9", status: "review", nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", gwa: 96, phaseIndex: 0 },
     // Flagged: wrong sex, graduating this cycle (excluded) — institution and GWA otherwise pass.
-    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: "3.55", submitted: "Aug 13", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, gwa: 88, phaseIndex: 4 },
+    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: "3.55", submitted: "Aug 13", status: "decided", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, gwa: 88, phaseIndex: 3 },
     // Cleanly eligible, second example for the "randomly assign eligible applicants" demo.
     { programId: ugo.id, name: "Grace Delacruz", school: "Cordillera State College", gpa: "3.85", submitted: "Aug 14", status: "review", nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, gwa: 89, phaseIndex: 0 },
     // Cleanly eligible for Generika: right nationality, right year, GWA above its 85% threshold.
-    { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: "3.88", submitted: "Aug 12", status: "review", nationality: "Filipino", sex: "Female", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", gwa: 87, phaseIndex: 2 },
+    { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: "3.88", submitted: "Aug 12", status: "review", nationality: "Filipino", sex: "Female", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", gwa: 87, phaseIndex: 1 },
     // Flagged: GWA well below Generika's 85% threshold.
     { programId: generika.id, name: "Jamal Reed", school: "Central High", gpa: "3.64", submitted: "Aug 14", status: "review", nationality: "Filipino", sex: "Male", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", gwa: 79, phaseIndex: 0 },
-    { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: "3.97", submitted: "Aug 8", status: "decided", decision: "awarded", nationality: "Japanese", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 91, phaseIndex: 4 },
-    { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: "3.79", submitted: "Aug 15", status: "review", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", gwa: 87, phaseIndex: 3 },
+    { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: "3.97", submitted: "Aug 8", status: "decided", decision: "awarded", nationality: "Japanese", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", gwa: 91, phaseIndex: 3 },
+    { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: "3.79", submitted: "Aug 15", status: "review", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", gwa: 87, phaseIndex: 2 },
   ];
 
   const createdApplicants: Record<string, { id: number }> = {};

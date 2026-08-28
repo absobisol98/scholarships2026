@@ -31,11 +31,13 @@ export async function addGroupMember(programKey: string, groupId: string, fd: Fo
     create: { groupId, staffId },
   });
   revalidatePath(`/admin/${programKey}/screener-groups`);
+  revalidatePath(`/admin/${programKey}/screener-groups/${groupId}`);
 }
 
 export async function removeGroupMember(programKey: string, groupId: string, staffId: string) {
   await db.screenerGroupMember.deleteMany({ where: { groupId, staffId } });
   revalidatePath(`/admin/${programKey}/screener-groups`);
+  revalidatePath(`/admin/${programKey}/screener-groups/${groupId}`);
 }
 
 // Randomly, evenly spreads every eligible (passes hard filters, or has an override), still-
@@ -71,5 +73,6 @@ export async function randomlyAssignEligibleApplicants(programKey: string, progr
   }
 
   revalidatePath(`/admin/${programKey}/screener-groups`);
+  revalidatePath(`/admin/${programKey}/screener-groups/${groupId}`);
   revalidatePath(`/admin/${programKey}/queue`);
 }

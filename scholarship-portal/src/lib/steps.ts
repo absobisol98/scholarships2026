@@ -1,7 +1,9 @@
 export const FORM_STEP_LABELS = ["Personal Info", "Family Info", "Academic Info", "Community", "Statement"];
 export const GENERIKA_STEP_LABELS = ["Personal Info", "Family Info", "Leadership", "Community", "Statement"];
 export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision"];
-export const APPLICANT_PHASES = ["Application", "Submitted", "Paper Screening", "Panel Interview", "Decided"];
+// The admin-side review pipeline for the Applicant queue (distinct from the applicant-
+// facing Application.status tracker in STAGE_LABELS/statusMeta below).
+export const APPLICANT_PHASES = ["Application Proper", "Paper Screening", "Interviews", "Final Scoring & Deliberations"];
 
 export const PIPELINE_STAGES = [
   { key: "signedUpCount", label: "Signed up", hint: "Not yet started", icon: "M8 5v14l11-7z" },

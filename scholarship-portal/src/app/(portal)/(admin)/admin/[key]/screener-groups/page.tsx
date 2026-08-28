@@ -1,24 +1,30 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getApplicantsForProgram } from "@/lib/admin-data";
 import { db } from "@/lib/db";
-import { createScreenerGroup, deleteScreenerGroup, addGroupMember, removeGroupMember, randomlyAssignEligibleApplicants } from "@/lib/actions/screenerGroups";
+import { createScreenerGroup, deleteScreenerGroup } from "@/lib/actions/screenerGroups";
+import { Breadcrumb } from "@/components/breadcrumb";
 
 export default async function ScreenerGroupsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [groups, applicants, activeScreeners] = await Promise.all([
-    db.screenerGroup.findMany({ where: { programId: program.id }, include: { members: { include: { staff: true } } }, orderBy: { createdAt: "asc" } }),
+  const [groups, applicants] = await Promise.all([
+    db.screenerGroup.findMany({ where: { programId: program.id }, include: { members: true }, orderBy: { createdAt: "asc" } }),
     getApplicantsForProgram(program.id),
-    db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
   ]);
 
   const eligibleUnassignedCount = applicants.filter((a) => a.eligible && a.screenerCount === 0).length;
   const onCreateGroup = createScreenerGroup.bind(null, program.key, program.id);
 
+  const candidateCounts = await Promise.all(
+    groups.map((g) => db.applicantAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))
+  );
+
   return (
     <div className="page-wrap">
+      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Paper Screener Groups" }]} />
       <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
       <h2 style={{ marginBottom: 4 }}>Paper Screener Groups</h2>
       <p className="text-muted" style={{ maxWidth: 640 }}>
@@ -29,63 +35,44 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
         <b style={{ color: "var(--color-text)" }}>{eligibleUnassignedCount}</b> eligible applicant{eligibleUnassignedCount === 1 ? "" : "s"} currently unassigned in this program.
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
-        {groups.map((group) => {
-          const memberIds = new Set(group.members.map((m) => m.staffId));
-          const availableToAdd = activeScreeners.filter((s) => !memberIds.has(s.id));
-          const onAddMember = addGroupMember.bind(null, program.key, group.id);
-          const onDeleteGroup = deleteScreenerGroup.bind(null, program.key, group.id);
-          const onRandomAssign = randomlyAssignEligibleApplicants.bind(null, program.key, program.id, group.id);
-
-          return (
-            <div key={group.id} className="card elev-sm">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div className="card-kicker">{group.name}</div>
-                <form action={onDeleteGroup}>
-                  <button type="submit" className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 8px" }}>Delete group</button>
-                </form>
-              </div>
-
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 8 }}>
-                <span className="text-muted" style={{ fontSize: 11 }}>Members:</span>
-                {group.members.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>No members yet</span>}
-                {group.members.map((m) => {
-                  const onRemoveMember = removeGroupMember.bind(null, program.key, group.id, m.staffId);
-                  return (
-                    <span key={m.id} className="tag tag-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      {m.staff.name}
-                      <form action={onRemoveMember} style={{ display: "inline" }}>
-                        <button type="submit" aria-label={`Remove ${m.staff.name} from ${group.name}`} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
-                      </form>
-                    </span>
-                  );
-                })}
-                {availableToAdd.length > 0 && (
-                  <form action={onAddMember} style={{ display: "inline-flex", gap: 4 }}>
-                    <select name="staffId" className="input" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
-                      <option value="" disabled>+ Add screener…</option>
-                      {availableToAdd.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                    <button type="submit" className="btn btn-ghost" style={{ padding: "2px 6px" }}>Add</button>
-                  </form>
-                )}
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--color-divider)" }}>
-                <span className="text-muted" style={{ fontSize: 12 }}>
-                  Randomly, evenly splits the {eligibleUnassignedCount} eligible unassigned applicant{eligibleUnassignedCount === 1 ? "" : "s"} across {group.members.length} member{group.members.length === 1 ? "" : "s"}.
-                </span>
-                <form action={onRandomAssign}>
-                  <button type="submit" className="btn btn-primary" disabled={group.members.length === 0 || eligibleUnassignedCount === 0}>
-                    Randomly assign eligible applicants
-                  </button>
-                </form>
-              </div>
-            </div>
-          );
-        })}
+      <div className="table-scroll" style={{ marginTop: "var(--space-4)" }}>
+        <table className="table" aria-label="Paper Screener Groups">
+          <thead>
+            <tr>
+              <th scope="col">Group name</th>
+              <th scope="col">Members</th>
+              <th scope="col">Candidates assigned</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.length === 0 && (
+              <tr><td colSpan={4} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No groups yet.</td></tr>
+            )}
+            {groups.map((group, i) => {
+              const onDeleteGroup = deleteScreenerGroup.bind(null, program.key, group.id);
+              return (
+                <tr key={group.id}>
+                  <td>
+                    <Link href={`/admin/${program.key}/screener-groups/${group.id}`} style={{ fontWeight: 700, textDecoration: "none", color: "inherit" }}>
+                      {group.name}
+                    </Link>
+                  </td>
+                  <td>{group.members.length}</td>
+                  <td>{candidateCounts[i]}</td>
+                  <td>
+                    <form action={onDeleteGroup}>
+                      <button type="submit" className="link-delete">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                        Delete group
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
