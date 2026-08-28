@@ -1,8 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { SESSION_COOKIE, verifySessionCookieValue, type SessionData, type Role } from "@/lib/session";
+import { createSessionCookieValue, SESSION_COOKIE, verifySessionCookieValue, type SessionData, type Role } from "@/lib/session";
 
 export async function getSession(): Promise<SessionData | null> {
   const jar = await cookies();
@@ -20,6 +21,27 @@ export function homeForRole(role: Role): string {
     case "super_admin":
       return "/admin";
   }
+}
+
+const ONE_WEEK = 60 * 60 * 24 * 7;
+
+// Shared by every login path — demo shortcuts, real email login/signup, and Google
+// sign-in — so they all finalize a session identically. Used from both Server Actions
+// and Route Handlers; `redirect()` works in both per Next's docs.
+export async function loginAs(role: Role, studentId?: number, staffId?: string): Promise<never> {
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, await createSessionCookieValue(role, studentId, staffId), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: ONE_WEEK,
+  });
+  // Without this, the browser's client-side router cache can keep serving a route's
+  // previously-rendered payload (e.g. the demo persona's /browse) across a login/logout
+  // that lands on the exact same URL for a different account — this forces every route to
+  // re-render fresh instead of reusing anything cached under the old session.
+  revalidatePath("/", "layout");
+  redirect(homeForRole(role));
 }
 
 export async function requireStudent() {

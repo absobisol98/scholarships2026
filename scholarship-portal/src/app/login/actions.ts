@@ -3,31 +3,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createSessionCookieValue, SESSION_COOKIE, type Role } from "@/lib/session";
-import { homeForRole, getDemoStudent, getDemoStaff, initialsFor } from "@/lib/auth";
+import { SESSION_COOKIE, type Role } from "@/lib/session";
+import { loginAs, getDemoStudent, getDemoStaff, initialsFor } from "@/lib/auth";
 import { db } from "@/lib/db";
-
-const ONE_WEEK = 60 * 60 * 24 * 7;
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
   return typeof v === "string" ? v : "";
-}
-
-async function loginAs(role: Role, studentId?: number, staffId?: string) {
-  const jar = await cookies();
-  jar.set(SESSION_COOKIE, await createSessionCookieValue(role, studentId, staffId), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: ONE_WEEK,
-  });
-  // Without this, the browser's client-side router cache can keep serving a route's
-  // previously-rendered payload (e.g. the demo persona's /browse) across a login/logout
-  // that lands on the exact same URL for a different account — this forces every route to
-  // re-render fresh instead of reusing anything cached under the old session.
-  revalidatePath("/", "layout");
-  redirect(homeForRole(role));
 }
 
 export async function loginAsStudent() {
