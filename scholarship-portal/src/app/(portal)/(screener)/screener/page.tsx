@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireScreener, getDemoStaff } from "@/lib/auth";
+import { requireScreener, getCurrentStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export default async function ScreenerHomePage({
@@ -8,7 +8,7 @@ export default async function ScreenerHomePage({
   searchParams: Promise<{ q?: string; filter?: string }>;
 }) {
   await requireScreener();
-  const screener = await getDemoStaff("screener");
+  const screener = await getCurrentStaff("screener");
   const { q = "", filter = "all" } = await searchParams;
 
   const [assignments, recommendations] = await Promise.all([

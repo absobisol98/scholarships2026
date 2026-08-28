@@ -81,6 +81,18 @@ export async function getDemoStaff(role: "admin" | "screener" | "super_admin") {
   return staff;
 }
 
+// A real signed-up-by-Manage-Users (or logged-in-by-email) staff member's session carries
+// their own staffId. Falls back to the demo persona for a "Log in as ..." shortcut or a
+// stale/staffId-less session.
+export async function getCurrentStaff(role: "admin" | "screener" | "super_admin") {
+  const session = await getSession();
+  if (session?.role === role && session.staffId) {
+    const staff = await db.staffAccount.findUnique({ where: { id: session.staffId } });
+    if (staff) return staff;
+  }
+  return getDemoStaff(role);
+}
+
 export function initialsFor(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
   return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");

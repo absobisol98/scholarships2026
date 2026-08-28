@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireScreener, getDemoStaff } from "@/lib/auth";
+import { requireScreener, getCurrentStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { saveAssessment } from "@/lib/actions/screener";
@@ -8,7 +8,7 @@ import { RUBRIC_CRITERIA } from "@/lib/rubric";
 
 export default async function ScreenerApplicantPage({ params }: { params: Promise<{ applicantId: string }> }) {
   await requireScreener();
-  const screener = await getDemoStaff("screener");
+  const screener = await getCurrentStaff("screener");
   const { applicantId } = await params;
   const id = Number(applicantId);
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { APPLICANT_PHASES } from "@/lib/steps";
+import { getCurrentStaff } from "@/lib/auth";
 
 export type CriteriaFlagCohort = {
   criteria: { key: string; label: string; type: string; value: string; enabled: boolean }[];
@@ -57,12 +58,11 @@ export function evaluateCriteria(
   return flags;
 }
 
-// Super Admin can enter any program's workspace; a plain Admin only the program(s)
-// they're assigned to (via their seeded demo StaffAccount).
+// Super Admin can enter any program's workspace; a plain Admin only the program(s) they're
+// assigned to — resolved from the actual logged-in admin, real or demo (see getCurrentStaff).
 export async function getAccessibleProgramIds(role: "admin" | "super_admin"): Promise<number[] | "all"> {
   if (role === "super_admin") return "all";
-  const staff = await db.staffAccount.findFirst({ where: { role: "admin", isDemo: true } });
-  if (!staff) return [];
+  const staff = await getCurrentStaff("admin");
   const assignments = await db.staffProgramAssignment.findMany({ where: { staffId: staff.id }, select: { programId: true } });
   return assignments.map((a) => a.programId);
 }

@@ -315,6 +315,7 @@ async function main() {
   await db.staffAccount.create({
     data: {
       name: "Dr. R. Okafor",
+      email: "r.okafor@scholarshipportal.example",
       role: "admin",
       isDemo: true,
       programAssignments: { create: [{ programId: ugo.id }] },
@@ -323,6 +324,7 @@ async function main() {
   await db.staffAccount.create({
     data: {
       name: "Liza Fernandez",
+      email: "l.fernandez@scholarshipportal.example",
       role: "admin",
       programAssignments: { create: [{ programId: generika.id }] },
     },
@@ -330,23 +332,24 @@ async function main() {
   await db.staffAccount.create({
     data: {
       name: "James Cruz",
+      email: "j.cruz@scholarshipportal.example",
       role: "admin",
       programAssignments: { create: [{ programId: eo.id }] },
     },
   });
 
   await db.staffAccount.create({
-    data: { name: "Elena Cruz", role: "super_admin", isDemo: true },
+    data: { name: "Elena Cruz", email: "e.cruz@scholarshipportal.example", role: "super_admin", isDemo: true },
   });
 
   const demoScreener = await db.staffAccount.create({
-    data: { name: "Marco Villanueva", role: "screener", isDemo: true },
+    data: { name: "Marco Villanueva", email: "m.villanueva@scholarshipportal.example", role: "screener", isDemo: true },
   });
   const graceTan = await db.staffAccount.create({
-    data: { name: "Grace Tan", role: "screener" },
+    data: { name: "Grace Tan", email: "g.tan@scholarshipportal.example", role: "screener" },
   });
   await db.staffAccount.create({
-    data: { name: "Noel Reyes", role: "screener", active: false },
+    data: { name: "Noel Reyes", email: "n.reyes@scholarshipportal.example", role: "screener", active: false },
   });
 
   // Marco (the demo screener) is assigned three of U-GO's flagged applicants to review.

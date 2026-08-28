@@ -228,7 +228,8 @@ model Applicant {
 model StaffAccount {
   id        String   @id @default(cuid())
   name      String
-  role      String // "admin" | "screener"
+  email     String   @unique // the real login identifier — see loginWithEmail
+  role      String // "admin" | "screener" | "super_admin"
   active    Boolean  @default(true)
   isDemo    Boolean  @default(false) // the one account "Log in as ..." actually assumes, per role
   createdAt DateTime @default(now())

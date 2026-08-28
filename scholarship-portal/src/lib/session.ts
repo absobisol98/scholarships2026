@@ -31,13 +31,13 @@ async function hmac(payload: string): Promise<string> {
   return base64url(sig);
 }
 
-export type SessionData = { role: Role; studentId?: number };
+export type SessionData = { role: Role; studentId?: number; staffId?: string };
 
-// studentId is only meaningful for role "student" — it's how a real signed-up applicant's
-// session points back to their own Student row, instead of everyone sharing the one demo
-// persona. Staff roles keep resolving to their fixed demo account (see getDemoStaff).
-export async function createSessionCookieValue(role: Role, studentId?: number): Promise<string> {
-  const payload = Buffer.from(JSON.stringify({ role, studentId })).toString("base64url");
+// studentId/staffId point a real signed-up (or logged-in-by-email) account's session back to
+// its own Student/StaffAccount row, instead of everyone sharing the role's demo persona. The
+// demo "Log in as ..." shortcuts still set these too, just to the fixed demo row for that role.
+export async function createSessionCookieValue(role: Role, studentId?: number, staffId?: string): Promise<string> {
+  const payload = Buffer.from(JSON.stringify({ role, studentId, staffId })).toString("base64url");
   const sig = await hmac(payload);
   return `${payload}.${sig}`;
 }
@@ -51,7 +51,11 @@ export async function verifySessionCookieValue(value: string | undefined): Promi
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     if (ROLES.includes(parsed.role)) {
-      return { role: parsed.role, studentId: typeof parsed.studentId === "number" ? parsed.studentId : undefined };
+      return {
+        role: parsed.role,
+        studentId: typeof parsed.studentId === "number" ? parsed.studentId : undefined,
+        staffId: typeof parsed.staffId === "string" ? parsed.staffId : undefined,
+      };
     }
     return null;
   } catch {

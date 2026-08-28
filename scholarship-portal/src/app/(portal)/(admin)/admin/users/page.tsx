@@ -1,6 +1,6 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createStaffAccount, toggleStaffActive, addStaffProgramAssignment, removeStaffProgramAssignment } from "@/lib/actions/staff";
+import { createStaffAccount, toggleStaffActive, addStaffProgramAssignment, removeStaffProgramAssignment, updateStaffEmail } from "@/lib/actions/staff";
 import { EditAdminModal } from "./edit-admin-modal";
 
 export default async function ManageUsersPage() {
@@ -34,6 +34,7 @@ export default async function ManageUsersPage() {
               <thead>
                 <tr>
                   <th scope="col">Name</th>
+                  <th scope="col">Email</th>
                   <th scope="col">Status</th>
                   <th scope="col">Programs</th>
                   <th scope="col">Actions</th>
@@ -54,6 +55,7 @@ export default async function ManageUsersPage() {
                           {a.isDemo && <span className="tag tag-outline">Demo login</span>}
                         </div>
                       </td>
+                      <td className="text-muted" style={{ fontSize: 13 }}>{a.email}</td>
                       <td>
                         <span className={`tag ${a.active ? "tag-accent" : "tag-neutral"}`}>{a.active ? "Active" : "Deactivated"}</span>
                       </td>
@@ -68,12 +70,14 @@ export default async function ManageUsersPage() {
                       <td>
                         <EditAdminModal
                           adminName={a.name}
+                          email={a.email}
                           active={a.active}
                           assignments={a.programAssignments.map((pa) => ({ id: pa.id, programId: pa.programId, programName: pa.program.name }))}
                           availablePrograms={availablePrograms.map((p) => ({ id: p.id, name: p.name }))}
                           onToggleActive={onToggle}
                           onAddAssignment={onAddAssignment}
                           onRemoveAssignment={onRemoveAssignment}
+                          onEmailChange={async (value) => { "use server"; await updateStaffEmail(a.id, value); }}
                         />
                       </td>
                     </tr>
@@ -86,7 +90,11 @@ export default async function ManageUsersPage() {
           <form action={createStaffAccount.bind(null, "admin")} style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap", alignItems: "flex-end" }}>
             <div className="field" style={{ marginBottom: 0, flex: 1, minWidth: 160 }}>
               <label htmlFor="new-admin-name">New admin name</label>
-              <input id="new-admin-name" name="name" className="input" placeholder="e.g. Liza Fernandez" />
+              <input id="new-admin-name" name="name" className="input" placeholder="e.g. Liza Fernandez" required aria-required="true" />
+            </div>
+            <div className="field" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
+              <label htmlFor="new-admin-email">Email</label>
+              <input id="new-admin-email" name="email" className="input" type="email" placeholder="e.g. liza@example.com" required aria-required="true" />
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor="new-admin-program">Program</label>
@@ -108,6 +116,7 @@ export default async function ManageUsersPage() {
               <thead>
                 <tr>
                   <th scope="col">Name</th>
+                  <th scope="col">Email</th>
                   <th scope="col">Status</th>
                   <th scope="col">Applicants assigned</th>
                   <th scope="col">Actions</th>
@@ -124,6 +133,7 @@ export default async function ManageUsersPage() {
                           {s.isDemo && <span className="tag tag-outline">Demo login</span>}
                         </div>
                       </td>
+                      <td className="text-muted" style={{ fontSize: 13 }}>{s.email}</td>
                       <td>
                         <span className={`tag ${s.active ? "tag-accent" : "tag-neutral"}`}>{s.active ? "Active" : "Deactivated"}</span>
                       </td>
@@ -143,7 +153,11 @@ export default async function ManageUsersPage() {
           <form action={createStaffAccount.bind(null, "screener")} style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap", alignItems: "flex-end" }}>
             <div className="field" style={{ marginBottom: 0, flex: 1, minWidth: 160 }}>
               <label htmlFor="new-screener-name">New screener name</label>
-              <input id="new-screener-name" name="name" className="input" placeholder="e.g. Grace Tan" />
+              <input id="new-screener-name" name="name" className="input" placeholder="e.g. Grace Tan" required aria-required="true" />
+            </div>
+            <div className="field" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
+              <label htmlFor="new-screener-email">Email</label>
+              <input id="new-screener-email" name="email" className="input" type="email" placeholder="e.g. grace@example.com" required aria-required="true" />
             </div>
             <button type="submit" className="btn btn-primary">+ Add screener</button>
           </form>

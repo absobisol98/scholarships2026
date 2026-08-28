@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getDemoStaff } from "@/lib/auth";
+import { getCurrentStaff } from "@/lib/auth";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 
 function str(fd: FormData, name: string): string {
@@ -11,7 +11,7 @@ function str(fd: FormData, name: string): string {
 }
 
 export async function saveAssessment(applicantId: number, fd: FormData) {
-  const screener = await getDemoStaff("screener");
+  const screener = await getCurrentStaff("screener");
 
   const assigned = await db.applicantAssignment.findFirst({ where: { screenerId: screener.id, applicantId } });
   if (!assigned) return;

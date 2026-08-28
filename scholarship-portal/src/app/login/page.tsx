@@ -4,8 +4,9 @@ import { getSession, homeForRole } from "@/lib/auth";
 import { loginAsAdmin, loginAsScreener, loginAsStudent, loginAsSuperAdmin, loginWithEmail } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  admin_deactivated: "The demo Program Admin account has been deactivated by a Super Admin.",
-  screener_deactivated: "The demo Paper Screener account has been deactivated by a Super Admin.",
+  admin_deactivated: "This Program Admin account has been deactivated by a Super Admin.",
+  screener_deactivated: "This Paper Screener account has been deactivated by a Super Admin.",
+  super_admin_deactivated: "This Super Admin account has been deactivated.",
   no_account: "No account found with that email. New here? Create an account below.",
   missing_email: "Enter your email to log in.",
 };

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getDemoStaff } from "@/lib/auth";
+import { getCurrentStaff } from "@/lib/auth";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -10,22 +10,46 @@ function str(fd: FormData, name: string): string {
 }
 
 export async function logAudit(action: string, programId?: number) {
-  const superAdmin = await getDemoStaff("super_admin");
+  const superAdmin = await getCurrentStaff("super_admin");
   await db.auditLogEntry.create({ data: { actor: superAdmin.name, action, programId: programId ?? null } });
 }
 
 export async function createStaffAccount(role: "admin" | "screener", fd: FormData) {
   const name = str(fd, "name").trim();
-  if (!name) return;
+  const email = str(fd, "email").trim().toLowerCase();
+  if (!name || !email) return;
+
+  const [existingStudent, existingStaff] = await Promise.all([
+    db.student.findFirst({ where: { email } }),
+    db.staffAccount.findFirst({ where: { email } }),
+  ]);
+  if (existingStudent || existingStaff) return;
+
   const programId = Number(str(fd, "programId"));
   await db.staffAccount.create({
     data: {
       name,
+      email,
       role,
       programAssignments: role === "admin" && programId ? { create: [{ programId }] } : undefined,
     },
   });
   await logAudit(`Created ${role === "admin" ? "Admin" : "Paper Screener"} account: ${name}`, role === "admin" && programId ? programId : undefined);
+  revalidatePath("/admin/users");
+}
+
+export async function updateStaffEmail(staffId: string, email: string) {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) return;
+
+  const [existingStudent, existingStaff] = await Promise.all([
+    db.student.findFirst({ where: { email: trimmed } }),
+    db.staffAccount.findFirst({ where: { email: trimmed, NOT: { id: staffId } } }),
+  ]);
+  if (existingStudent || existingStaff) return;
+
+  const staff = await db.staffAccount.update({ where: { id: staffId }, data: { email: trimmed } });
+  await logAudit(`Updated email for ${staff.name}`);
   revalidatePath("/admin/users");
 }
 

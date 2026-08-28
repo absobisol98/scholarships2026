@@ -1,4 +1,4 @@
-import { getSession, getCurrentStudent, getDemoStaff, initialsFor } from "@/lib/auth";
+import { getSession, getCurrentStudent, getCurrentStaff, initialsFor } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 
@@ -13,7 +13,7 @@ export default async function PortalLayout({ children }: { children: React.React
     userLabel = student.name;
     userInitials = student.initials;
   } else {
-    const staff = await getDemoStaff(session.role);
+    const staff = await getCurrentStaff(session.role);
     userLabel = staff.name;
     userInitials = initialsFor(staff.name);
   }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getDemoStaff } from "@/lib/auth";
+import { getCurrentStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/actions/staff";
 
 function str(fd: FormData, name: string): string {
@@ -13,7 +13,7 @@ function str(fd: FormData, name: string): string {
 export async function overrideFlag(programKey: string, applicantId: number, fd: FormData) {
   const reason = str(fd, "reason").trim();
   if (!reason) return;
-  const superAdmin = await getDemoStaff("super_admin");
+  const superAdmin = await getCurrentStaff("super_admin");
   const applicant = await db.applicant.update({
     where: { id: applicantId },
     data: { flagOverridden: true, flagOverrideReason: reason, flagOverriddenBy: superAdmin.name, flagOverriddenAt: new Date() },

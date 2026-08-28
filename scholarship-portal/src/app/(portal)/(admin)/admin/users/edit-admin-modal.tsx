@@ -1,25 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { AutoSaveTextInput } from "@/components/auto-save-text-input";
 
 type BoundAction = (formData: FormData) => void | Promise<void>;
 
 export function EditAdminModal({
   adminName,
+  email,
   active,
   assignments,
   availablePrograms,
   onToggleActive,
   onAddAssignment,
   onRemoveAssignment,
+  onEmailChange,
 }: {
   adminName: string;
+  email: string;
   active: boolean;
   assignments: { id: string; programId: number; programName: string }[];
   availablePrograms: { id: number; name: string }[];
   onToggleActive: BoundAction;
   onAddAssignment: BoundAction;
   onRemoveAssignment: BoundAction;
+  onEmailChange: (value: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -44,6 +49,13 @@ export function EditAdminModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="dialog-title" id="edit-admin-title">Edit {adminName}</div>
+
+            <div>
+              <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Email (login)</span>
+              <div style={{ marginTop: 6 }}>
+                <AutoSaveTextInput defaultValue={email} ariaLabel="Email" inputType="text" action={onEmailChange} style={{ width: "100%" }} />
+              </div>
+            </div>
 
             <div>
               <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Programs</span>
