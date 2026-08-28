@@ -167,6 +167,9 @@ textarea.input { min-height: 90px; resize: vertical; }
 .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
 .tag-outline { border: 1px solid var(--color-accent-2); color: var(--color-accent-2-700); }
 
+/* — avatar badge — */
+.avatar-badge { width: 32px; height: 32px; flex: none; background: var(--color-neutral-300); display: flex; align-items: center; justify-content: center; font: 800 12px var(--font-heading); }
+
 /* — navigation — */
 .nav { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); }
 .nav-brand { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 18px; margin-right: auto; white-space: nowrap; }
@@ -177,6 +180,9 @@ textarea.input { min-height: 90px; resize: vertical; }
 .table td { padding: var(--space-2); border-bottom: 1px solid var(--color-divider); }
 .table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
 .table-scroll { overflow-x: auto; }
+
+/* — bulk selection action bar — */
+.bulk-action-bar { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); background: var(--color-accent-100); font-size: 13px; font-weight: 600; }
 
 /* — dialog — */
 .dialog-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--space-4); background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent); z-index: 50; }

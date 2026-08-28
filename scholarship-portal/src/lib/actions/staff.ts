@@ -14,10 +14,11 @@ export async function logAudit(action: string, programId?: number) {
   await db.auditLogEntry.create({ data: { actor: superAdmin.name, action, programId: programId ?? null } });
 }
 
-export async function createStaffAccount(role: "admin" | "screener", fd: FormData) {
+export async function createStaffAccount(fd: FormData) {
   const name = str(fd, "name").trim();
   const email = str(fd, "email").trim().toLowerCase();
-  if (!name || !email) return;
+  const role = str(fd, "role");
+  if (!name || !email || (role !== "admin" && role !== "screener")) return;
 
   const [existingStudent, existingStaff] = await Promise.all([
     db.student.findFirst({ where: { email } }),
@@ -35,6 +36,14 @@ export async function createStaffAccount(role: "admin" | "screener", fd: FormDat
     },
   });
   await logAudit(`Created ${role === "admin" ? "Admin" : "Paper Screener"} account: ${name}`, role === "admin" && programId ? programId : undefined);
+  revalidatePath("/admin/users");
+}
+
+export async function bulkDeactivateStaff(ids: string[]) {
+  if (ids.length === 0) return;
+  const staff = await db.staffAccount.findMany({ where: { id: { in: ids } } });
+  await db.staffAccount.updateMany({ where: { id: { in: ids } }, data: { active: false } });
+  await logAudit(`Deactivated ${staff.length} account${staff.length === 1 ? "" : "s"}: ${staff.map((s) => s.name).join(", ")}`);
   revalidatePath("/admin/users");
 }
 

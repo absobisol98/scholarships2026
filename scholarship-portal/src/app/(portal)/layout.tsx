@@ -35,7 +35,7 @@ export default async function PortalLayout({ children }: { children: React.React
           </button>
           <span aria-hidden="true" style={{ width: 1, height: 20, background: "var(--color-divider)" }} />
           <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>{userLabel}</span>
-          <div aria-hidden="true" style={{ width: 32, height: 32, flex: "none", background: "var(--color-neutral-300)", display: "flex", alignItems: "center", justifyContent: "center", font: "800 12px var(--font-heading)" }}>{userInitials}</div>
+          <div className="avatar-badge" aria-hidden="true">{userInitials}</div>
           <form action={logout}>
             <button type="submit" className="btn btn-ghost" style={{ whiteSpace: "nowrap", flex: "none" }}>Log out</button>
           </form>
