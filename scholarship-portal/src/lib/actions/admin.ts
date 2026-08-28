@@ -214,15 +214,18 @@ export async function toggleSurveyDeployed(programKey: string, surveyWaveId: str
   revalidatePath(`/admin/${programKey}/surveys`);
 }
 
+// Batched rather than one upsert per applicant — same end result (every applicant gets a
+// SurveySend row for this wave, sentDate refreshed even on a repeat send) in 2 queries
+// instead of N: createMany for whoever doesn't have one yet, updateMany to (re)stamp the
+// date on all of them, new and pre-existing alike.
 export async function sendSurveyToGroup(programKey: string, wave: string, applicantIds: number[]) {
+  if (applicantIds.length === 0) return;
   const sentDate = formatDateLong();
-  for (const applicantId of applicantIds) {
-    await db.surveySend.upsert({
-      where: { applicantId_wave: { applicantId, wave } },
-      update: { sentDate },
-      create: { applicantId, wave, sentDate },
-    });
-  }
+  await db.surveySend.createMany({
+    data: applicantIds.map((applicantId) => ({ applicantId, wave, sentDate })),
+    skipDuplicates: true,
+  });
+  await db.surveySend.updateMany({ where: { applicantId: { in: applicantIds }, wave }, data: { sentDate } });
   revalidatePath(`/admin/${programKey}/surveys`);
 }
 

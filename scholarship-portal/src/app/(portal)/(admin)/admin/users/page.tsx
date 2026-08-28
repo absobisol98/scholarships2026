@@ -21,19 +21,17 @@ export default async function ManageUsersPage({
 
   const [staff, programs] = await Promise.all([
     db.staffAccount.findMany({
-      where: { role: { in: ["admin", "screener"] } },
+      where: {
+        role: { in: ["admin", "screener"] },
+        ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {}),
+      },
       include: { programAssignments: { include: { program: true } }, applicantAssignments: true },
       orderBy: sort === "createdAt" ? { createdAt: sortDir } : [{ role: "asc" }, { createdAt: "asc" }],
     }),
     db.program.findMany({ orderBy: { order: "asc" } }),
   ]);
 
-  const matches = (s: { name: string; email: string }) =>
-    q === "" || s.name.toLowerCase().includes(q.toLowerCase()) || s.email.toLowerCase().includes(q.toLowerCase());
-
-  const filtered = staff.filter(matches);
-
-  const rows: UserRow[] = filtered.map((s) => {
+  const rows: UserRow[] = staff.map((s) => {
     const assignedIds = new Set(s.programAssignments.map((pa) => pa.programId));
     const availablePrograms = programs.filter((p) => !assignedIds.has(p.id));
     return {

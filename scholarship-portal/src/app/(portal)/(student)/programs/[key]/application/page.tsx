@@ -22,8 +22,13 @@ const CONTINUE_LABELS_GENERIKA = [
   "Submit application",
 ];
 
-export default async function ApplicationFormPage({ params }: { params: Promise<{ key: string }> }) {
+const ERROR_MESSAGES: Record<string, string> = {
+  file_too_large: "That file is too large. Certificates must be under 10MB and videos under 20MB — please choose a smaller file and try again.",
+};
+
+export default async function ApplicationFormPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ error?: string }> }) {
   const { key } = await params;
+  const { error } = await searchParams;
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
@@ -93,6 +98,12 @@ export default async function ApplicationFormPage({ params }: { params: Promise<
 
   return (
     <>
+      {error && ERROR_MESSAGES[error] && (
+        <div className="card" role="alert" style={{ marginTop: "var(--space-6)", background: "var(--color-accent-2-100)" }}>
+          <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</p>
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 0, margin: "var(--space-6) 0" }}>
         {stepDots.map((s) => (
           <div key={s.label} style={{ display: "flex", alignItems: "center", flex: s.isLast ? 0 : 1 }}>

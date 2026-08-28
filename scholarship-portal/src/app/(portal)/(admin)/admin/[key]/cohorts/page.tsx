@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProgramByKey, getCohortsForProgram, getApplicantsForProgram } from "@/lib/admin-data";
+import { getProgramByKey, getCohortsForProgram, getApplicantStatusCounts } from "@/lib/admin-data";
 import { createCohort, activateCohort } from "@/lib/actions/admin";
 
 export default async function CohortsPage({ params }: { params: Promise<{ key: string }> }) {
@@ -8,7 +8,7 @@ export default async function CohortsPage({ params }: { params: Promise<{ key: s
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [cohorts, applicants] = await Promise.all([getCohortsForProgram(program.id), getApplicantsForProgram(program.id)]);
+  const [cohorts, applicantCounts] = await Promise.all([getCohortsForProgram(program.id), getApplicantStatusCounts(program.id)]);
   const onCreateCohort = createCohort.bind(null, program.key, program.id);
 
   return (
@@ -29,7 +29,7 @@ export default async function CohortsPage({ params }: { params: Promise<{ key: s
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
                 <div>
                   <div className="card-title">{c.name}</div>
-                  <span className="text-muted" style={{ fontSize: 12 }}>Open {c.openDate} · Cutoff {c.cutoffDate} · {applicants.length} applicants</span>
+                  <span className="text-muted" style={{ fontSize: 12 }}>Open {c.openDate} · Cutoff {c.cutoffDate} · {applicantCounts.all} applicants</span>
                 </div>
                 <span className={`tag ${statusTagClass}`} style={{ whiteSpace: "nowrap" }}>{statusLabel}</span>
               </div>

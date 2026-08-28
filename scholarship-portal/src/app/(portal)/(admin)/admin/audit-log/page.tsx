@@ -15,14 +15,12 @@ export default async function AuditLogPage({
   await requireSuperAdmin();
   const { q = "" } = await searchParams;
 
-  const allEntries = await db.auditLogEntry.findMany({
+  const entries = await db.auditLogEntry.findMany({
+    where: q ? { OR: [{ actor: { contains: q, mode: "insensitive" } }, { action: { contains: q, mode: "insensitive" } }] } : undefined,
     include: { program: true },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
-  const entries = q
-    ? allEntries.filter((e) => e.actor.toLowerCase().includes(q.toLowerCase()) || e.action.toLowerCase().includes(q.toLowerCase()))
-    : allEntries;
 
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>

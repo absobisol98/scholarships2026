@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProgramByKey, getCohortsForProgram, getApplicantsForProgram, getPipelineStats } from "@/lib/admin-data";
+import { getProgramByKey, getCohortsForProgram, getApplicantStatusCounts, getPipelineStats } from "@/lib/admin-data";
 import { PIPELINE_STAGES } from "@/lib/steps";
 import { setActiveBatch, toggleCohortFlag } from "@/lib/actions/admin";
 import { ActiveBatchSelect } from "./active-batch-select";
@@ -10,14 +10,12 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [cohorts, applicants, pipelineStats] = await Promise.all([
+  const [cohorts, applicantCounts, pipelineStats] = await Promise.all([
     getCohortsForProgram(program.id),
-    getApplicantsForProgram(program.id),
+    getApplicantStatusCounts(program.id),
     getPipelineStats(program.id),
   ]);
   const activeCohort = cohorts.find((c) => c.status === "active");
-  const needsReview = applicants.filter((a) => a.status === "review").length;
-  const decided = applicants.filter((a) => a.status === "decided").length;
 
   const onSetActiveBatch = setActiveBatch.bind(null, program.key, program.id);
   const onToggleSignups = activeCohort ? toggleCohortFlag.bind(null, program.key, activeCohort.id, "signupsOpen") : undefined;
@@ -31,9 +29,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
       <p className="text-muted" style={{ marginBottom: 0 }}>Cycle closes {program.deadlineFull}</p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-4)", margin: "var(--space-6) 0" }}>
-        <div className="card elev-sm"><div className="card-kicker">Total applicants</div><div className="card-title" style={{ fontSize: 30 }}>{applicants.length}</div><p className="card-body">This cycle</p></div>
-        <div className="card elev-sm"><div className="card-kicker">Needs review</div><div className="card-title" style={{ fontSize: 30, color: "var(--color-accent-700)" }}>{needsReview}</div><p className="card-body">Awaiting a decision</p></div>
-        <div className="card elev-sm"><div className="card-kicker">Decided</div><div className="card-title" style={{ fontSize: 30 }}>{decided}</div><p className="card-body">Awarded, waitlisted, or declined</p></div>
+        <div className="card elev-sm"><div className="card-kicker">Total applicants</div><div className="card-title" style={{ fontSize: 30 }}>{applicantCounts.all}</div><p className="card-body">This cycle</p></div>
+        <div className="card elev-sm"><div className="card-kicker">Needs review</div><div className="card-title" style={{ fontSize: 30, color: "var(--color-accent-700)" }}>{applicantCounts.review}</div><p className="card-body">Awaiting a decision</p></div>
+        <div className="card elev-sm"><div className="card-kicker">Decided</div><div className="card-title" style={{ fontSize: 30 }}>{applicantCounts.decided}</div><p className="card-body">Awarded, waitlisted, or declined</p></div>
       </div>
 
       <div style={{ display: "flex", gap: "var(--space-3)" }}>

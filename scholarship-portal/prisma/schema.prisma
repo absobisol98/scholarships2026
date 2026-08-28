@@ -9,8 +9,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // A scholarship program (U-GO, Generika, EO Skolar, ...).
@@ -163,6 +164,7 @@ model Application {
   familyMembers FamilyMember[]
 
   @@unique([studentId, programId])
+  @@index([programId, status])
 }
 
 // Repeatable family-member rows (Generika's "add as many as relevant").
@@ -212,6 +214,7 @@ model Applicant {
   recommendations     Recommendation[]
 
   @@index([programId])
+  @@index([programId, status])
 }
 
 // A staff account: a Program Admin (scoped to one or more programs) or a Paper Screener
@@ -279,6 +282,7 @@ model ApplicantAssignment {
   assignedAt  DateTime @default(now())
 
   @@unique([applicantId, screenerId])
+  @@index([screenerId])
 }
 
 // A Paper Screener's 1-5 score on one soft (human-judged) criterion for one applicant.
@@ -319,6 +323,7 @@ model AuditLogEntry {
   createdAt DateTime @default(now())
 
   @@index([programId])
+  @@index([createdAt])
 }
 
 // Per-program, per-step application field configuration (mockup — governs the "Manage fields" screen).
@@ -369,4 +374,16 @@ model SurveySend {
   sentDate    String
 
   @@unique([applicantId, wave])
+}
+
+// Self-contained, Postgres-backed rate limiting (no external service) — one row per
+// attempt against a given key (e.g. "signup:someone@example.com"). checkRateLimit()
+// (src/lib/rate-limit.ts) counts recent rows for a key within its window and opportunistically
+// prunes that key's rows once they age out, so this table stays bounded without a cron job.
+model RateLimitAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

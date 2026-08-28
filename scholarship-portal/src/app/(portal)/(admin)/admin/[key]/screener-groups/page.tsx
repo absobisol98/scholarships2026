@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProgramByKey, getApplicantsForProgram } from "@/lib/admin-data";
+import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { createScreenerGroup, deleteScreenerGroup } from "@/lib/actions/screenerGroups";
 import { Breadcrumb } from "@/components/breadcrumb";
@@ -10,12 +10,11 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [groups, applicants] = await Promise.all([
+  const [groups, eligibleUnassignedCount] = await Promise.all([
     db.screenerGroup.findMany({ where: { programId: program.id }, include: { members: true }, orderBy: { createdAt: "asc" } }),
-    getApplicantsForProgram(program.id),
+    getEligibleUnassignedCount(program.id),
   ]);
 
-  const eligibleUnassignedCount = applicants.filter((a) => a.eligible && a.screenerCount === 0).length;
   const onCreateGroup = createScreenerGroup.bind(null, program.key, program.id);
 
   const candidateCounts = await Promise.all(

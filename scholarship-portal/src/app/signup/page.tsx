@@ -6,6 +6,7 @@ import { signUpAsStudent } from "@/app/login/actions";
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "Enter your full name and email to create an account.",
   email_exists: "An account with that email already exists. Log in instead.",
+  rate_limited: "Too many attempts. Please wait a moment and try again.",
 };
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {

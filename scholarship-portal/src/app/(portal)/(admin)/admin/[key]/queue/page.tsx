@@ -1,36 +1,41 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProgramByKey, getApplicantsForProgram } from "@/lib/admin-data";
+import { getProgramByKey, getApplicantsPage, getApplicantStatusCounts, getApplicantFlagCounts } from "@/lib/admin-data";
 import { promoteApplicant, demoteApplicant } from "@/lib/actions/admin";
 import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
 
+const PAGE_SIZE = 50;
+
 export default async function QueuePage({
   params,
   searchParams,
 }: {
   params: Promise<{ key: string }>;
-  searchParams: Promise<{ q?: string; status?: string; flag?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; flag?: string; page?: string }>;
 }) {
   const { key } = await params;
-  const { q = "", status = "all", flag = "all" } = await searchParams;
+  const { q = "", status = "all", flag = "all", page: pageParam = "1" } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam, 10) || 1);
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const applicants = await getApplicantsForProgram(program.id);
-  const filtered = applicants.filter((a) => {
-    const statusOk = status === "all" || a.status === status;
-    const flagOk = flag === "all" || (flag === "flagged" && a.flags.length > 0) || (flag === "clear" && a.flags.length === 0);
-    const qOk = q === "" || a.name.toLowerCase().includes(q.toLowerCase());
-    return statusOk && flagOk && qOk;
-  });
-  const countAll = applicants.length;
-  const countReview = applicants.filter((a) => a.status === "review").length;
-  const countDecided = applicants.filter((a) => a.status === "decided").length;
-  const countFlagged = applicants.filter((a) => a.flags.length > 0).length;
-  const countClear = applicants.filter((a) => a.flags.length === 0).length;
+  const [{ rows: filtered, total }, statusCounts, flagCounts] = await Promise.all([
+    getApplicantsPage(program.id, { q, status, flag, page, pageSize: PAGE_SIZE }),
+    getApplicantStatusCounts(program.id),
+    getApplicantFlagCounts(program.id),
+  ]);
+  const countAll = statusCounts.all;
+  const countReview = statusCounts.review;
+  const countDecided = statusCounts.decided;
+  const countFlagged = flagCounts.flagged;
+  const countClear = flagCounts.clear;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const pageHref = (p: number) =>
+    `/admin/${program.key}/queue?status=${status}&flag=${flag}&page=${p}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
   return (
     <div>
@@ -84,7 +89,7 @@ export default async function QueuePage({
         <div className="hr" />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button type="submit" className="btn btn-secondary">Search</button>
-          <span className="text-muted" style={{ fontSize: 12 }}>{filtered.length} applicants</span>
+          <span className="text-muted" style={{ fontSize: 12 }}>{total} applicant{total === 1 ? "" : "s"}</span>
         </div>
       </form>
 
@@ -151,10 +156,21 @@ export default async function QueuePage({
         </table>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
-        <span className="text-muted" style={{ fontSize: 12 }}>Showing {filtered.length} of {countAll} applicants</span>
+        <span className="text-muted" style={{ fontSize: 12 }}>
+          Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}-{(page - 1) * PAGE_SIZE + filtered.length} of {total} applicants
+          {totalPages > 1 && ` · Page ${page} of ${totalPages}`}
+        </span>
         <div style={{ display: "flex", gap: "var(--space-2)" }}>
-          <button className="btn btn-ghost" disabled>Previous</button>
-          <button className="btn btn-ghost" disabled>Next</button>
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="btn btn-ghost">Previous</Link>
+          ) : (
+            <button className="btn btn-ghost" disabled>Previous</button>
+          )}
+          {page < totalPages ? (
+            <Link href={pageHref(page + 1)} className="btn btn-ghost">Next</Link>
+          ) : (
+            <button className="btn btn-ghost" disabled>Next</button>
+          )}
         </div>
       </div>
     </div>

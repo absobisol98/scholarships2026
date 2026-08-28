@@ -17,6 +17,19 @@ function fileName(fd: FormData, name: string): string | undefined {
   return undefined;
 }
 
+const MAX_CERT_BYTES = 10 * 1024 * 1024;
+// Video bytes aren't actually persisted anywhere today (only the filename, a known
+// pre-existing stub), so this cap just stops an oversized upload from being accepted only
+// to be discarded. Real "up to 2 minutes" video needs direct-to-object-storage upload
+// (Supabase Storage/S3/etc.), not a Server Action body — that's the fix when file storage
+// gets built for real, not a bigger number here.
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+
+function isOversized(fd: FormData, name: string, maxBytes: number): boolean {
+  const v = fd.get(name);
+  return v instanceof File && v.size > maxBytes;
+}
+
 async function getProgramAndApp(programKey: string) {
   const student = await getCurrentStudent();
   const program = await db.program.findUniqueOrThrow({ where: { key: programKey } });
@@ -92,6 +105,12 @@ function communityFields(fd: FormData) {
 export async function saveStepAndContinue(programKey: string, step: number, fd: FormData) {
   const { program, application } = await getProgramAndApp(programKey);
   const isGenerika = program.formKind === "generika";
+
+  if (step === 2 && !isGenerika) {
+    if (isOversized(fd, "cert", MAX_CERT_BYTES) || isOversized(fd, "video", MAX_VIDEO_BYTES)) {
+      redirect(`/programs/${programKey}/application?error=file_too_large`);
+    }
+  }
 
   let data: Record<string, unknown> = {};
   if (step === 0) data = { ...personalFields(fd), personalDone: true };

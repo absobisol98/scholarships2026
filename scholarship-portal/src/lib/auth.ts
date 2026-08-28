@@ -1,14 +1,21 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { createSessionCookieValue, SESSION_COOKIE, verifySessionCookieValue, type SessionData, type Role } from "@/lib/session";
 
-export async function getSession(): Promise<SessionData | null> {
+// Wrapped in React's cache() — every authenticated page calls this at least twice
+// (once in (portal)/layout.tsx for the header, again in the page component itself), and
+// getCurrentStudent/getCurrentStaff below call it too. Without this it's a fresh DB-free
+// cookie verify each time (cheap), but getCurrentStudent/getCurrentStaff's own
+// findUnique underneath is NOT cheap at volume — cache() collapses all of that down to
+// one real lookup per request, however many components ask.
+export const getSession = cache(async (): Promise<SessionData | null> => {
   const jar = await cookies();
   return verifySessionCookieValue(jar.get(SESSION_COOKIE)?.value);
-}
+});
 
 // Where a logged-in session belongs when it lands somewhere it doesn't have access to.
 export function homeForRole(role: Role): string {
@@ -85,14 +92,15 @@ export async function getDemoStudent() {
 
 // A real signed-up (or logged-in-by-email) applicant's session carries their own studentId.
 // Falls back to the demo persona for the "Log in as applicant" shortcut or a stale session.
-export async function getCurrentStudent() {
+// cache()-wrapped for the same reason as getSession above.
+export const getCurrentStudent = cache(async () => {
   const session = await getSession();
   if (session?.role === "student" && session.studentId) {
     const student = await db.student.findUnique({ where: { id: session.studentId } });
     if (student) return student;
   }
   return getDemoStudent();
-}
+});
 
 // Same idea for staff roles: exactly one seeded StaffAccount per role is flagged isDemo —
 // that's the identity "Log in as ..." assumes. Manage Users can hold a fuller illustrative
@@ -105,15 +113,15 @@ export async function getDemoStaff(role: "admin" | "screener" | "super_admin") {
 
 // A real signed-up-by-Manage-Users (or logged-in-by-email) staff member's session carries
 // their own staffId. Falls back to the demo persona for a "Log in as ..." shortcut or a
-// stale/staffId-less session.
-export async function getCurrentStaff(role: "admin" | "screener" | "super_admin") {
+// stale/staffId-less session. cache()-wrapped for the same reason as getSession above.
+export const getCurrentStaff = cache(async (role: "admin" | "screener" | "super_admin") => {
   const session = await getSession();
   if (session?.role === role && session.staffId) {
     const staff = await db.staffAccount.findUnique({ where: { id: session.staffId } });
     if (staff) return staff;
   }
   return getDemoStaff(role);
-}
+});
 
 export function initialsFor(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);

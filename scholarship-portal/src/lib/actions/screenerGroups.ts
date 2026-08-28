@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
-import { bumpToPaperScreening } from "@/lib/actions/assignments";
+import { getEligibleUnassignedApplicants } from "@/lib/admin-data";
+import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -42,35 +42,30 @@ export async function removeGroupMember(programKey: string, groupId: string, sta
 
 // Randomly, evenly spreads every eligible (passes hard filters, or has an override), still-
 // unassigned applicant in the program across this group's active screener members.
+// Batched rather than one create+update per applicant — at a few thousand eligible
+// applicants, a per-row loop would mean thousands of sequential round trips for one click.
 export async function randomlyAssignEligibleApplicants(programKey: string, programId: number, groupId: string) {
   const group = await db.screenerGroup.findUnique({ where: { id: groupId }, include: { members: { include: { staff: true } } } });
   if (!group) return;
   const memberIds = group.members.filter((m) => m.staff.active).map((m) => m.staffId);
   if (memberIds.length === 0) return;
 
-  const [applicants, activeCohort] = await Promise.all([
-    db.applicant.findMany({ where: { programId }, include: { _count: { select: { screenerAssignments: true } } } }),
-    getActiveCohortWithCriteria(programId),
-  ]);
+  const eligibleIds = await getEligibleUnassignedApplicants(programId);
 
-  const eligible = applicants.filter((a) => {
-    if (a._count.screenerAssignments > 0) return false;
-    const flags = evaluateCriteria(a, activeCohort);
-    return flags.length === 0 || a.flagOverridden;
-  });
-
-  const shuffled = [...eligible];
+  const shuffled = [...eligibleIds];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+  if (shuffled.length === 0) return;
 
-  for (let i = 0; i < shuffled.length; i++) {
-    const applicant = shuffled[i];
-    const screenerId = memberIds[i % memberIds.length];
-    await db.applicantAssignment.create({ data: { applicantId: applicant.id, screenerId } });
-    await bumpToPaperScreening(applicant.id);
-  }
+  const assignments = shuffled.map((applicantId, i) => ({ applicantId, screenerId: memberIds[i % memberIds.length] }));
+
+  await db.applicantAssignment.createMany({ data: assignments });
+  await db.applicant.updateMany({
+    where: { id: { in: shuffled }, phaseIndex: { lt: PAPER_SCREENING_PHASE_INDEX } },
+    data: { phaseIndex: PAPER_SCREENING_PHASE_INDEX },
+  });
 
   revalidatePath(`/admin/${programKey}/screener-groups`);
   revalidatePath(`/admin/${programKey}/screener-groups/${groupId}`);

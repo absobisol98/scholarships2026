@@ -10,6 +10,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_account: "No account found with that email. New here? Create an account below.",
   missing_email: "Enter your email to log in.",
   google_auth_failed: "Google sign-in didn't complete. Please try again.",
+  rate_limited: "Too many attempts. Please wait a moment and try again.",
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {

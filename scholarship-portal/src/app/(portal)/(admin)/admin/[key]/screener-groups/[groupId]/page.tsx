@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProgramByKey, getApplicantsForProgram } from "@/lib/admin-data";
+import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { APPLICANT_PHASES } from "@/lib/steps";
 import { addGroupMember, removeGroupMember, randomlyAssignEligibleApplicants } from "@/lib/actions/screenerGroups";
@@ -17,17 +17,22 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
 
   const memberIds = group.members.map((m) => m.staffId);
 
-  const [applicants, activeScreeners, candidates] = await Promise.all([
-    getApplicantsForProgram(program.id),
+  const [eligibleUnassignedCount, activeScreeners, candidates] = await Promise.all([
+    getEligibleUnassignedCount(program.id),
     db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
     db.applicant.findMany({
       where: { programId: program.id, screenerAssignments: { some: { screenerId: { in: memberIds } } } },
-      include: { screenerAssignments: { where: { screenerId: { in: memberIds } }, include: { screener: true } } },
+      select: {
+        id: true,
+        name: true,
+        school: true,
+        phaseIndex: true,
+        screenerAssignments: { where: { screenerId: { in: memberIds } }, select: { screener: { select: { name: true } } } },
+      },
       orderBy: { name: "asc" },
     }),
   ]);
 
-  const eligibleUnassignedCount = applicants.filter((a) => a.eligible && a.screenerCount === 0).length;
   const memberIdSet = new Set(memberIds);
   const availableToAdd = activeScreeners.filter((s) => !memberIdSet.has(s.id));
 

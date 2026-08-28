@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { SESSION_COOKIE, type Role } from "@/lib/session";
 import { loginAs, getDemoStudent, getDemoStaff, initialsFor } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Prisma } from "@/generated/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -23,6 +25,9 @@ export async function loginAsStudent() {
 export async function loginWithEmail(fd: FormData) {
   const email = str(fd, "email").trim().toLowerCase();
   if (!email) redirect("/login?error=missing_email");
+
+  const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
+  if (!allowed) redirect("/login?error=rate_limited");
 
   const student = await db.student.findFirst({ where: { email } });
   if (student) await loginAs("student", student.id);
@@ -43,13 +48,27 @@ export async function signUpAsStudent(fd: FormData) {
   const email = str(fd, "email").trim().toLowerCase();
   if (!name || !email) redirect("/signup?error=missing_fields");
 
+  const allowed = await checkRateLimit(`signup:${email}`, { max: 5, windowSeconds: 60 });
+  if (!allowed) redirect("/signup?error=rate_limited");
+
   const [existingStudent, existingStaff] = await Promise.all([
     db.student.findFirst({ where: { email } }),
     db.staffAccount.findFirst({ where: { email } }),
   ]);
   if (existingStudent || existingStaff) redirect("/signup?error=email_exists");
 
-  const created = await db.student.create({ data: { name, email, initials: initialsFor(name) } });
+  // Two concurrent signups for the same brand-new email can both pass the check above —
+  // the DB's @unique on Student.email is what actually decides the race, so catch its
+  // P2002 here and give the loser the same friendly redirect instead of an unhandled error.
+  let created;
+  try {
+    created = await db.student.create({ data: { name, email, initials: initialsFor(name) } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect("/signup?error=email_exists");
+    }
+    throw error;
+  }
   await loginAs("student", created.id);
 }
 
