@@ -6,6 +6,10 @@ import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment } from "@/lib/actions/decisions";
 import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
+import { Card, CardKicker } from "@/components/ui/card";
+import { Tag } from "@/components/ui/tag";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 const DECISION_LABELS: Record<string, string> = { awarded: "Awarded", waitlisted: "Waitlisted", declined: "Declined" };
 
@@ -52,51 +56,51 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
           <span className="text-muted" style={{ fontSize: 13 }}>{applicant.school}</span>
         </div>
         <div style={{ display: "flex", gap: 6, flex: "none" }}>
-          {applicant.decision && <span className="tag tag-accent" style={{ whiteSpace: "nowrap" }}>{DECISION_LABELS[applicant.decision]}</span>}
-          <span className="tag tag-outline" style={{ whiteSpace: "nowrap" }}>Submitted&nbsp;{applicant.submitted}</span>
+          {applicant.decision && <Tag variant="accent" style={{ whiteSpace: "nowrap" }}>{DECISION_LABELS[applicant.decision]}</Tag>}
+          <Tag variant="outline" style={{ whiteSpace: "nowrap" }}>Submitted&nbsp;{applicant.submitted}</Tag>
         </div>
       </div>
 
       <div className="hr" />
 
       <div className="cols-flex" style={{ marginTop: "var(--space-6)", alignItems: "flex-start" }}>
-        <div className="card elev-sm" style={{ flex: 1 }}>
-          <div className="card-kicker" style={{ fontWeight: 700, fontSize: 13 }}>Personal &amp; Family Info</div>
+        <Card elevation="sm" style={{ flex: 1 }}>
+          <CardKicker style={{ fontWeight: 700, fontSize: 13 }}>Personal &amp; Family Info</CardKicker>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Nationality</span><span>{applicant.nationality}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Sex</span><span>{applicant.sex}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Year level</span><span>{applicant.yearLevel}</span></div>
           </div>
-        </div>
-        <div className="card elev-sm" style={{ flex: 1 }}>
-          <div className="card-kicker" style={{ fontSize: 13, fontWeight: 700 }}>Academic Info</div>
+        </Card>
+        <Card elevation="sm" style={{ flex: 1 }}>
+          <CardKicker style={{ fontSize: 13, fontWeight: 700 }}>Academic Info</CardKicker>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">School</span><span>{applicant.school}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Institution type</span><span>{applicant.institutionType}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">GWA</span><span>{applicant.gwa}%</span></div>
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Attachments</div>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Attachments</CardKicker>
         <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 8 }}>
           {attachments.map((f) => (
-            <span key={f} className="tag tag-outline">{f}</span>
+            <Tag key={f} variant="outline">{f}</Tag>
           ))}
         </div>
-      </div>
+      </Card>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Personal Statement</div>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Personal Statement</CardKicker>
         <p style={{ fontSize: 14, lineHeight: 1.75, opacity: 0.9, marginTop: 8 }}>
           {applicant.essay || "No personal statement on file for this record."}
         </p>
-      </div>
+      </Card>
 
       {flags.length > 0 && (
-        <div className="card elev-sm" style={{ marginTop: "var(--space-4)", background: applicant.flagOverridden ? "var(--color-neutral-200)" : "var(--color-accent-100)" }}>
-          <div className="card-kicker"><b>{applicant.flagOverridden ? "Red Flag — Overridden" : "Red Flag"}</b></div>
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)", background: applicant.flagOverridden ? "var(--color-neutral-200)" : "var(--color-accent-100)" }}>
+          <CardKicker><b>{applicant.flagOverridden ? "Red Flag — Overridden" : "Red Flag"}</b></CardKicker>
           <ul className={applicant.flagOverridden ? "text-muted" : undefined} style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: applicant.flagOverridden ? undefined : "var(--color-accent-800)", display: "flex", flexDirection: "column", gap: 4 }}>
             {flags.map((f) => (
               <li key={f}>{f}</li>
@@ -110,46 +114,45 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
               </p>
               {isSuperAdmin && (
                 <form action={onClearOverride} style={{ marginTop: 8 }}>
-                  <button type="submit" className="btn btn-secondary" style={{ padding: "6px 12px" }}>Reinstate flag</button>
+                  <Button type="submit" variant="secondary" style={{ padding: "6px 12px" }}>Reinstate flag</Button>
                 </form>
               )}
             </div>
           ) : isSuperAdmin ? (
             <form action={onOverride} style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <div className="field" style={{ marginBottom: 0, flex: 1, minWidth: 220 }}>
-                <label htmlFor="reason">Override reason</label>
-                <input id="reason" name="reason" className="input" placeholder="Why does this flag not apply?" />
-              </div>
-              <button type="submit" className="btn btn-secondary">Override flag</button>
+              <Field label="Override reason" htmlFor="reason" style={{ marginBottom: 0, flex: 1, minWidth: 220 }}>
+                <Input id="reason" name="reason" placeholder="Why does this flag not apply?" />
+              </Field>
+              <Button type="submit" variant="secondary">Override flag</Button>
             </form>
           ) : null}
-        </div>
+        </Card>
       )}
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Paper Screener assignment</div>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Paper Screener assignment</CardKicker>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 8 }}>
           {applicant.screenerAssignments.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>No screener assigned yet</span>}
           {applicant.screenerAssignments.map((sa) => {
             const onUnassign = unassignScreener.bind(null, program.key, applicant.id, sa.screenerId);
             return (
-              <span key={sa.id} className="tag tag-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Tag key={sa.id} variant="neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                 {sa.screener.name}
                 <form action={onUnassign} style={{ display: "inline" }}>
                   <button type="submit" aria-label={`Unassign ${sa.screener.name}`} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
                 </form>
-              </span>
+              </Tag>
             );
           })}
           {availableScreeners.length > 0 && (isEligible ? (
             <form action={onAssignScreener} style={{ display: "inline-flex", gap: 4 }}>
-              <select name="screenerId" className="input" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
+              <Select name="screenerId" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
                 <option value="" disabled>+ Assign screener…</option>
                 {availableScreeners.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
-              </select>
-              <button type="submit" className="btn btn-ghost" style={{ padding: "2px 6px" }}>Add</button>
+              </Select>
+              <Button type="submit" variant="ghost" style={{ padding: "2px 6px" }}>Add</Button>
             </form>
           ) : (
             <span className="text-muted" style={{ fontSize: 12 }}>
@@ -158,11 +161,11 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
             </span>
           ))}
         </div>
-      </div>
+      </Card>
 
       {(recommendations.length > 0 || scoresByScreener.size > 0) && (
-        <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">Paper Screener assessments</div>
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Paper Screener assessments</CardKicker>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: 8 }}>
             {Array.from(scoresByScreener.entries()).map(([screenerId, { name, scores }]) => {
               const rec = recommendations.find((r) => r.screenerId === screenerId);
@@ -173,9 +176,9 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontWeight: 700, fontSize: 13 }}>{name}</span>
                       {rec && (
-                        <span className={`tag ${rec.decision === "recommend" ? "tag-accent" : "tag-neutral"}`}>
+                        <Tag variant={rec.decision === "recommend" ? "accent" : "neutral"}>
                           {rec.decision === "recommend" ? "Recommended" : "Not recommended"}
-                        </span>
+                        </Tag>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 6, fontSize: 12 }}>
@@ -197,19 +200,18 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                 <form key={screenerId} action={onOverrideAssessment} style={{ paddingBottom: 12, borderBottom: "1px solid var(--color-divider)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontWeight: 700, fontSize: 13 }}>{name} <span className="text-muted" style={{ fontWeight: 400 }}>(editing on their behalf)</span></span>
-                    <button type="submit" className="btn btn-ghost" style={{ padding: "2px 10px", fontSize: 12 }}>Save</button>
+                    <Button type="submit" variant="ghost" style={{ padding: "2px 10px", fontSize: 12 }}>Save</Button>
                   </div>
                   <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
                     {RUBRIC_CRITERIA.map((c) => (
-                      <div key={c.key} className="field" style={{ marginBottom: 0, minWidth: 160 }}>
-                        <label htmlFor={`score_${screenerId}_${c.key}`} style={{ fontSize: 12 }}>{c.label}</label>
-                        <select id={`score_${screenerId}_${c.key}`} name={`score_${c.key}`} className="input" defaultValue={scores[c.key]?.toString() ?? ""}>
+                      <Field key={c.key} label={c.label} htmlFor={`score_${screenerId}_${c.key}`} style={{ marginBottom: 0, minWidth: 160 }}>
+                        <Select id={`score_${screenerId}_${c.key}`} name={`score_${c.key}`} defaultValue={scores[c.key]?.toString() ?? ""}>
                           <option value="">Not yet scored</option>
                           {[1, 2, 3, 4, 5].map((n) => (
                             <option key={n} value={n}>{n}</option>
                           ))}
-                        </select>
-                      </div>
+                        </Select>
+                      </Field>
                     ))}
                   </div>
                   <div className="field" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -225,26 +227,25 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                       </label>
                     </div>
                   </div>
-                  <div className="field" style={{ marginTop: 8, marginBottom: 0 }}>
-                    <label htmlFor={`comment_${screenerId}`} style={{ fontSize: 12 }}>Comments</label>
-                    <textarea id={`comment_${screenerId}`} name="comment" className="input" rows={2} defaultValue={rec?.comment ?? ""} />
-                  </div>
+                  <Field label="Comments" htmlFor={`comment_${screenerId}`} style={{ marginTop: 8, marginBottom: 0 }}>
+                    <Textarea id={`comment_${screenerId}`} name="comment" rows={2} defaultValue={rec?.comment ?? ""} />
+                  </Field>
                 </form>
               );
             })}
           </div>
-        </div>
+        </Card>
       )}
 
       {isSuperAdmin && (
-        <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">Final decision</div>
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Final decision</CardKicker>
           <form action={onSetDecision} style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-            <button type="submit" name="decision" value="awarded" className="btn btn-primary">Award</button>
-            <button type="submit" name="decision" value="waitlisted" className="btn btn-secondary">Waitlist</button>
-            <button type="submit" name="decision" value="declined" className="btn btn-secondary">Decline</button>
+            <Button type="submit" name="decision" value="awarded" variant="primary">Award</Button>
+            <Button type="submit" name="decision" value="waitlisted" variant="secondary">Waitlist</Button>
+            <Button type="submit" name="decision" value="declined" variant="secondary">Decline</Button>
           </form>
-        </div>
+        </Card>
       )}
     </div>
   );

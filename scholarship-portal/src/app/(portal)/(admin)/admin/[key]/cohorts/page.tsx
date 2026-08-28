@@ -1,7 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getCohortsForProgram, getApplicantStatusCounts } from "@/lib/admin-data";
 import { createCohort, activateCohort } from "@/lib/actions/admin";
+import { Card, CardKicker, CardTitle } from "@/components/ui/card";
+import { Tag, type TagVariant } from "@/components/ui/tag";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 
 export default async function CohortsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -25,32 +28,31 @@ export default async function CohortsPage({ params }: { params: Promise<{ key: s
           const statusTagClass = c.status === "active" ? "tag-accent" : c.status === "closed" ? "tag-neutral" : "tag-outline";
           const onActivate = activateCohort.bind(null, program.key, program.id, c.id);
           return (
-            <div key={c.id} className="card elev-sm">
+            <Card key={c.id} elevation="sm">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
                 <div>
-                  <div className="card-title">{c.name}</div>
+                  <CardTitle>{c.name}</CardTitle>
                   <span className="text-muted" style={{ fontSize: 12 }}>Open {c.openDate} · Cutoff {c.cutoffDate} · {applicantCounts.all} applicants</span>
                 </div>
-                <span className={`tag ${statusTagClass}`} style={{ whiteSpace: "nowrap" }}>{statusLabel}</span>
+                <Tag variant={statusTagClass.replace(/^tag-/, "") as TagVariant} style={{ whiteSpace: "nowrap" }}>{statusLabel}</Tag>
               </div>
               <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
                 {c.status !== "active" && (
-                  <form action={onActivate}><button type="submit" className="btn btn-primary">Activate</button></form>
+                  <form action={onActivate}><Button type="submit" variant="primary">Activate</Button></form>
                 )}
-                <Link href={`/admin/${program.key}/cohorts/${c.id}/criteria`} className="btn btn-secondary">Manage criteria</Link>
+                <LinkButton href={`/admin/${program.key}/cohorts/${c.id}/criteria`} variant="secondary">Manage criteria</LinkButton>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>
 
       <form action={onCreateCohort} className="card elev-sm" style={{ marginTop: "var(--space-4)", maxWidth: 480 }}>
-        <div className="card-kicker">New cohort</div>
-        <div className="field" style={{ margin: "var(--space-2) 0 0" }}>
-          <label htmlFor="new-cohort-name">Cohort name</label>
-          <input id="new-cohort-name" name="name" className="input" placeholder="e.g. U-GO Batch 2028" />
-        </div>
-        <button type="submit" className="btn btn-primary" style={{ marginTop: "var(--space-3)", alignSelf: "flex-start" }}>+ Create cohort</button>
+        <CardKicker>New cohort</CardKicker>
+        <Field label="Cohort name" htmlFor="new-cohort-name" style={{ margin: "var(--space-2) 0 0" }}>
+          <Input id="new-cohort-name" name="name" placeholder="e.g. U-GO Batch 2028" />
+        </Field>
+        <Button type="submit" variant="primary" style={{ marginTop: "var(--space-3)", alignSelf: "flex-start" }}>+ Create cohort</Button>
       </form>
     </div>
   );

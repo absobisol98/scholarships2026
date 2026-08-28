@@ -6,6 +6,11 @@ import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
+import { FiltersPanel } from "@/components/ui/filters-panel";
+import { Field, Input } from "@/components/ui/field";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Table, TableScroll } from "@/components/ui/table";
+import { Tag } from "@/components/ui/tag";
 
 const PAGE_SIZE = 50;
 
@@ -46,57 +51,53 @@ export default async function QueuePage({
           <h2 style={{ marginBottom: 4 }}>Applications Overview</h2>
           <p className="text-muted" style={{ marginBottom: 0 }}>Cycle closes {program.deadlineFull}</p>
         </div>
-        <button type="button" className="btn btn-secondary" style={{ flex: "none" }}>Export CSV</button>
+        <Button type="button" variant="secondary" style={{ flex: "none" }}>Export CSV</Button>
       </div>
 
-      <form method="GET" className="card elev-sm" style={{ margin: "var(--space-4) 0" }}>
-        <div className="filters-panel-header">
-          <span className="card-kicker">Filters</span>
-          <Link href={`/admin/${program.key}/queue`} style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
-        </div>
-        <div className="filters-row">
-          <div className="field">
-            <label htmlFor="queue-search">Name</label>
-            <input id="queue-search" className="input" name="q" placeholder="Search applicants..." defaultValue={q} />
+      <FiltersPanel
+        method="GET"
+        resetHref={`/admin/${program.key}/queue`}
+        style={{ margin: "var(--space-4) 0" }}
+        footer={
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Button type="submit" variant="secondary">Search</Button>
+            <span className="text-muted" style={{ fontSize: 12 }}>{total} applicant{total === 1 ? "" : "s"}</span>
           </div>
-          <div className="field">
-            <label htmlFor="queue-status">Status</label>
-            <AutoSubmitSelect
-              id="queue-status"
-              name="status"
-              defaultValue={status}
-              options={[
-                { value: "all", label: `All (${countAll})` },
-                { value: "review", label: `Needs review (${countReview})` },
-                { value: "decided", label: `Decided (${countDecided})` },
-              ]}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="queue-flag">Red flag</label>
-            <AutoSubmitSelect
-              id="queue-flag"
-              name="flag"
-              defaultValue={flag}
-              options={[
-                { value: "all", label: `All (${countAll})` },
-                { value: "flagged", label: `Red flagged (${countFlagged})` },
-                { value: "clear", label: `No flags (${countClear})` },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="hr" />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <button type="submit" className="btn btn-secondary">Search</button>
-          <span className="text-muted" style={{ fontSize: 12 }}>{total} applicant{total === 1 ? "" : "s"}</span>
-        </div>
-      </form>
+        }
+      >
+        <Field label="Name" htmlFor="queue-search">
+          <Input id="queue-search" name="q" placeholder="Search applicants..." defaultValue={q} />
+        </Field>
+        <Field label="Status" htmlFor="queue-status">
+          <AutoSubmitSelect
+            id="queue-status"
+            name="status"
+            defaultValue={status}
+            options={[
+              { value: "all", label: `All (${countAll})` },
+              { value: "review", label: `Needs review (${countReview})` },
+              { value: "decided", label: `Decided (${countDecided})` },
+            ]}
+          />
+        </Field>
+        <Field label="Red flag" htmlFor="queue-flag">
+          <AutoSubmitSelect
+            id="queue-flag"
+            name="flag"
+            defaultValue={flag}
+            options={[
+              { value: "all", label: `All (${countAll})` },
+              { value: "flagged", label: `Red flagged (${countFlagged})` },
+              { value: "clear", label: `No flags (${countClear})` },
+            ]}
+          />
+        </Field>
+      </FiltersPanel>
 
       <PhaseLegend />
 
-      <div className="table-scroll">
-        <table className="table" aria-label={`Applicants for ${program.name}`}>
+      <TableScroll>
+        <Table aria-label={`Applicants for ${program.name}`}>
           <thead>
             <tr>
               <th scope="col">Application ID</th>
@@ -119,7 +120,7 @@ export default async function QueuePage({
                 <tr key={a.id}>
                   <td>{a.appId}</td>
                   <td style={{ fontWeight: 700 }}>{a.name}</td>
-                  <td><span className="tag tag-neutral">{a.phaseLabel}</span></td>
+                  <td><Tag variant="neutral">{a.phaseLabel}</Tag></td>
                   <td>{a.submitted}</td>
                   <td>
                     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -145,16 +146,16 @@ export default async function QueuePage({
                     </div>
                   </td>
                   <td>
-                    <Link href={`/admin/${program.key}/queue/${a.id}`} className="btn btn-ghost" aria-label={`View application form for ${a.name}`}>
+                    <LinkButton href={`/admin/${program.key}/queue/${a.id}`} variant="ghost" aria-label={`View application form for ${a.name}`}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
-                    </Link>
+                    </LinkButton>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableScroll>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
         <span className="text-muted" style={{ fontSize: 12 }}>
           Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}-{(page - 1) * PAGE_SIZE + filtered.length} of {total} applicants
@@ -162,14 +163,14 @@ export default async function QueuePage({
         </span>
         <div style={{ display: "flex", gap: "var(--space-2)" }}>
           {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="btn btn-ghost">Previous</Link>
+            <LinkButton href={pageHref(page - 1)} variant="ghost">Previous</LinkButton>
           ) : (
-            <button className="btn btn-ghost" disabled>Previous</button>
+            <Button variant="ghost" disabled>Previous</Button>
           )}
           {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="btn btn-ghost">Next</Link>
+            <LinkButton href={pageHref(page + 1)} variant="ghost">Next</LinkButton>
           ) : (
-            <button className="btn btn-ghost" disabled>Next</button>
+            <Button variant="ghost" disabled>Next</Button>
           )}
         </div>
       </div>

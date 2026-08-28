@@ -4,10 +4,11 @@ import { cx } from "./cx";
 
 export function FiltersPanel({
   resetHref,
+  footer,
   className,
   children,
   ...rest
-}: FormHTMLAttributes<HTMLFormElement> & { resetHref?: string; children: ReactNode }) {
+}: FormHTMLAttributes<HTMLFormElement> & { resetHref?: string; footer?: ReactNode; children: ReactNode }) {
   return (
     <form className={cx("card elev-sm", className)} {...rest}>
       <div className="filters-panel-header">
@@ -19,6 +20,12 @@ export function FiltersPanel({
         )}
       </div>
       <div className="filters-row">{children}</div>
+      {footer && (
+        <>
+          <div className="hr" />
+          {footer}
+        </>
+      )}
     </form>
   );
 }

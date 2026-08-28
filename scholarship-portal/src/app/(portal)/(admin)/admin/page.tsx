@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
 import { listWorkspacePrograms, getAccessibleProgramIds } from "@/lib/admin-data";
+import { Card, CardKicker, CardTitle, CardBody } from "@/components/ui/card";
+import { Tag } from "@/components/ui/tag";
+import { LinkButton } from "@/components/ui/button";
 
 export default async function WorkspacesPage() {
   const session = await requireAdminLike();
@@ -31,28 +33,28 @@ export default async function WorkspacesPage() {
             </p>
           </div>
           {isSuperAdmin && (
-            <Link href="/admin/users" className="btn btn-secondary" style={{ flex: "none", whiteSpace: "nowrap" }}>Manage Users →</Link>
+            <LinkButton href="/admin/users" variant="secondary" style={{ flex: "none", whiteSpace: "nowrap" }}>Manage Users →</LinkButton>
           )}
         </div>
 
         {rows.length === 0 ? (
-          <div className="card" style={{ marginTop: "var(--space-6)" }}>
-            <p className="card-body" style={{ margin: 0 }}>You haven&apos;t been assigned to any program workspace yet.</p>
-          </div>
+          <Card style={{ marginTop: "var(--space-6)" }}>
+            <CardBody>You haven&apos;t been assigned to any program workspace yet.</CardBody>
+          </Card>
         ) : (
           <div className="browse-grid" style={{ marginTop: "var(--space-6)" }}>
             {rows.map(({ program: w, applicantCount }) => (
-              <div key={w.id} className="card elev-md" style={{ justifyContent: "space-between" }}>
+              <Card key={w.id} elevation="md" style={{ justifyContent: "space-between" }}>
                 <div>
-                  <div className="card-kicker">{w.deadlineLabel}</div>
-                  <div className="card-title">{w.name}</div>
-                  <p className="card-body">{w.blurb}</p>
+                  <CardKicker>{w.deadlineLabel}</CardKicker>
+                  <CardTitle>{w.name}</CardTitle>
+                  <CardBody>{w.blurb}</CardBody>
                 </div>
                 <div style={{ marginTop: "var(--space-4)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span className="tag tag-neutral">{applicantCount} applicants</span>
-                  <Link href={`/admin/${w.key}/dashboard`} className="btn btn-primary">Enter workspace →</Link>
+                  <Tag variant="neutral">{applicantCount} applicants</Tag>
+                  <LinkButton href={`/admin/${w.key}/dashboard`} variant="primary">Enter workspace →</LinkButton>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}

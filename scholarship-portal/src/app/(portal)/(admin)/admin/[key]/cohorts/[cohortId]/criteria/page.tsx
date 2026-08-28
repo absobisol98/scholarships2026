@@ -13,6 +13,9 @@ import {
 import { AutoSaveTextInput } from "@/components/auto-save-text-input";
 import { AutoToggleCheckbox } from "@/components/auto-toggle-checkbox";
 import { SegRadioGroup } from "@/components/seg-radio-group";
+import { Card, CardKicker, CardBody } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import { RegionListEditor } from "./region-list-editor";
 
 export default async function CriteriaPage({ params }: { params: Promise<{ key: string; cohortId: string }> }) {
@@ -34,24 +37,22 @@ export default async function CriteriaPage({ params }: { params: Promise<{ key: 
         Applicants who don&apos;t meet an enabled criterion are auto-tagged Red Flag for evaluator review — not auto-rejected. Changes only affect applicants evaluated after saving; past evaluations are preserved in the history log below.
       </p>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Application window</div>
-        <p className="card-body" style={{ margin: 0 }}>New submissions are blocked after cutoff.</p>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Application window</CardKicker>
+        <CardBody>New submissions are blocked after cutoff.</CardBody>
         <div className="grid-2" style={{ marginTop: "var(--space-2)" }}>
-          <div className="field">
-            <label htmlFor="cohort-open-date">Opens</label>
+          <Field label="Opens" htmlFor="cohort-open-date">
             <AutoSaveTextInput
               defaultValue={cohort.openDate}
               action={async (value) => { "use server"; await updateCohortWindow(program.key, cohort.id, "openDate", value); }}
             />
-          </div>
-          <div className="field">
-            <label htmlFor="cohort-cutoff-date">Cuts off</label>
+          </Field>
+          <Field label="Cuts off" htmlFor="cohort-cutoff-date">
             <AutoSaveTextInput
               defaultValue={cohort.cutoffDate}
               action={async (value) => { "use server"; await updateCohortWindow(program.key, cohort.id, "cutoffDate", value); }}
             />
-          </div>
+          </Field>
         </div>
         <div style={{ marginTop: "var(--space-3)" }}>
           <p style={{ fontSize: 12, fontWeight: 700, margin: "0 0 8px" }}>At cutoff, drafts in progress should:</p>
@@ -66,10 +67,10 @@ export default async function CriteriaPage({ params }: { params: Promise<{ key: 
             action={async (value) => { "use server"; await onSetAutoSubmitPolicy(value); }}
           />
         </div>
-      </div>
+      </Card>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Criteria</div>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Criteria</CardKicker>
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
           {cohort.criteria.map((cr) =>
             cr.key === "region" ? (
@@ -107,12 +108,12 @@ export default async function CriteriaPage({ params }: { params: Promise<{ key: 
           )}
         </div>
         <form action={onSaveCriteriaChanges}>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: "var(--space-3)", alignSelf: "flex-start" }}>Save changes</button>
+          <Button type="submit" variant="primary" style={{ marginTop: "var(--space-3)", alignSelf: "flex-start" }}>Save changes</Button>
         </form>
-      </div>
+      </Card>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Change history</div>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Change history</CardKicker>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "var(--space-2)" }}>
           {cohort.history.map((h) => (
             <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "1px solid var(--color-divider)" }}>
@@ -121,7 +122,7 @@ export default async function CriteriaPage({ params }: { params: Promise<{ key: 
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

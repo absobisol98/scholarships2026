@@ -1,9 +1,10 @@
 "use client";
 
+import { Select } from "@/components/ui/field";
+
 export function ActiveBatchSelect({ options, value }: { options: { id: string; name: string }[]; value: string }) {
   return (
-    <select
-      className="input"
+    <Select
       style={{ maxWidth: 180 }}
       name="cohortId"
       defaultValue={value}
@@ -13,6 +14,6 @@ export function ActiveBatchSelect({ options, value }: { options: { id: string; n
       {options.map((b) => (
         <option key={b.id} value={b.id}>{b.name}</option>
       ))}
-    </select>
+    </Select>
   );
 }

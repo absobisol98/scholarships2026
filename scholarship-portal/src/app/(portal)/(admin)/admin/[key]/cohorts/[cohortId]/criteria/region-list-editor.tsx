@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Tag } from "@/components/ui/tag";
+import { Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 export function RegionListEditor({
   regionMap,
@@ -26,7 +29,7 @@ export function RegionListEditor({
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", opacity: 0.6, marginBottom: 4 }}>{r}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {regionMap[r].map((p) => (
-              <span key={p} className="tag tag-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Tag key={p} variant="neutral" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 {p}
                 <button
                   type="button"
@@ -37,32 +40,30 @@ export function RegionListEditor({
                 >
                   ×
                 </button>
-              </span>
+              </Tag>
             ))}
           </div>
         </div>
       ))}
 
       <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-        <input
-          className="input"
+        <Input
           placeholder="Region (e.g. Luzon)"
           aria-label="New region"
           value={region}
           onChange={(e) => setRegion(e.target.value)}
           style={{ maxWidth: 150 }}
         />
-        <input
-          className="input"
+        <Input
           placeholder="Province"
           aria-label="New province"
           value={province}
           onChange={(e) => setProvince(e.target.value)}
           style={{ maxWidth: 170 }}
         />
-        <button
+        <Button
           type="button"
-          className="btn btn-secondary"
+          variant="secondary"
           disabled={isPending || !region.trim() || !province.trim()}
           onClick={() =>
             startTransition(async () => {
@@ -73,7 +74,7 @@ export function RegionListEditor({
           }
         >
           + Add
-        </button>
+        </Button>
       </div>
     </div>
   );
