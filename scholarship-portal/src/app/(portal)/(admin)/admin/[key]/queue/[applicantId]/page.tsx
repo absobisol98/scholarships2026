@@ -24,6 +24,7 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
     db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
   ]);
   const flags = evaluateCriteria(applicant, activeCohort);
+  const isEligible = flags.length === 0 || applicant.flagOverridden;
   const attachments: string[] = JSON.parse(applicant.attachmentsJson);
   const isSuperAdmin = session.role === "super_admin";
 
@@ -140,7 +141,7 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
               </span>
             );
           })}
-          {availableScreeners.length > 0 && (
+          {availableScreeners.length > 0 && (isEligible ? (
             <form action={onAssignScreener} style={{ display: "inline-flex", gap: 4 }}>
               <select name="screenerId" className="input" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
                 <option value="" disabled>+ Assign screener…</option>
@@ -150,7 +151,12 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
               </select>
               <button type="submit" className="btn btn-ghost" style={{ padding: "2px 6px" }}>Add</button>
             </form>
-          )}
+          ) : (
+            <span className="text-muted" style={{ fontSize: 12 }}>
+              Can&apos;t assign a screener — this applicant has an unresolved red flag.
+              {isSuperAdmin ? " Override the flag above if it doesn't apply." : " A Super Admin can override the flag above if it doesn't apply."}
+            </span>
+          ))}
         </div>
       </div>
 

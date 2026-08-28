@@ -5,6 +5,14 @@ export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision
 // facing Application.status tracker in STAGE_LABELS/statusMeta below).
 export const APPLICANT_PHASES = ["Application Proper", "Paper Screening", "Interviews", "Final Scoring & Deliberations"];
 
+// Same order/length as APPLICANT_PHASES — what actually happens at each stage.
+export const APPLICANT_PHASE_DESCRIPTIONS = [
+  "Applicants who meet the eligibility requirements submit the full scholarship application, along with all required supporting documents.",
+  "Complete applications are reviewed and evaluated based on the program's selection criteria. Shortlisted applicants submit a recommendation form.",
+  "Shortlisted applicants with completed recommendation forms proceed to an online interview and are assessed using the program's selection criteria.",
+  "Strong, well-qualified applicants are chosen as scholars.",
+];
+
 export const PIPELINE_STAGES = [
   { key: "signedUpCount", label: "Signed up", hint: "Not yet started", icon: "M8 5v14l11-7z" },
   { key: "applicationCount", label: "Application", hint: "Started, in progress", icon: "M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" },

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { APPLICANT_PHASES } from "@/lib/steps";
+import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 
 const PAPER_SCREENING_PHASE_INDEX = APPLICANT_PHASES.indexOf("Paper Screening");
 
@@ -20,9 +21,21 @@ export async function bumpToPaperScreening(applicantId: number) {
   }
 }
 
+// An applicant only reaches Paper Screening one of two ways: an admin explicitly promotes
+// them (promoteApplicant, in admin.ts — deliberate override, no eligibility check needed),
+// or they pass the program's hard-filter criteria (or have an overridden flag). Assigning a
+// screener is the second path, so it's gated the same way randomlyAssignEligibleApplicants
+// already is — a flagged, non-overridden applicant can't be silently pushed into screening
+// just by picking a screener for them.
 export async function assignScreener(programKey: string, applicantId: number, fd: FormData) {
   const screenerId = str(fd, "screenerId");
   if (!screenerId) return;
+
+  const applicant = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
+  const activeCohort = await getActiveCohortWithCriteria(applicant.programId);
+  const flags = evaluateCriteria(applicant, activeCohort);
+  if (flags.length > 0 && !applicant.flagOverridden) return;
+
   await db.applicantAssignment.upsert({
     where: { applicantId_screenerId: { applicantId, screenerId } },
     update: {},

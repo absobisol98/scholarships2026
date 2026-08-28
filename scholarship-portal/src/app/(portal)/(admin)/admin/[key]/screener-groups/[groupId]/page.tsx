@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { APPLICANT_PHASES } from "@/lib/steps";
 import { addGroupMember, removeGroupMember, randomlyAssignEligibleApplicants } from "@/lib/actions/screenerGroups";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { PhaseLegend } from "@/components/phase-legend";
 
 export default async function ScreenerGroupDetailPage({ params }: { params: Promise<{ key: string; groupId: string }> }) {
   const { key, groupId } = await params;
@@ -106,7 +107,11 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
         </form>
       </div>
 
-      <div className="table-scroll" style={{ marginTop: "var(--space-4)" }}>
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <PhaseLegend />
+      </div>
+
+      <div className="table-scroll">
         <table className="table" aria-label={`Candidates assigned to ${group.name}`}>
           <thead>
             <tr>

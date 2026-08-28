@@ -4,6 +4,7 @@ import { getProgramByKey, getApplicantsForProgram } from "@/lib/admin-data";
 import { promoteApplicant, demoteApplicant } from "@/lib/actions/admin";
 import { APPLICANT_PHASES } from "@/lib/steps";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { PhaseLegend } from "@/components/phase-legend";
 
 export default async function QueuePage({
   params,
@@ -53,6 +54,8 @@ export default async function QueuePage({
         <button type="submit" className="btn btn-secondary">Search</button>
         <span className="text-muted" style={{ fontSize: 12, marginLeft: "auto" }}>{filtered.length} applicants</span>
       </form>
+
+      <PhaseLegend />
 
       <div className="table-scroll">
         <table className="table" aria-label={`Applicants for ${program.name}`}>
