@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProgramByKey, getCohortsForProgram, getApplicantsForProgram } from "@/lib/admin-data";
+import { getProgramByKey, getCohortsForProgram, getApplicantsForProgram, getPipelineStats } from "@/lib/admin-data";
 import { PIPELINE_STAGES } from "@/lib/steps";
 import { setActiveBatch, toggleCohortFlag } from "@/lib/actions/admin";
 import { ActiveBatchSelect } from "./active-batch-select";
@@ -10,7 +10,11 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [cohorts, applicants] = await Promise.all([getCohortsForProgram(program.id), getApplicantsForProgram(program.id)]);
+  const [cohorts, applicants, pipelineStats] = await Promise.all([
+    getCohortsForProgram(program.id),
+    getApplicantsForProgram(program.id),
+    getPipelineStats(program.id),
+  ]);
   const activeCohort = cohorts.find((c) => c.status === "active");
   const needsReview = applicants.filter((a) => a.status === "review").length;
   const decided = applicants.filter((a) => a.status === "decided").length;
@@ -80,7 +84,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
               <div key={stg.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderTop: "1px solid var(--color-divider)" }}>
                 <div>
                   <div style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>{stg.label}</div>
-                  <div style={{ font: "800 20px var(--font-heading)", color: "var(--color-accent-700)" }}>{program[stg.key]}</div>
+                  <div style={{ font: "800 20px var(--font-heading)", color: "var(--color-accent-700)" }}>{pipelineStats[stg.key]}</div>
                   {stg.hint && <div className="text-muted" style={{ fontSize: 11 }}>{stg.hint}</div>}
                 </div>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.5 }}>

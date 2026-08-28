@@ -26,15 +26,6 @@ model Program {
   photoUrl      String?
   order         Int      @default(0)
 
-  // Population-level pipeline KPIs shown on the admin Dashboard's "Applicants" card.
-  // These describe program-wide funnel volume (incl. everyone who merely signed up),
-  // which is a different, coarser data source than the individual Applicant roster below.
-  signedUpCount        Int @default(0)
-  applicationCount     Int @default(0)
-  submittedCount       Int @default(0)
-  paperScreeningCount  Int @default(0)
-  panelInterviewCount  Int @default(0)
-
   cohorts      Cohort[]
   applications Application[]
   applicants   Applicant[]

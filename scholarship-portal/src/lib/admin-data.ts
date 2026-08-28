@@ -126,6 +126,39 @@ export async function getApplicant(applicantId: number) {
   });
 }
 
+// Real funnel counts for the Dashboard's "Applicants" card — drawn from the actual
+// Student/Application signup flow, not the separate Applicant admin/screener roster
+// (which has no link to Student — see getApplicantsForProgram above). Paper screening
+// is the one exception: that stage genuinely only exists on the Applicant roster, so it's
+// a real number, just from a different set of people than the rows above it. There's no
+// interview-scheduling feature anywhere in the app, so Panel interview stays at 0.
+export async function getPipelineStats(programId: number) {
+  const [totalStudents, applications, paperScreeningCount] = await Promise.all([
+    db.student.count(),
+    db.application.findMany({ where: { programId }, select: { status: true, studentId: true } }),
+    db.applicant.count({
+      where: { programId, status: "review", screenerAssignments: { some: {} } },
+    }),
+  ]);
+
+  // ensureApplication (student-data.ts) creates the row already at "in_progress" the
+  // moment someone clicks Start — there's no persisted "not_started" row — so having any
+  // Application row for this program is exactly what "has started" means.
+  const startedStudentIds = new Set(applications.map((a) => a.studentId));
+  const applicationCount = applications.filter((a) => a.status === "in_progress").length;
+  const submittedCount = applications.filter(
+    (a) => a.status === "submitted" || a.status === "awarded" || a.status === "declined"
+  ).length;
+
+  return {
+    signedUpCount: Math.max(totalStudents - startedStudentIds.size, 0),
+    applicationCount,
+    submittedCount,
+    paperScreeningCount,
+    panelInterviewCount: 0,
+  };
+}
+
 export async function getFieldsConfig(programId: number) {
   const rows = await db.fieldConfig.findMany({ where: { programId }, orderBy: [{ step: "asc" }, { order: "asc" }] });
   const byStep = new Map<string, typeof rows>();

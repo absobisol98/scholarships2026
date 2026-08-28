@@ -125,11 +125,6 @@ async function main() {
       tagsJson: JSON.stringify(["Merit", "STEM majors"]),
       formKind: "standard",
       order: 1,
-      signedUpCount: 128,
-      applicationCount: 62,
-      submittedCount: 40,
-      paperScreeningCount: 0,
-      panelInterviewCount: 0,
     },
   });
 
@@ -144,11 +139,6 @@ async function main() {
       tagsJson: JSON.stringify(["Need-based", "First-gen"]),
       formKind: "generika",
       order: 2,
-      signedUpCount: 74,
-      applicationCount: 30,
-      submittedCount: 18,
-      paperScreeningCount: 0,
-      panelInterviewCount: 0,
     },
   });
 
@@ -163,11 +153,6 @@ async function main() {
       tagsJson: JSON.stringify(["Merit", "Service record"]),
       formKind: "standard",
       order: 3,
-      signedUpCount: 60,
-      applicationCount: 22,
-      submittedCount: 14,
-      paperScreeningCount: 0,
-      panelInterviewCount: 0,
     },
   });
 
