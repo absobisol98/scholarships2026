@@ -6,6 +6,7 @@ import { saveStepAndContinue, goPrevStep, saveDraft, submitApplication } from "@
 import { StepForm } from "./step-form";
 import { FamilyMembersEditor } from "./family-members-editor";
 import { EssayField } from "./essay-field";
+import { ReadOnlyApplicationView } from "./read-only-view";
 
 const CONTINUE_LABELS_STANDARD = [
   "Continue to family information",
@@ -33,6 +34,7 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
   if (!program) notFound();
 
   const student = await getCurrentStudent();
+  const isGenerika = program.formKind === "generika";
 
   // The program's active cohort controls whether new applicants can start applying
   // (signupsOpen), whether an applicant already in this cycle can still get in
@@ -55,26 +57,31 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
     }
     if (existingApplication && existingApplication.cohortId === activeCohort.id && !activeCohort.loginsOpen) {
       return (
-        <div className="card">
-          <p className="card-body" style={{ margin: 0 }}>
-            Access to {program.name}&apos;s application is temporarily closed. Please check back later.
-          </p>
-        </div>
+        <>
+          <div className="card">
+            <p className="card-body" style={{ margin: 0 }}>
+              Access to {program.name}&apos;s application is temporarily closed. Please check back later. You can still review what you submitted below.
+            </p>
+          </div>
+          <ReadOnlyApplicationView application={existingApplication} isGenerika={isGenerika} />
+        </>
       );
     }
     if (existingApplication && existingApplication.cohortId !== activeCohort.id && !activeCohort.oldAccountsCanLogin) {
       return (
-        <div className="card">
-          <p className="card-body" style={{ margin: 0 }}>
-            This application is from a previous {program.name} cycle that&apos;s no longer accessible.
-          </p>
-        </div>
+        <>
+          <div className="card">
+            <p className="card-body" style={{ margin: 0 }}>
+              This application is from a previous {program.name} cycle that&apos;s no longer accessible for changes. You can still review what you submitted below.
+            </p>
+          </div>
+          <ReadOnlyApplicationView application={existingApplication} isGenerika={isGenerika} />
+        </>
       );
     }
   }
 
   const application = await ensureApplication(student, program.id);
-  const isGenerika = program.formKind === "generika";
   const step = application.formStep;
   const labels = isGenerika ? GENERIKA_STEP_LABELS : FORM_STEP_LABELS;
   const stepDots = buildSteps(step, labels);
@@ -88,11 +95,14 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
 
   if (application.status === "submitted" || application.status === "awarded" || application.status === "declined") {
     return (
-      <div className="card">
-        <p className="card-body" style={{ margin: 0 }}>
-          This application was already submitted{application.submittedDate ? ` on ${application.submittedDate}` : ""}. You can no longer make changes — check the Status tab for updates.
-        </p>
-      </div>
+      <>
+        <div className="card">
+          <p className="card-body" style={{ margin: 0 }}>
+            This application was already submitted{application.submittedDate ? ` on ${application.submittedDate}` : ""}. You can no longer make changes — check the Status tab for updates.
+          </p>
+        </div>
+        <ReadOnlyApplicationView application={application} isGenerika={isGenerika} />
+      </>
     );
   }
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
 import { getProgramByKey, getApplicant, getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { db } from "@/lib/db";
-import { overrideFlag, clearFlagOverride, setApplicantDecision } from "@/lib/actions/decisions";
+import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment } from "@/lib/actions/decisions";
 import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 
@@ -166,23 +166,70 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: 8 }}>
             {Array.from(scoresByScreener.entries()).map(([screenerId, { name, scores }]) => {
               const rec = recommendations.find((r) => r.screenerId === screenerId);
-              return (
-                <div key={screenerId} style={{ paddingBottom: 10, borderBottom: "1px solid var(--color-divider)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>{name}</span>
-                    {rec && (
-                      <span className={`tag ${rec.decision === "recommend" ? "tag-accent" : "tag-neutral"}`}>
-                        {rec.decision === "recommend" ? "Recommended" : "Not recommended"}
-                      </span>
-                    )}
+
+              if (!isSuperAdmin) {
+                return (
+                  <div key={screenerId} style={{ paddingBottom: 10, borderBottom: "1px solid var(--color-divider)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{name}</span>
+                      {rec && (
+                        <span className={`tag ${rec.decision === "recommend" ? "tag-accent" : "tag-neutral"}`}>
+                          {rec.decision === "recommend" ? "Recommended" : "Not recommended"}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 6, fontSize: 12 }}>
+                      {RUBRIC_CRITERIA.map((c) => (
+                        <span key={c.key} className="text-muted">{c.label}: <b style={{ color: "var(--color-text)" }}>{scores[c.key] ?? "—"}</b></span>
+                      ))}
+                    </div>
+                    {rec?.comment && <p style={{ fontSize: 13, marginTop: 6, marginBottom: 0, opacity: 0.85 }}>{rec.comment}</p>}
                   </div>
-                  <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 6, fontSize: 12 }}>
+                );
+              }
+
+              // Super Admin can edit any screener's assessment on their behalf — the
+              // screener's own edit access locks once this applicant moves past Paper
+              // Screening. Changes here are attributed to the original screener but
+              // recorded in the Audit Log so there's a trail of who actually made them.
+              const onOverrideAssessment = overrideAssessment.bind(null, program.key, applicant.id, screenerId);
+              return (
+                <form key={screenerId} action={onOverrideAssessment} style={{ paddingBottom: 12, borderBottom: "1px solid var(--color-divider)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{name} <span className="text-muted" style={{ fontWeight: 400 }}>(editing on their behalf)</span></span>
+                    <button type="submit" className="btn btn-ghost" style={{ padding: "2px 10px", fontSize: 12 }}>Save</button>
+                  </div>
+                  <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
                     {RUBRIC_CRITERIA.map((c) => (
-                      <span key={c.key} className="text-muted">{c.label}: <b style={{ color: "var(--color-text)" }}>{scores[c.key] ?? "—"}</b></span>
+                      <div key={c.key} className="field" style={{ marginBottom: 0, minWidth: 160 }}>
+                        <label htmlFor={`score_${screenerId}_${c.key}`} style={{ fontSize: 12 }}>{c.label}</label>
+                        <select id={`score_${screenerId}_${c.key}`} name={`score_${c.key}`} className="input" defaultValue={scores[c.key]?.toString() ?? ""}>
+                          <option value="">Not yet scored</option>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                      </div>
                     ))}
                   </div>
-                  {rec?.comment && <p style={{ fontSize: 13, marginTop: 6, marginBottom: 0, opacity: 0.85 }}>{rec.comment}</p>}
-                </div>
+                  <div className="field" style={{ marginTop: 8, marginBottom: 0 }}>
+                    <label style={{ fontSize: 12 }}>Recommendation</label>
+                    <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400, fontSize: 13 }}>
+                        <input type="radio" name="decision" value="recommend" defaultChecked={rec?.decision === "recommend"} />
+                        Recommend
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400, fontSize: 13 }}>
+                        <input type="radio" name="decision" value="not_recommend" defaultChecked={rec?.decision === "not_recommend"} />
+                        Do not recommend
+                      </label>
+                    </div>
+                  </div>
+                  <div className="field" style={{ marginTop: 8, marginBottom: 0 }}>
+                    <label htmlFor={`comment_${screenerId}`} style={{ fontSize: 12 }}>Comments</label>
+                    <textarea id={`comment_${screenerId}`} name="comment" className="input" rows={2} defaultValue={rec?.comment ?? ""} />
+                  </div>
+                </form>
               );
             })}
           </div>

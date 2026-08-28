@@ -4,39 +4,26 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentStaff } from "@/lib/auth";
-import { RUBRIC_CRITERIA } from "@/lib/rubric";
-
-function str(fd: FormData, name: string): string {
-  const v = fd.get(name);
-  return typeof v === "string" ? v : "";
-}
+import { applyAssessment } from "@/lib/assessment";
+import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 
 export async function saveAssessment(applicantId: number, fd: FormData) {
   const screener = await getCurrentStaff("screener");
 
-  const assigned = await db.applicantAssignment.findFirst({ where: { screenerId: screener.id, applicantId } });
+  const assigned = await db.applicantAssignment.findFirst({
+    where: { screenerId: screener.id, applicantId },
+    include: { applicant: true },
+  });
   if (!assigned) return;
 
-  for (const { key } of RUBRIC_CRITERIA) {
-    const raw = str(fd, `score_${key}`);
-    if (!raw) continue;
-    const score = Math.min(5, Math.max(1, Number(raw)));
-    await db.rubricScore.upsert({
-      where: { applicantId_screenerId_criterionKey: { applicantId, screenerId: screener.id, criterionKey: key } },
-      update: { score },
-      create: { applicantId, screenerId: screener.id, criterionKey: key, score },
-    });
+  // Once an applicant has moved past Paper Screening, the assessment that got them there
+  // is locked — an Admin/Super Admin may already be relying on it. A Super Admin can still
+  // edit it on the applicant's behalf via overrideAssessment (logged to the Audit Log).
+  if (assigned.applicant.phaseIndex > PAPER_SCREENING_PHASE_INDEX) {
+    redirect(`/screener/${applicantId}?error=locked`);
   }
 
-  const decision = str(fd, "decision");
-  if (decision === "recommend" || decision === "not_recommend") {
-    const comment = str(fd, "comment").trim();
-    await db.recommendation.upsert({
-      where: { applicantId_screenerId: { applicantId, screenerId: screener.id } },
-      update: { decision, comment },
-      create: { applicantId, screenerId: screener.id, decision, comment },
-    });
-  }
+  await applyAssessment(applicantId, screener.id, fd);
 
   revalidatePath(`/screener/${applicantId}`);
   revalidatePath("/screener");

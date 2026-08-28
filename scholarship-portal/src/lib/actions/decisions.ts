@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentStaff } from "@/lib/auth";
 import { logAudit } from "@/lib/actions/staff";
+import { applyAssessment } from "@/lib/assessment";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -38,6 +39,20 @@ const DECISION_LABELS: Record<string, string> = {
   waitlisted: "Waitlisted",
   declined: "Declined",
 };
+
+// Lets a Super Admin edit a Paper Screener's scores/recommendation on their behalf — the
+// screener's own saveAssessment locks once the applicant moves past Paper Screening, so
+// this is the only remaining path to correct an assessment after that point. Attributed
+// to the original screener (same rows, same screenerId) but logged here so there's a
+// visible trail of who actually made the change.
+export async function overrideAssessment(programKey: string, applicantId: number, screenerId: string, fd: FormData) {
+  const screener = await db.staffAccount.findUniqueOrThrow({ where: { id: screenerId } });
+  await applyAssessment(applicantId, screenerId, fd);
+
+  const applicant = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
+  await logAudit(`Edited ${screener.name}'s Paper Screener assessment for ${applicant.name} on their behalf`, applicant.programId);
+  revalidatePath(`/admin/${programKey}/queue/${applicantId}`);
+}
 
 export async function setApplicantDecision(programKey: string, applicantId: number, fd: FormData) {
   const decision = str(fd, "decision");

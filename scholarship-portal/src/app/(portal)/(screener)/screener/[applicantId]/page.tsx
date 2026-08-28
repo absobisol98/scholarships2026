@@ -5,18 +5,19 @@ import { db } from "@/lib/db";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { saveAssessment } from "@/lib/actions/screener";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
+import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 
 export default async function ScreenerApplicantPage({
   params,
   searchParams,
 }: {
   params: Promise<{ applicantId: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   await requireScreener();
   const screener = await getCurrentStaff("screener");
   const { applicantId } = await params;
-  const { saved } = await searchParams;
+  const { saved, error } = await searchParams;
   const id = Number(applicantId);
 
   const assignment = await db.applicantAssignment.findFirst({ where: { screenerId: screener.id, applicantId: id } });
@@ -33,6 +34,7 @@ export default async function ScreenerApplicantPage({
   const flags = evaluateCriteria(applicant, activeCohort);
   const scoreByKey = new Map(scores.map((s) => [s.criterionKey, s.score]));
   const attachments: string[] = JSON.parse(applicant.attachmentsJson);
+  const isLocked = applicant.phaseIndex > PAPER_SCREENING_PHASE_INDEX;
 
   const onSave = saveAssessment.bind(null, id);
 
@@ -44,6 +46,14 @@ export default async function ScreenerApplicantPage({
         {saved === "1" && (
           <div className="card" role="status" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-100)" }}>
             <p className="card-body" style={{ margin: 0, color: "var(--color-accent-800)" }}>Assessment saved.</p>
+          </div>
+        )}
+
+        {error === "locked" && (
+          <div className="card" role="alert" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-2-100)" }}>
+            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>
+              This applicant has moved past Paper Screening, so your assessment is now locked. Contact a Super Admin if it needs to change.
+            </p>
           </div>
         )}
 
@@ -105,12 +115,15 @@ export default async function ScreenerApplicantPage({
         )}
 
         <form action={onSave} className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">Your assessment</div>
+          <div className="card-kicker">
+            Your assessment
+            {isLocked && <span className="text-muted" style={{ fontWeight: 400 }}> — locked (applicant has moved past Paper Screening)</span>}
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: 8 }}>
             {RUBRIC_CRITERIA.map((c) => (
               <div key={c.key} className="field" style={{ marginBottom: 0 }}>
                 <label htmlFor={`score_${c.key}`}>{c.label} <span className="text-muted">(1 = lowest, 5 = highest)</span></label>
-                <select id={`score_${c.key}`} name={`score_${c.key}`} className="input" defaultValue={scoreByKey.get(c.key)?.toString() ?? ""}>
+                <select id={`score_${c.key}`} name={`score_${c.key}`} className="input" defaultValue={scoreByKey.get(c.key)?.toString() ?? ""} disabled={isLocked}>
                   <option value="">Not yet scored</option>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>{n}</option>
@@ -123,11 +136,11 @@ export default async function ScreenerApplicantPage({
               <label>Recommendation</label>
               <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 4 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
-                  <input type="radio" name="decision" value="recommend" defaultChecked={recommendation?.decision === "recommend"} />
+                  <input type="radio" name="decision" value="recommend" defaultChecked={recommendation?.decision === "recommend"} disabled={isLocked} />
                   Recommend
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
-                  <input type="radio" name="decision" value="not_recommend" defaultChecked={recommendation?.decision === "not_recommend"} />
+                  <input type="radio" name="decision" value="not_recommend" defaultChecked={recommendation?.decision === "not_recommend"} disabled={isLocked} />
                   Do not recommend
                 </label>
               </div>
@@ -135,10 +148,10 @@ export default async function ScreenerApplicantPage({
 
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor="comment">Comments</label>
-              <textarea id="comment" name="comment" className="input" rows={4} defaultValue={recommendation?.comment ?? ""} placeholder="Notes for the Admin and Super Admin reviewing this applicant..." />
+              <textarea id="comment" name="comment" className="input" rows={4} defaultValue={recommendation?.comment ?? ""} placeholder="Notes for the Admin and Super Admin reviewing this applicant..." disabled={isLocked} />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>Save assessment</button>
+            {!isLocked && <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>Save assessment</button>}
           </div>
         </form>
       </div>
