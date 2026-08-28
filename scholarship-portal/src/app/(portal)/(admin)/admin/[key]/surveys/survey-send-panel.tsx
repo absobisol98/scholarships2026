@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
 
 type Recipient = { id: number; name: string; alreadySent: boolean };
 
@@ -31,14 +33,14 @@ export function SurveySendPanel({
       </div>
 
       {mode === "group" ? (
-        <button
+        <Button
           type="button"
-          className="btn btn-primary"
+          variant="primary"
           disabled={isPending || recipients.length === 0}
           onClick={() => startTransition(() => sendToIds(recipients.map((r) => r.id)))}
         >
           Send to all awarded ({recipients.length})
-        </button>
+        </Button>
       ) : (
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: "var(--space-3)" }}>
@@ -51,18 +53,18 @@ export function SurveySendPanel({
                   style={{ accentColor: "var(--color-accent)" }}
                 />
                 {rc.name}
-                {rc.alreadySent && <span className="tag tag-neutral" style={{ marginLeft: "auto" }}>Already sent</span>}
+                {rc.alreadySent && <Tag variant="neutral" style={{ marginLeft: "auto" }}>Already sent</Tag>}
               </label>
             ))}
           </div>
-          <button
+          <Button
             type="button"
-            className="btn btn-primary"
+            variant="primary"
             disabled={isPending || selected.length === 0}
             onClick={() => startTransition(async () => { await sendToIds(selected); setSelected([]); })}
           >
             Send to selected ({selected.length})
-          </button>
+          </Button>
         </>
       )}
     </div>
