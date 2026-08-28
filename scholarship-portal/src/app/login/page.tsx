@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, homeForRole } from "@/lib/auth";
-import { loginAsAdmin, loginAsScreener, loginAsStudent, loginAsSuperAdmin, loginWithEmail } from "./actions";
+import { loginAsStudent, loginWithEmail } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   admin_deactivated: "This Program Admin account has been deactivated by a Super Admin.",
@@ -85,30 +85,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </button>
           </form>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "var(--space-2) 0" }}>
-            <span style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
-            <span className="text-muted" style={{ fontSize: 11 }}>STAFF LOGIN</span>
-            <span style={{ flex: 1, height: 1, background: "var(--color-divider)" }} />
-          </div>
-
-          <form action={loginAsAdmin}>
-            <button type="submit" className="btn btn-secondary btn-block">
-              Log in as program admin
-            </button>
-          </form>
-          <form action={loginAsScreener}>
-            <button type="submit" className="btn btn-secondary btn-block">
-              Log in as paper screener
-            </button>
-          </form>
-          <form action={loginAsSuperAdmin}>
-            <button type="submit" className="btn btn-secondary btn-block">
-              Log in as super admin
-            </button>
-          </form>
-
           <p className="text-muted" style={{ fontSize: 11, textAlign: "center", margin: 0 }}>
-            Demo/staff logins — no real credentials required.
+            Staff: log in above with your email — no separate staff login needed.
           </p>
         </div>
       </div>

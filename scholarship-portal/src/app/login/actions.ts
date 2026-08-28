@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { SESSION_COOKIE, type Role } from "@/lib/session";
-import { loginAs, getDemoStudent, getDemoStaff, initialsFor } from "@/lib/auth";
+import { loginAs, getDemoStudent, initialsFor } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -70,24 +70,6 @@ export async function signUpAsStudent(fd: FormData) {
     throw error;
   }
   await loginAs("student", created.id);
-}
-
-export async function loginAsAdmin() {
-  const staff = await getDemoStaff("admin");
-  if (!staff.active) redirect("/login?error=admin_deactivated");
-  await loginAs("admin", undefined, staff.id);
-}
-
-export async function loginAsSuperAdmin() {
-  const staff = await getDemoStaff("super_admin");
-  if (!staff.active) redirect("/login?error=super_admin_deactivated");
-  await loginAs("super_admin", undefined, staff.id);
-}
-
-export async function loginAsScreener() {
-  const staff = await getDemoStaff("screener");
-  if (!staff.active) redirect("/login?error=screener_deactivated");
-  await loginAs("screener", undefined, staff.id);
 }
 
 export async function logout() {
