@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { Card, CardKicker, CardBody } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export function DocumentsCard() {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className="card elev-sm" style={{ flex: 2, justifyContent: "flex-start", gap: 2 }}>
-      <div className="card-kicker" style={{ fontSize: 15 }}><b>Documents to prepare</b></div>
-      <p className="card-body" style={{ margin: 0 }}>Applicants must prepare a digital copy of the required documents</p>
-      <button type="button" className="btn btn-ghost" style={{ paddingInline: 0, paddingBlock: 0, alignSelf: "flex-start", marginTop: 2 }} onClick={() => setExpanded((v) => !v)}>
+    <Card elevation="sm" style={{ flex: 2, justifyContent: "flex-start", gap: 2 }}>
+      <CardKicker style={{ fontSize: 15 }}><b>Documents to prepare</b></CardKicker>
+      <CardBody>Applicants must prepare a digital copy of the required documents</CardBody>
+      <Button type="button" variant="ghost" style={{ paddingInline: 0, paddingBlock: 0, alignSelf: "flex-start", marginTop: 2 }} onClick={() => setExpanded((v) => !v)}>
         {expanded ? "Show less" : "View list of documents"}
-      </button>
+      </Button>
 
       {expanded && (
         <>
@@ -36,6 +38,6 @@ export function DocumentsCard() {
           </p>
         </>
       )}
-    </div>
+    </Card>
   );
 }
