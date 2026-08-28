@@ -1,6 +1,7 @@
 // Scholarship Portal — data model.
-// SQLite via Prisma. Enums aren't supported on the sqlite connector, so
-// status/kind fields are plain strings with allowed values enforced in code.
+// Postgres via Prisma. status/kind fields are plain strings (not native enums) with
+// allowed values enforced in code — carried over from this schema's SQLite origins,
+// where enums weren't supported; kept as-is on Postgres to avoid a separate refactor.
 
 generator client {
   provider = "prisma-client-js"
@@ -8,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
