@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentStaff } from "@/lib/auth";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
@@ -39,4 +40,5 @@ export async function saveAssessment(applicantId: number, fd: FormData) {
 
   revalidatePath(`/screener/${applicantId}`);
   revalidatePath("/screener");
+  redirect(`/screener/${applicantId}?saved=1`);
 }

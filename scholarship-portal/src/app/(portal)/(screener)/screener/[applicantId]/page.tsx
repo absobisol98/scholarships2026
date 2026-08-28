@@ -6,10 +6,17 @@ import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data"
 import { saveAssessment } from "@/lib/actions/screener";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 
-export default async function ScreenerApplicantPage({ params }: { params: Promise<{ applicantId: string }> }) {
+export default async function ScreenerApplicantPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ applicantId: string }>;
+  searchParams: Promise<{ saved?: string }>;
+}) {
   await requireScreener();
   const screener = await getCurrentStaff("screener");
   const { applicantId } = await params;
+  const { saved } = await searchParams;
   const id = Number(applicantId);
 
   const assignment = await db.applicantAssignment.findFirst({ where: { screenerId: screener.id, applicantId: id } });
@@ -33,6 +40,13 @@ export default async function ScreenerApplicantPage({ params }: { params: Promis
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
         <Link href="/screener" style={{ fontSize: 12, fontWeight: 600, textDecoration: "none" }}>← Back to my applicants</Link>
+
+        {saved === "1" && (
+          <div className="card" role="status" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-100)" }}>
+            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-800)" }}>Assessment saved.</p>
+          </div>
+        )}
+
         <h6 style={{ color: "var(--color-accent)", marginTop: "var(--space-3)" }}>Paper Screener · {applicant.program.name}</h6>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
           <div>
