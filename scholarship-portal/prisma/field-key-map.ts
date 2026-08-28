@@ -8,6 +8,10 @@ export const LABEL_TO_FIELD_KEY: Record<string, Record<string, string>> = {
     "Email": "email",
     "Phone": "phone",
     "Mailing address": "address",
+    "Nationality": "nationality",
+    "Sex": "sex",
+    "Year level": "yearLevel",
+    "Institution type": "institutionType",
   },
   family: {
     "Parent / guardian name": "guardianName",

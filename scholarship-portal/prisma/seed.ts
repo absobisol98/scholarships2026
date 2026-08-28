@@ -52,7 +52,7 @@ function generikaCriteria() {
 }
 
 const DEFAULT_FIELDS_BY_STEP: Record<string, string[]> = {
-  personal: ["Full name", "Date of birth", "Email", "Phone", "Mailing address"],
+  personal: ["Full name", "Date of birth", "Email", "Phone", "Mailing address", "Nationality", "Sex", "Year level", "Institution type"],
   family: ["Parent / guardian name", "Parent / guardian occupation", "Household annual income", "Number of dependents"],
   academic: ["School name", "GPA", "Expected graduation", "Intended major", "Certificate of school registration", "Introduction video"],
   leadership: ["Leadership role / title", "Organization", "Duration", "People led / team size", "Description of leadership experience"],
@@ -73,12 +73,42 @@ const PARAGRAPH_FIELDS = new Set([
   "Personal statement essay",
   "Why this scholarship matters to your goals",
 ]);
+const DROPDOWN_FIELDS = new Set(["Nationality", "Sex", "Year level", "Institution type"]);
 
 function fieldTypeFor(label: string): string {
   if (NUMBER_FIELDS.has(label)) return "number";
   if (PARAGRAPH_FIELDS.has(label)) return "paragraph";
+  if (DROPDOWN_FIELDS.has(label)) return "dropdown";
   return "text";
 }
+
+// Nationality/Sex/Year level/Institution type feed straight into the eligibility check
+// (evaluateCriteria in src/lib/admin-data.ts), which does an exact string match against
+// each program's own Criterion.value — so each program's dropdown options must include
+// that program's actual criterion values verbatim, or every applicant would fail a check
+// they can't possibly satisfy through the UI. This coupling (Fields vs. Criteria, two
+// separate admin screens) is manual — an admin changing a criterion's value on the
+// Criteria page needs to update the matching Manage Fields dropdown option too.
+const ELIGIBILITY_OPTIONS_BY_PROGRAM: Record<string, Record<string, string[]>> = {
+  ugo: {
+    Nationality: ["Filipino", "Foreign"],
+    Sex: ["Female", "Male"],
+    "Year level": ["Incoming 1st–3rd year (4th year only if 5-year course); not graduating in SY 2026–2027", "4th year, graduating in SY 2026–2027"],
+    "Institution type": ["Public or state university/college", "Private university/college"],
+  },
+  generika: {
+    Nationality: ["Filipino", "Foreign"],
+    Sex: ["Female", "Male"],
+    "Year level": ["3rd Year (SY 2026–2027)", "2nd Year (SY 2026–2027)", "4th Year (SY 2026–2027)"],
+    "Institution type": ["Public or state university/college", "Private university/college"],
+  },
+  eo: {
+    Nationality: ["Filipino", "Foreign"],
+    Sex: ["Female", "Male"],
+    "Year level": ["Grade 11 or higher", "Grade 10 or below"],
+    "Institution type": ["Public school", "Private school"],
+  },
+};
 
 const SURVEY_QUESTIONS = {
   midYear: [
@@ -191,10 +221,14 @@ async function main() {
           programId: program.id,
           step,
           label,
-          required: i < 2,
+          // The eligibility-check fields must be required — evaluateCriteria only flags a
+          // *wrong* answer, not a *missing* one, so an optional field an applicant skips
+          // would silently bypass the check it exists to run.
+          required: DROPDOWN_FIELDS.has(label) ? true : i < 2,
           enabled: true,
           order: i,
           fieldType: fieldTypeFor(label),
+          optionsJson: JSON.stringify(ELIGIBILITY_OPTIONS_BY_PROGRAM[key]?.[label] ?? []),
           fieldKey: LABEL_TO_FIELD_KEY[step]?.[label] ?? null,
         })),
       });

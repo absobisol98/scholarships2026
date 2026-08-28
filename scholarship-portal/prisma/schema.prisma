@@ -120,6 +120,21 @@ model Application {
   phone    String @default("")
   address  String @default("")
 
+  // Eligibility-relevant demographic fields — checked against the active Cohort's
+  // Criterion rows (see evaluateCriteria in src/lib/admin-data.ts) right after the
+  // Personal step is saved, so an ineligible applicant is stopped early rather than at
+  // final submission.
+  nationality     String @default("")
+  sex             String @default("")
+  yearLevel       String @default("")
+  institutionType String @default("")
+
+  // Automated duplicate-applicant screening (see src/lib/duplicate-check.ts) — set when a
+  // fuzzy (not exact) name+DOB match against another Application in the same program is
+  // found. An exact match is blocked outright rather than flagged.
+  duplicateFlag       Boolean @default(false)
+  duplicateFlagReason String?
+
   // Family
   guardianName String @default("")
   guardianOcc  String @default("")
@@ -170,6 +185,7 @@ model Application {
 
   @@unique([studentId, programId])
   @@index([programId, status])
+  @@index([programId, dob])
 }
 
 // Repeatable family-member rows (Generika's "add as many as relevant").

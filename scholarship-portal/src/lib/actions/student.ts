@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { getCurrentStudent } from "@/lib/auth";
 import { formatDateLong } from "@/lib/date";
 import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
+import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
+import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -96,6 +98,74 @@ async function saveFamilyMembers(applicationId: number, fd: FormData) {
   if (rows.length) await db.familyMember.createMany({ data: rows });
 }
 
+// Duplicate-applicant + eligibility screening, run once the Personal step's fullName/dob
+// and demographic fields are known — before anything is saved, so a block never writes
+// data. Only runs on the forward-progressing "Continue" action (saveStepAndContinue), not
+// "Save and continue later" — a draft is meant to tolerate incompleteness; this is a
+// different kind of concern (this applicant shouldn't be applying at all).
+async function checkDuplicateAndEligibility(programId: number, programKey: string, application: { studentId: number }, data: Record<string, unknown>) {
+  const dob = (data.dob as string) ?? "";
+  const newName = normalizeName((data.fullName as string) ?? "");
+  if (newName && dob) {
+    // Same program, same date of birth, a different account — narrowed to an indexed,
+    // exact (programId, dob) match before any per-row name comparison, so this stays
+    // cheap regardless of how many applicants a program has.
+    const candidates = await db.application.findMany({
+      where: { programId, dob, studentId: { not: application.studentId } },
+      select: { fullName: true },
+    });
+    for (const c of candidates) {
+      const existingName = normalizeName(c.fullName);
+      if (existingName === newName) {
+        await db.auditLogEntry.create({
+          data: { actor: "System", action: `Blocked duplicate application: "${data.fullName}" (DOB ${dob}) already applied to this program`, programId },
+        });
+        redirect(`/programs/${programKey}/application?error=duplicate_applicant`);
+      }
+      const similarity = nameSimilarity(existingName, newName);
+      if (similarity >= 0.9) {
+        data.duplicateFlag = true;
+        data.duplicateFlagReason = `${Math.round(similarity * 100)}% name match with an existing application (same date of birth)`;
+        await db.auditLogEntry.create({
+          data: { actor: "System", action: `Flagged possible duplicate: "${data.fullName}" (DOB ${dob}) — ${data.duplicateFlagReason}`, programId },
+        });
+        break; // one flag is enough context — no need to compare against every near-match
+      }
+    }
+  }
+
+  const activeCohort = await getActiveCohortWithCriteria(programId);
+  const flags = evaluateCriteria(
+    {
+      nationality: (data.nationality as string) ?? "",
+      sex: (data.sex as string) ?? "",
+      yearLevel: (data.yearLevel as string) ?? "",
+      institutionType: (data.institutionType as string) ?? "",
+      gwa: 0,
+    },
+    activeCohort,
+    { skipGwa: true }
+  );
+  if (flags.length > 0) {
+    await db.auditLogEntry.create({ data: { actor: "System", action: `Blocked ineligible application: ${flags.join("; ")}`, programId } });
+    redirect(`/programs/${programKey}/application?error=ineligible`);
+  }
+}
+
+// GWA lives on the Academic step (school/gpa), so its eligibility check runs a step later
+// than the rest — the applicant is stopped as soon as the relevant data exists, not held
+// until final submission.
+async function checkGwaEligibility(programId: number, programKey: string, data: Record<string, unknown>) {
+  const gwa = Number(data.gpa);
+  if (Number.isNaN(gwa)) return; // can't evaluate unparseable data — don't block on it
+  const activeCohort = await getActiveCohortWithCriteria(programId);
+  const flags = evaluateCriteria({ nationality: "", sex: "", yearLevel: "", institutionType: "", gwa }, activeCohort, { onlyGwa: true });
+  if (flags.length > 0) {
+    await db.auditLogEntry.create({ data: { actor: "System", action: `Blocked ineligible application: ${flags.join("; ")}`, programId } });
+    redirect(`/programs/${programKey}/application?error=ineligible`);
+  }
+}
+
 export async function saveStepAndContinue(programKey: string, step: number, fd: FormData) {
   const { program, application } = await getProgramAndApp(programKey);
   const isGenerika = program.formKind === "generika";
@@ -109,6 +179,8 @@ export async function saveStepAndContinue(programKey: string, step: number, fd: 
 
   const data = await buildStepData(program.id, stepName, fd, application);
   if (stepName === "family" && isGenerika) await saveFamilyMembers(application.id, fd);
+  if (stepName === "personal") await checkDuplicateAndEligibility(program.id, programKey, application, data);
+  if (stepName === "academic") await checkGwaEligibility(program.id, programKey, data);
   if (step < STEP_DONE_FLAGS.length) data[STEP_DONE_FLAGS[step]] = true;
 
   await db.application.update({

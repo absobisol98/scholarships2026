@@ -27,7 +27,8 @@ export function parseRegionMap(value: string): Record<string, string[]> {
 
 export function evaluateCriteria(
   applicant: { nationality: string; sex: string; yearLevel: string; institutionType: string; gwa: number },
-  cohort: CriteriaFlagCohort | null | undefined
+  cohort: CriteriaFlagCohort | null | undefined,
+  opts?: { skipGwa?: boolean; onlyGwa?: boolean }
 ): string[] {
   if (!cohort) return [];
   const flags: string[] = [];
@@ -40,9 +41,11 @@ export function evaluateCriteria(
   for (const c of cohort.criteria) {
     if (!c.enabled) continue;
     if (c.type === "gte") {
+      if (opts?.skipGwa) continue;
       const threshold = Number(c.value);
       if (applicant.gwa < threshold) flags.push(`GWA ${applicant.gwa}% — below ${threshold}% threshold`);
     } else if (c.type === "equals" && c.value !== "Any") {
+      if (opts?.onlyGwa) continue;
       const field = fieldByKey[c.key];
       if (field && applicant[field] && applicant[field] !== c.value) {
         flags.push(`${c.label}: ${applicant[field]} — requires ${c.value}`);
