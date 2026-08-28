@@ -220,6 +220,15 @@ textarea.input { min-height: 90px; resize: vertical; }
 .btn-demote { background: #fdecc4; color: #8a6100; }
 .btn-demote:hover:not(:disabled) { background: #fbe1a4; }
 
+.field-group-row { background: var(--color-neutral-200); padding: 10px var(--space-2) !important; }
+.field-group-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: inherit; font: inherit; font-weight: 700; font-size: 13px; padding: 0; }
+.field-group-toggle svg { transition: transform 0.15s ease; flex: none; }
+.link-edit, .link-delete { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; padding: 0; }
+.link-edit { color: var(--color-accent-2-600); }
+.link-edit:hover { color: var(--color-accent-2-700); text-decoration: underline; }
+.link-delete { color: #b3261e; }
+.link-delete:hover { color: #8c1d17; text-decoration: underline; }
+
 @media (max-width: 860px) {
   .app-body { flex-direction: column; }
   .admin-sidebar { width: 100% !important; flex-direction: row !important; overflow-x: auto; border-right: none !important; border-bottom: 2px solid var(--color-divider); }

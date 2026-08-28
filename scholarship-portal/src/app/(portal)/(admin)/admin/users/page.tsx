@@ -1,6 +1,7 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createStaffAccount, toggleStaffActive, addStaffProgramAssignment, removeStaffProgramAssignment } from "@/lib/actions/staff";
+import { EditAdminModal } from "./edit-admin-modal";
 
 export default async function ManageUsersPage() {
   await requireSuperAdmin();
@@ -44,6 +45,7 @@ export default async function ManageUsersPage() {
                   const availablePrograms = programs.filter((p) => !assignedIds.has(p.id));
                   const onToggle = toggleStaffActive.bind(null, a.id);
                   const onAddAssignment = addStaffProgramAssignment.bind(null, a.id);
+                  const onRemoveAssignment = removeStaffProgramAssignment.bind(null, a.id);
                   return (
                     <tr key={a.id}>
                       <td>
@@ -58,34 +60,21 @@ export default async function ManageUsersPage() {
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                           {a.programAssignments.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>None assigned</span>}
-                          {a.programAssignments.map((pa) => {
-                            const onRemove = removeStaffProgramAssignment.bind(null, a.id, pa.programId);
-                            return (
-                              <span key={pa.id} className="tag tag-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                {pa.program.name}
-                                <form action={onRemove} style={{ display: "inline" }}>
-                                  <button type="submit" aria-label={`Remove ${a.name} from ${pa.program.name}`} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
-                                </form>
-                              </span>
-                            );
-                          })}
-                          {availablePrograms.length > 0 && (
-                            <form action={onAddAssignment} style={{ display: "inline-flex", gap: 4 }}>
-                              <select name="programId" className="input" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
-                                <option value="" disabled>+ Assign program…</option>
-                                {availablePrograms.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                              </select>
-                              <button type="submit" className="btn btn-ghost" style={{ padding: "2px 6px" }}>Add</button>
-                            </form>
-                          )}
+                          {a.programAssignments.map((pa) => (
+                            <span key={pa.id} className="tag tag-neutral">{pa.program.name}</span>
+                          ))}
                         </div>
                       </td>
                       <td>
-                        <form action={onToggle}>
-                          <button type="submit" className="btn btn-secondary" style={{ padding: "6px 12px", whiteSpace: "nowrap" }}>{a.active ? "Deactivate" : "Reactivate"}</button>
-                        </form>
+                        <EditAdminModal
+                          adminName={a.name}
+                          active={a.active}
+                          assignments={a.programAssignments.map((pa) => ({ id: pa.id, programId: pa.programId, programName: pa.program.name }))}
+                          availablePrograms={availablePrograms.map((p) => ({ id: p.id, name: p.name }))}
+                          onToggleActive={onToggle}
+                          onAddAssignment={onAddAssignment}
+                          onRemoveAssignment={onRemoveAssignment}
+                        />
                       </td>
                     </tr>
                   );

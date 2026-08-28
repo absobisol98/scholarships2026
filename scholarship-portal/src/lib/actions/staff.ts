@@ -51,7 +51,8 @@ export async function addStaffProgramAssignment(staffId: string, fd: FormData) {
   revalidatePath("/admin/users");
 }
 
-export async function removeStaffProgramAssignment(staffId: string, programId: number) {
+export async function removeStaffProgramAssignment(staffId: string, fd: FormData) {
+  const programId = Number(str(fd, "programId"));
   const [staff, program] = await Promise.all([
     db.staffAccount.findUniqueOrThrow({ where: { id: staffId } }),
     db.program.findUniqueOrThrow({ where: { id: programId } }),

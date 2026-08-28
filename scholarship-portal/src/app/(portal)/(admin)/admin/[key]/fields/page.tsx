@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { getProgramByKey, getFieldsConfig, parseOptions, STEP_LABELS_MAP, STEPS_BY_FORM_KIND } from "@/lib/admin-data";
 import { updateFieldLabel, toggleFieldEnabled, toggleFieldRequired, removeField, addField, setFieldType, addFieldOption, removeFieldOption } from "@/lib/actions/admin";
-import { AutoSaveTextInput } from "@/components/auto-save-text-input";
-import { AutoToggleCheckbox } from "@/components/auto-toggle-checkbox";
-import { FieldTypeSelect } from "@/components/field-type-select";
-import { OptionsEditor } from "./options-editor";
+import { FIELD_TYPE_LABELS } from "@/components/field-type-select";
+import { FieldGroupSection } from "./field-group-section";
+import { EditFieldModal } from "./edit-field-modal";
+
+const TABLE_COLUMNS = 5;
 
 export default async function FieldsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -22,60 +23,85 @@ export default async function FieldsPage({ params }: { params: Promise<{ key: st
         Choose which fields applicants see for each step, mark fields required, rename them, set the input type, or add new ones.
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: "var(--space-6)" }}>
-        {steps.map((step) => {
-          const fields = fieldsByStep.get(step) ?? [];
-          const onAddField = addField.bind(null, program.key, program.id, step);
-          return (
-            <div key={step} className="card elev-sm">
-              <div className="card-kicker" style={{ fontWeight: 700, fontSize: 13 }}>{STEP_LABELS_MAP[step]}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-                {fields.map((f) => {
-                  const onRemove = removeField.bind(null, program.key, f.id);
-                  return (
-                    <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--color-divider)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
-                        <AutoSaveTextInput
-                          defaultValue={f.label}
-                          ariaLabel="Field label"
-                          style={{ flex: 1, minWidth: 160, opacity: f.enabled ? 1 : 0.5 }}
-                          action={async (value) => { "use server"; await updateFieldLabel(program.key, f.id, value); }}
-                        />
-                        <FieldTypeSelect
-                          defaultValue={f.fieldType}
-                          ariaLabel={`${f.label} field type`}
-                          action={async (fieldType) => { "use server"; await setFieldType(program.key, f.id, fieldType); }}
-                        />
-                        <AutoToggleCheckbox
-                          defaultChecked={f.enabled}
-                          label="Shown"
-                          action={async () => { "use server"; await toggleFieldEnabled(program.key, f.id); }}
-                        />
-                        <AutoToggleCheckbox
-                          defaultChecked={f.required}
-                          label="Required"
-                          action={async () => { "use server"; await toggleFieldRequired(program.key, f.id); }}
-                        />
-                        <form action={onRemove}>
-                          <button type="submit" className="btn btn-ghost" aria-label={`Remove field: ${f.label}`}>Remove</button>
-                        </form>
-                      </div>
-                      <OptionsEditor
-                        fieldType={f.fieldType}
-                        options={parseOptions(f.optionsJson)}
-                        onAddOption={async (option) => { "use server"; await addFieldOption(program.key, f.id, option); }}
-                        onRemoveOption={async (option) => { "use server"; await removeFieldOption(program.key, f.id, option); }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-              <form action={onAddField}>
-                <button type="submit" className="btn btn-secondary" style={{ marginTop: "var(--space-3)", alignSelf: "flex-start" }}>+ Add field</button>
-              </form>
-            </div>
-          );
-        })}
+      <div className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
+        <div className="table-scroll">
+          <table className="table" aria-label="Application fields">
+            <thead>
+              <tr>
+                <th scope="col" style={{ width: 32 }}><input type="checkbox" aria-label="Select all fields" /></th>
+                <th scope="col">Field</th>
+                <th scope="col">Type</th>
+                <th scope="col">Status</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {steps.map((step) => {
+                const fields = fieldsByStep.get(step) ?? [];
+                const onAddField = addField.bind(null, program.key, program.id, step);
+                return (
+                  <FieldGroupSection
+                    key={step}
+                    label={STEP_LABELS_MAP[step]}
+                    colSpan={TABLE_COLUMNS}
+                    addFieldForm={
+                      <form action={onAddField}>
+                        <button type="submit" className="link-edit">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                          Add field
+                        </button>
+                      </form>
+                    }
+                  >
+                    {fields.map((f) => {
+                      const onRemove = removeField.bind(null, program.key, f.id);
+                      return (
+                        <tr key={f.id}>
+                          <td><input type="checkbox" aria-label={`Select ${f.label}`} /></td>
+                          <td>
+                            <span style={{ fontWeight: 600, opacity: f.enabled ? 1 : 0.5 }}>{f.label}</span>
+                          </td>
+                          <td>
+                            <span className="tag tag-neutral">{FIELD_TYPE_LABELS[f.fieldType] ?? f.fieldType}</span>
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <span className={`tag ${f.enabled ? "tag-accent" : "tag-outline"}`}>{f.enabled ? "Shown" : "Hidden"}</span>
+                              {f.required && <span className="tag tag-outline">Required</span>}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+                              <EditFieldModal
+                                label={f.label}
+                                fieldType={f.fieldType}
+                                enabled={f.enabled}
+                                required={f.required}
+                                options={parseOptions(f.optionsJson)}
+                                onLabelChange={async (value) => { "use server"; await updateFieldLabel(program.key, f.id, value); }}
+                                onTypeChange={async (fieldType) => { "use server"; await setFieldType(program.key, f.id, fieldType); }}
+                                onToggleEnabled={async () => { "use server"; await toggleFieldEnabled(program.key, f.id); }}
+                                onToggleRequired={async () => { "use server"; await toggleFieldRequired(program.key, f.id); }}
+                                onAddOption={async (option) => { "use server"; await addFieldOption(program.key, f.id, option); }}
+                                onRemoveOption={async (option) => { "use server"; await removeFieldOption(program.key, f.id, option); }}
+                              />
+                              <form action={onRemove}>
+                                <button type="submit" className="link-delete" aria-label={`Delete field: ${f.label}`}>
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" /></svg>
+                                  Delete
+                                </button>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </FieldGroupSection>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

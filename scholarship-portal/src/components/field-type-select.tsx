@@ -9,6 +9,8 @@ const FIELD_TYPES = [
   { value: "number", label: "Number" },
 ];
 
+export const FIELD_TYPE_LABELS: Record<string, string> = Object.fromEntries(FIELD_TYPES.map((ft) => [ft.value, ft.label]));
+
 export function FieldTypeSelect({
   defaultValue,
   action,
