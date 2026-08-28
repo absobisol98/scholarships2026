@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Tag } from "@/components/ui/tag";
+import { Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 // Manages the choice list for a Dropdown field, or the quick-pick suggestion list for the
 // other field types. "Other (please specify)" is always available to applicants — it's a
@@ -25,7 +28,7 @@ export function OptionsEditor({
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
         <span className="text-muted" style={{ fontSize: 11 }}>{label}:</span>
         {options.map((opt) => (
-          <span key={opt} className="tag tag-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <Tag key={opt} variant="neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             {opt}
             <button
               type="button"
@@ -36,22 +39,21 @@ export function OptionsEditor({
             >
               ×
             </button>
-          </span>
+          </Tag>
         ))}
-        <span className="tag tag-outline">Other (please specify)</span>
+        <Tag variant="outline">Other (please specify)</Tag>
       </div>
       <div style={{ display: "flex", gap: 4 }}>
-        <input
-          className="input"
+        <Input
           placeholder={fieldType === "dropdown" ? "New choice" : "New suggestion"}
           aria-label={fieldType === "dropdown" ? "New choice" : "New suggestion"}
           value={newOption}
           onChange={(e) => setNewOption(e.target.value)}
           style={{ flex: 1 }}
         />
-        <button
+        <Button
           type="button"
-          className="btn btn-secondary"
+          variant="secondary"
           disabled={isPending || !newOption.trim()}
           onClick={() =>
             startTransition(async () => {
@@ -61,7 +63,7 @@ export function OptionsEditor({
           }
         >
           + Add
-        </button>
+        </Button>
       </div>
     </div>
   );

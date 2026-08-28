@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Dialog, DialogActions } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select } from "@/components/ui/field";
 
 export function NewUserModal({
   programs,
@@ -14,66 +17,44 @@ export function NewUserModal({
 
   return (
     <>
-      <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>+ New user</button>
+      <Button type="button" variant="primary" onClick={() => setOpen(true)}>+ New user</Button>
 
-      {open && (
-        <div
-          className="dialog-backdrop"
-          onClick={() => setOpen(false)}
-          onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-        >
-          <div
-            className="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-user-title"
-            style={{ width: "min(480px, 100%)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="dialog-title" id="new-user-title">New user</div>
+      <Dialog open={open} onClose={() => setOpen(false)} titleId="new-user-title" title="New user" width={480}>
+        <form action={onCreate} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <Field label="Name" htmlFor="new-user-name" style={{ marginBottom: 0 }}>
+            <Input id="new-user-name" name="name" placeholder="e.g. Liza Fernandez" required aria-required="true" />
+          </Field>
+          <Field label="Email" htmlFor="new-user-email" style={{ marginBottom: 0 }}>
+            <Input id="new-user-email" name="email" type="email" placeholder="e.g. liza@example.com" required aria-required="true" />
+          </Field>
+          <Field label="Role" htmlFor="new-user-role" style={{ marginBottom: 0 }}>
+            <Select
+              id="new-user-role"
+              name="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as "admin" | "screener")}
+            >
+              <option value="admin">Program Admin</option>
+              <option value="screener">Paper Screener</option>
+            </Select>
+          </Field>
+          {role === "admin" && (
+            <Field label="Program" htmlFor="new-user-program" style={{ marginBottom: 0 }}>
+              <Select id="new-user-program" name="programId" defaultValue="">
+                <option value="">None yet</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
 
-            <form action={onCreate} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label htmlFor="new-user-name">Name</label>
-                <input id="new-user-name" name="name" className="input" placeholder="e.g. Liza Fernandez" required aria-required="true" />
-              </div>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label htmlFor="new-user-email">Email</label>
-                <input id="new-user-email" name="email" className="input" type="email" placeholder="e.g. liza@example.com" required aria-required="true" />
-              </div>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label htmlFor="new-user-role">Role</label>
-                <select
-                  id="new-user-role"
-                  name="role"
-                  className="input"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as "admin" | "screener")}
-                >
-                  <option value="admin">Program Admin</option>
-                  <option value="screener">Paper Screener</option>
-                </select>
-              </div>
-              {role === "admin" && (
-                <div className="field" style={{ marginBottom: 0 }}>
-                  <label htmlFor="new-user-program">Program</label>
-                  <select id="new-user-program" name="programId" className="input" defaultValue="">
-                    <option value="">None yet</option>
-                    {programs.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="dialog-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Close</button>
-                <button type="submit" className="btn btn-primary">Create user</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <DialogActions>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
+            <Button type="submit" variant="primary">Create user</Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </>
   );
 }

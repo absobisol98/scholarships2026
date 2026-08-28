@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AutoSaveTextInput } from "@/components/auto-save-text-input";
 import { AutoToggleCheckbox } from "@/components/auto-toggle-checkbox";
 import { FieldTypeSelect } from "@/components/field-type-select";
+import { Dialog, DialogActions } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { OptionsEditor } from "./options-editor";
 
 export function EditFieldModal({
@@ -42,50 +44,33 @@ export function EditFieldModal({
         Edit
       </button>
 
-      {open && (
-        <div
-          className="dialog-backdrop"
-          onClick={() => setOpen(false)}
-          onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-        >
-          <div
-            className="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-field-title"
-            style={{ width: "min(420px, 100%)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="dialog-title" id="edit-field-title">Edit field</div>
-
-            <div>
-              <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Label</span>
-              <div style={{ marginTop: 6 }}>
-                <AutoSaveTextInput defaultValue={label} ariaLabel="Field label" action={onLabelChange} style={{ width: "100%" }} />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "center", flexWrap: "wrap" }}>
-              <div>
-                <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Type</span>
-                <div style={{ marginTop: 6 }}>
-                  <FieldTypeSelect defaultValue={fieldType} ariaLabel="Field type" action={onTypeChange} />
-                </div>
-              </div>
-              <AutoToggleCheckbox defaultChecked={enabled} label="Shown" action={onToggleEnabled} />
-              <AutoToggleCheckbox defaultChecked={required} label="Required" action={onToggleRequired} />
-            </div>
-
-            <div style={{ paddingTop: 12, borderTop: "1px solid var(--color-divider)" }}>
-              <OptionsEditor fieldType={fieldType} options={options} onAddOption={onAddOption} onRemoveOption={onRemoveOption} />
-            </div>
-
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-primary" autoFocus onClick={() => setOpen(false)}>Done</button>
-            </div>
+      <Dialog open={open} onClose={() => setOpen(false)} titleId="edit-field-title" title="Edit field" width={420}>
+        <div>
+          <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Label</span>
+          <div style={{ marginTop: 6 }}>
+            <AutoSaveTextInput defaultValue={label} ariaLabel="Field label" action={onLabelChange} style={{ width: "100%" }} />
           </div>
         </div>
-      )}
+
+        <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Type</span>
+            <div style={{ marginTop: 6 }}>
+              <FieldTypeSelect defaultValue={fieldType} ariaLabel="Field type" action={onTypeChange} />
+            </div>
+          </div>
+          <AutoToggleCheckbox defaultChecked={enabled} label="Shown" action={onToggleEnabled} />
+          <AutoToggleCheckbox defaultChecked={required} label="Required" action={onToggleRequired} />
+        </div>
+
+        <div style={{ paddingTop: 12, borderTop: "1px solid var(--color-divider)" }}>
+          <OptionsEditor fieldType={fieldType} options={options} onAddOption={onAddOption} onRemoveOption={onRemoveOption} />
+        </div>
+
+        <DialogActions>
+          <Button type="button" variant="primary" autoFocus onClick={() => setOpen(false)}>Done</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

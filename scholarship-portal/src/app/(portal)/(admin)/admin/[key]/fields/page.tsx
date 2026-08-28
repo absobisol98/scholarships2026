@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getFieldsConfig, parseOptions, STEP_LABELS_MAP, STEPS_BY_FORM_KIND } from "@/lib/admin-data";
 import { updateFieldLabel, toggleFieldEnabled, toggleFieldRequired, removeField, addField, setFieldType, addFieldOption, removeFieldOption } from "@/lib/actions/admin";
@@ -6,6 +5,12 @@ import { FIELD_TYPE_LABELS } from "@/components/field-type-select";
 import { FieldGroupSection } from "./field-group-section";
 import { EditFieldModal } from "./edit-field-modal";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { FiltersPanel } from "@/components/ui/filters-panel";
+import { Field, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Table, TableScroll } from "@/components/ui/table";
+import { Tag } from "@/components/ui/tag";
 
 const TABLE_COLUMNS = 5;
 
@@ -34,24 +39,20 @@ export default async function FieldsPage({
         Choose which fields applicants see for each step, mark fields required, rename them, set the input type, or add new ones.
       </p>
 
-      <form method="GET" className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
-        <div className="filters-panel-header">
-          <span className="card-kicker">Filters</span>
-          <Link href={`/admin/${program.key}/fields`} style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
-        </div>
-        <div className="filters-row">
-          <div className="field">
-            <label htmlFor="fields-search">Field label</label>
-            <input id="fields-search" className="input" name="q" placeholder="Search fields..." defaultValue={q} />
-          </div>
-        </div>
-        <div className="hr" />
-        <button type="submit" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>Search</button>
-      </form>
+      <FiltersPanel
+        method="GET"
+        resetHref={`/admin/${program.key}/fields`}
+        style={{ marginTop: "var(--space-6)" }}
+        footer={<Button type="submit" variant="secondary" style={{ alignSelf: "flex-start" }}>Search</Button>}
+      >
+        <Field label="Field label" htmlFor="fields-search">
+          <Input id="fields-search" name="q" placeholder="Search fields..." defaultValue={q} />
+        </Field>
+      </FiltersPanel>
 
-      <div className="card elev-sm">
-        <div className="table-scroll">
-          <table className="table" aria-label="Application fields">
+      <Card elevation="sm">
+        <TableScroll>
+          <Table aria-label="Application fields">
             <thead>
               <tr>
                 <th scope="col" style={{ width: 32 }}><input type="checkbox" aria-label="Select all fields" /></th>
@@ -90,12 +91,12 @@ export default async function FieldsPage({
                             <span style={{ fontWeight: 600, opacity: f.enabled ? 1 : 0.5 }}>{f.label}</span>
                           </td>
                           <td>
-                            <span className="tag tag-neutral">{FIELD_TYPE_LABELS[f.fieldType] ?? f.fieldType}</span>
+                            <Tag variant="neutral">{FIELD_TYPE_LABELS[f.fieldType] ?? f.fieldType}</Tag>
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <span className={`tag ${f.enabled ? "tag-accent" : "tag-outline"}`}>{f.enabled ? "Shown" : "Hidden"}</span>
-                              {f.required && <span className="tag tag-outline">Required</span>}
+                              <Tag variant={f.enabled ? "accent" : "outline"}>{f.enabled ? "Shown" : "Hidden"}</Tag>
+                              {f.required && <Tag variant="outline">Required</Tag>}
                             </div>
                           </td>
                           <td>
@@ -128,9 +129,9 @@ export default async function FieldsPage({
                 );
               })}
             </tbody>
-          </table>
-        </div>
-      </div>
+          </Table>
+        </TableScroll>
+      </Card>
     </div>
   );
 }

@@ -1,10 +1,12 @@
-import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createStaffAccount, toggleStaffActive, addStaffProgramAssignment, removeStaffProgramAssignment, updateStaffEmail, bulkDeactivateStaff } from "@/lib/actions/staff";
 import { NewUserModal } from "./new-user-modal";
 import { UsersTable, type UserRow } from "./users-table";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { FiltersPanel } from "@/components/ui/filters-panel";
+import { Field, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -70,20 +72,16 @@ export default async function ManageUsersPage({
           <NewUserModal programs={programs.map((p) => ({ id: p.id, name: p.name }))} onCreate={createStaffAccount} />
         </div>
 
-        <form method="GET" className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
-          <div className="filters-panel-header">
-            <span className="card-kicker">Filters</span>
-            <Link href="/admin/users" style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
-          </div>
-          <div className="filters-row">
-            <div className="field">
-              <label htmlFor="users-search">Name or email</label>
-              <input id="users-search" className="input" name="q" placeholder="Search by name or email..." defaultValue={q} />
-            </div>
-          </div>
-          <div className="hr" />
-          <button type="submit" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>Search</button>
-        </form>
+        <FiltersPanel
+          method="GET"
+          resetHref="/admin/users"
+          style={{ marginTop: "var(--space-6)" }}
+          footer={<Button type="submit" variant="secondary" style={{ alignSelf: "flex-start" }}>Search</Button>}
+        >
+          <Field label="Name or email" htmlFor="users-search">
+            <Input id="users-search" name="q" placeholder="Search by name or email..." defaultValue={q} />
+          </Field>
+        </FiltersPanel>
 
         <UsersTable rows={rows} onBulkDeactivate={bulkDeactivateStaff} createdAtSortHref={createdAtSortHref} sortDir={sort === "createdAt" ? sortDir : "asc"} />
       </div>

@@ -3,6 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { EditUserModal } from "./edit-user-modal";
+import { BulkActionBar } from "@/components/ui/bulk-action-bar";
+import { Table, TableScroll } from "@/components/ui/table";
+import { Tag } from "@/components/ui/tag";
+import { AvatarBadge } from "@/components/ui/avatar";
 
 type BoundAction = (formData: FormData) => void | Promise<void>;
 
@@ -53,7 +57,7 @@ export function UsersTable({
   return (
     <div>
       {selected.size > 0 && (
-        <div className="bulk-action-bar">
+        <BulkActionBar>
           <span>{selected.size} selected</span>
           <button
             type="button"
@@ -66,11 +70,11 @@ export function UsersTable({
             Deactivate selected
           </button>
           <button type="button" className="link-view" onClick={() => setSelected(new Set())}>Clear</button>
-        </div>
+        </BulkActionBar>
       )}
 
-      <div className="table-scroll">
-        <table className="table" aria-label="Users">
+      <TableScroll>
+        <Table aria-label="Users">
           <thead>
             <tr>
               <th scope="col" style={{ width: 32 }}>
@@ -111,18 +115,18 @@ export function UsersTable({
                   />
                 </td>
                 <td>
-                  <div className="avatar-badge" aria-hidden="true">
+                  <AvatarBadge aria-hidden="true">
                     {r.name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("")}
-                  </div>
+                  </AvatarBadge>
                 </td>
                 <td>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 700, fontSize: 14, opacity: r.active ? 1 : 0.5 }}>{r.name}</span>
-                    {r.isDemo && <span className="tag tag-outline">Demo login</span>}
-                    {!r.active && <span className="tag tag-neutral">Deactivated</span>}
+                    {r.isDemo && <Tag variant="outline">Demo login</Tag>}
+                    {!r.active && <Tag variant="neutral">Deactivated</Tag>}
                   </div>
                 </td>
-                <td><span className={`tag ${r.role === "admin" ? "tag-accent" : "tag-neutral"}`}>{ROLE_LABEL[r.role]}</span></td>
+                <td><Tag variant={r.role === "admin" ? "accent" : "neutral"}>{ROLE_LABEL[r.role]}</Tag></td>
                 <td className="text-muted" style={{ fontSize: 13 }}>{r.email}</td>
                 <td style={{ fontSize: 13 }}>{r.createdAtLabel}</td>
                 <td>
@@ -155,8 +159,8 @@ export function UsersTable({
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableScroll>
     </div>
   );
 }
