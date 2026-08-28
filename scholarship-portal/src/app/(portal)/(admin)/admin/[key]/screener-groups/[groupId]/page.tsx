@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
 import { db } from "@/lib/db";
@@ -6,6 +5,11 @@ import { APPLICANT_PHASES } from "@/lib/steps";
 import { addGroupMember, removeGroupMember, randomlyAssignEligibleApplicants } from "@/lib/actions/screenerGroups";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
+import { Card, CardKicker } from "@/components/ui/card";
+import { Select } from "@/components/ui/field";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Table, TableScroll } from "@/components/ui/table";
+import { Tag } from "@/components/ui/tag";
 
 export default async function ScreenerGroupDetailPage({ params }: { params: Promise<{ key: string; groupId: string }> }) {
   const { key, groupId } = await params;
@@ -49,10 +53,10 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
       <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
       <h2 style={{ marginBottom: "var(--space-4)" }}>{group.name}</h2>
 
-      <div className="card elev-sm">
-        <div className="card-kicker">Members</div>
-        <div className="table-scroll" style={{ marginTop: 8 }}>
-          <table className="table" aria-label={`Members of ${group.name}`}>
+      <Card elevation="sm">
+        <CardKicker>Members</CardKicker>
+        <TableScroll style={{ marginTop: 8 }}>
+          <Table aria-label={`Members of ${group.name}`}>
             <thead>
               <tr>
                 <th scope="col">Name</th>
@@ -82,23 +86,23 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableScroll>
         {availableToAdd.length > 0 && (
           <form action={onAddMember} style={{ display: "inline-flex", gap: 6, marginTop: "var(--space-3)" }}>
-            <select name="staffId" className="input" style={{ fontSize: 13 }} defaultValue="">
+            <Select name="staffId" style={{ fontSize: 13 }} defaultValue="">
               <option value="" disabled>+ Add screener…</option>
               {availableToAdd.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-            </select>
-            <button type="submit" className="btn btn-secondary" style={{ padding: "6px 12px", flex: "none" }}>Add</button>
+            </Select>
+            <Button type="submit" variant="secondary" style={{ padding: "6px 12px", flex: "none" }}>Add</Button>
           </form>
         )}
-      </div>
+      </Card>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-        <div className="card-kicker">Candidates</div>
+      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+        <CardKicker>Candidates</CardKicker>
         <p style={{ fontSize: 13, margin: "8px 0 0" }}>
           Eligible unassigned candidates: <b>{eligibleUnassignedCount}</b>
         </p>
@@ -106,18 +110,18 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
           Candidates assigned to this group: <b>{candidates.length}</b>
         </p>
         <form action={onRandomAssign} style={{ marginTop: "var(--space-3)" }}>
-          <button type="submit" className="btn btn-primary" disabled={group.members.length === 0 || eligibleUnassignedCount === 0}>
+          <Button type="submit" variant="primary" disabled={group.members.length === 0 || eligibleUnassignedCount === 0}>
             Randomly assign eligible candidates
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
 
       <div style={{ marginTop: "var(--space-4)" }}>
         <PhaseLegend />
       </div>
 
-      <div className="table-scroll">
-        <table className="table" aria-label={`Candidates assigned to ${group.name}`}>
+      <TableScroll>
+        <Table aria-label={`Candidates assigned to ${group.name}`}>
           <thead>
             <tr>
               <th scope="col">Name</th>
@@ -138,18 +142,18 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
                   <td style={{ fontWeight: 700 }}>{c.name}</td>
                   <td className="text-muted" style={{ fontSize: 13 }}>{c.school}</td>
                   <td>{c.screenerAssignments.map((sa) => sa.screener.name).join(", ")}</td>
-                  <td><span className="tag tag-neutral">{phaseLabel}</span></td>
+                  <td><Tag variant="neutral">{phaseLabel}</Tag></td>
                   <td>
-                    <Link href={`/admin/${program.key}/queue/${c.id}`} className="btn btn-ghost" aria-label={`View application form for ${c.name}`}>
+                    <LinkButton href={`/admin/${program.key}/queue/${c.id}`} variant="ghost" aria-label={`View application form for ${c.name}`}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
-                    </Link>
+                    </LinkButton>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </TableScroll>
     </div>
   );
 }

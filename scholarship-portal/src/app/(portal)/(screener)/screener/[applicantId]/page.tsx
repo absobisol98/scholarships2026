@@ -6,6 +6,10 @@ import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data"
 import { saveAssessment } from "@/lib/actions/screener";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { Card, CardKicker, CardBody } from "@/components/ui/card";
+import { Tag } from "@/components/ui/tag";
+import { Field, Select, Textarea } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 export default async function ScreenerApplicantPage({
   params,
@@ -44,17 +48,17 @@ export default async function ScreenerApplicantPage({
         <Link href="/screener" style={{ fontSize: 12, fontWeight: 600, textDecoration: "none" }}>← Back to my applicants</Link>
 
         {saved === "1" && (
-          <div className="card" role="status" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-100)" }}>
-            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-800)" }}>Assessment saved.</p>
-          </div>
+          <Card role="status" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-100)" }}>
+            <CardBody style={{ color: "var(--color-accent-800)" }}>Assessment saved.</CardBody>
+          </Card>
         )}
 
         {error === "locked" && (
-          <div className="card" role="alert" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-2-100)" }}>
-            <p className="card-body" style={{ margin: 0, color: "var(--color-accent-2-800)" }}>
+          <Card role="alert" style={{ marginTop: "var(--space-3)", background: "var(--color-accent-2-100)" }}>
+            <CardBody style={{ color: "var(--color-accent-2-800)" }}>
               This applicant has moved past Paper Screening, so your assessment is now locked. Contact a Super Admin if it needs to change.
-            </p>
-          </div>
+            </CardBody>
+          </Card>
         )}
 
         <h6 style={{ color: "var(--color-accent)", marginTop: "var(--space-3)" }}>Paper Screener · {applicant.program.name}</h6>
@@ -63,73 +67,72 @@ export default async function ScreenerApplicantPage({
             <h2 style={{ marginBottom: 2 }}>{applicant.name}</h2>
             <span className="text-muted" style={{ fontSize: 13 }}>{applicant.school}</span>
           </div>
-          <span className="tag tag-outline" style={{ whiteSpace: "nowrap", flex: "none" }}>Submitted&nbsp;{applicant.submitted}</span>
+          <Tag variant="outline" style={{ whiteSpace: "nowrap", flex: "none" }}>Submitted&nbsp;{applicant.submitted}</Tag>
         </div>
 
         <div className="hr" />
 
         <div className="cols-flex" style={{ marginTop: "var(--space-6)", alignItems: "flex-start" }}>
-          <div className="card elev-sm" style={{ flex: 1 }}>
-            <div className="card-kicker" style={{ fontWeight: 700, fontSize: 13 }}>Personal &amp; Family Info</div>
+          <Card elevation="sm" style={{ flex: 1 }}>
+            <CardKicker style={{ fontWeight: 700, fontSize: 13 }}>Personal &amp; Family Info</CardKicker>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Nationality</span><span>{applicant.nationality}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Sex</span><span>{applicant.sex}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Year level</span><span>{applicant.yearLevel}</span></div>
             </div>
-          </div>
-          <div className="card elev-sm" style={{ flex: 1 }}>
-            <div className="card-kicker" style={{ fontSize: 13, fontWeight: 700 }}>Academic Info</div>
+          </Card>
+          <Card elevation="sm" style={{ flex: 1 }}>
+            <CardKicker style={{ fontSize: 13, fontWeight: 700 }}>Academic Info</CardKicker>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">School</span><span>{applicant.school}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Institution type</span><span>{applicant.institutionType}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">GWA</span><span>{applicant.gwa}%</span></div>
             </div>
-          </div>
+          </Card>
         </div>
 
-        <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">Attachments</div>
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Attachments</CardKicker>
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 8 }}>
             {attachments.map((f) => (
-              <span key={f} className="tag tag-outline">{f}</span>
+              <Tag key={f} variant="outline">{f}</Tag>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">Personal Statement</div>
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Personal Statement</CardKicker>
           <p style={{ fontSize: 14, lineHeight: 1.75, opacity: 0.9, marginTop: 8 }}>
             {applicant.essay || "No personal statement on file for this record."}
           </p>
-        </div>
+        </Card>
 
         {flags.length > 0 && (
-          <div className="card elev-sm" style={{ marginTop: "var(--space-4)", background: "var(--color-accent-100)" }}>
-            <div className="card-kicker"><b>System-generated red flag</b></div>
+          <Card elevation="sm" style={{ marginTop: "var(--space-4)", background: "var(--color-accent-100)" }}>
+            <CardKicker><b>System-generated red flag</b></CardKicker>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--color-accent-800)", display: "flex", flexDirection: "column", gap: 4 }}>
               {flags.map((f) => (
                 <li key={f}>{f}</li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
 
         <form action={onSave} className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">
+          <CardKicker>
             Your assessment
             {isLocked && <span className="text-muted" style={{ fontWeight: 400 }}> — locked (applicant has moved past Paper Screening)</span>}
-          </div>
+          </CardKicker>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: 8 }}>
             {RUBRIC_CRITERIA.map((c) => (
-              <div key={c.key} className="field" style={{ marginBottom: 0 }}>
-                <label htmlFor={`score_${c.key}`}>{c.label} <span className="text-muted">(1 = lowest, 5 = highest)</span></label>
-                <select id={`score_${c.key}`} name={`score_${c.key}`} className="input" defaultValue={scoreByKey.get(c.key)?.toString() ?? ""} disabled={isLocked}>
+              <Field key={c.key} label={<>{c.label} <span className="text-muted">(1 = lowest, 5 = highest)</span></>} htmlFor={`score_${c.key}`} style={{ marginBottom: 0 }}>
+                <Select id={`score_${c.key}`} name={`score_${c.key}`} defaultValue={scoreByKey.get(c.key)?.toString() ?? ""} disabled={isLocked}>
                   <option value="">Not yet scored</option>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
             ))}
 
             <div className="field" style={{ marginBottom: 0 }}>
@@ -146,12 +149,11 @@ export default async function ScreenerApplicantPage({
               </div>
             </div>
 
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="comment">Comments</label>
-              <textarea id="comment" name="comment" className="input" rows={4} defaultValue={recommendation?.comment ?? ""} placeholder="Notes for the Admin and Super Admin reviewing this applicant..." disabled={isLocked} />
-            </div>
+            <Field label="Comments" htmlFor="comment" style={{ marginBottom: 0 }}>
+              <Textarea id="comment" name="comment" rows={4} defaultValue={recommendation?.comment ?? ""} placeholder="Notes for the Admin and Super Admin reviewing this applicant..." disabled={isLocked} />
+            </Field>
 
-            {!isLocked && <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>Save assessment</button>}
+            {!isLocked && <Button type="submit" variant="primary" style={{ alignSelf: "flex-start" }}>Save assessment</Button>}
           </div>
         </form>
       </div>

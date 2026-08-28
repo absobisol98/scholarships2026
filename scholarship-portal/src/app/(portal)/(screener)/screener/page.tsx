@@ -1,8 +1,13 @@
-import Link from "next/link";
 import { requireScreener, getCurrentStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
+import { FiltersPanel } from "@/components/ui/filters-panel";
+import { Field, Input } from "@/components/ui/field";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Card, CardBody } from "@/components/ui/card";
+import { Table, TableScroll } from "@/components/ui/table";
+import { Tag } from "@/components/ui/tag";
 
 export default async function ScreenerHomePage({
   searchParams,
@@ -53,49 +58,46 @@ export default async function ScreenerHomePage({
           Applicants assigned to you for review. You can see each one&apos;s details and red-flag summary, but not edit criteria or deadlines.
         </p>
 
-        <form method="GET" className="card elev-sm" style={{ margin: "var(--space-4) 0" }}>
-          <div className="filters-panel-header">
-            <span className="card-kicker">Filters</span>
-            <Link href="/screener" style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
-          </div>
-          <div className="filters-row">
-            <div className="field">
-              <label htmlFor="screener-search">Name or school</label>
-              <input id="screener-search" className="input" name="q" placeholder="Search by name or school..." defaultValue={q} />
+        <FiltersPanel
+          method="GET"
+          resetHref="/screener"
+          style={{ margin: "var(--space-4) 0" }}
+          footer={
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Button type="submit" variant="secondary">Search</Button>
+              <span className="text-muted" style={{ fontSize: 12 }}>{filtered.length} applicant{filtered.length === 1 ? "" : "s"}</span>
             </div>
-            <div className="field">
-              <label htmlFor="screener-filter">Assessment status</label>
-              <AutoSubmitSelect
-                id="screener-filter"
-                name="filter"
-                defaultValue={filter}
-                options={[
-                  { value: "all", label: `All (${countAll})` },
-                  { value: "unassessed", label: `Not yet assessed (${countUnassessed})` },
-                  { value: "recommend", label: `Recommended (${countRecommend})` },
-                  { value: "not_recommend", label: `Not recommended (${countNotRecommend})` },
-                ]}
-              />
-            </div>
-          </div>
-          <div className="hr" />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button type="submit" className="btn btn-secondary">Search</button>
-            <span className="text-muted" style={{ fontSize: 12 }}>{filtered.length} applicant{filtered.length === 1 ? "" : "s"}</span>
-          </div>
-        </form>
+          }
+        >
+          <Field label="Name or school" htmlFor="screener-search">
+            <Input id="screener-search" name="q" placeholder="Search by name or school..." defaultValue={q} />
+          </Field>
+          <Field label="Assessment status" htmlFor="screener-filter">
+            <AutoSubmitSelect
+              id="screener-filter"
+              name="filter"
+              defaultValue={filter}
+              options={[
+                { value: "all", label: `All (${countAll})` },
+                { value: "unassessed", label: `Not yet assessed (${countUnassessed})` },
+                { value: "recommend", label: `Recommended (${countRecommend})` },
+                { value: "not_recommend", label: `Not recommended (${countNotRecommend})` },
+              ]}
+            />
+          </Field>
+        </FiltersPanel>
 
         {assignments.length === 0 ? (
-          <div className="card" style={{ marginTop: "var(--space-4)" }}>
-            <p className="card-body" style={{ margin: 0 }}>No applicants have been assigned to you yet.</p>
-          </div>
+          <Card style={{ marginTop: "var(--space-4)" }}>
+            <CardBody>No applicants have been assigned to you yet.</CardBody>
+          </Card>
         ) : filtered.length === 0 ? (
-          <div className="card" style={{ marginTop: "var(--space-4)" }}>
-            <p className="card-body" style={{ margin: 0 }}>No applicants match this search/filter.</p>
-          </div>
+          <Card style={{ marginTop: "var(--space-4)" }}>
+            <CardBody>No applicants match this search/filter.</CardBody>
+          </Card>
         ) : (
-          <div className="table-scroll">
-            <table className="table" aria-label="My assigned applicants">
+          <TableScroll>
+            <Table aria-label="My assigned applicants">
               <thead>
                 <tr>
                   <th scope="col">Applicant</th>
@@ -110,22 +112,22 @@ export default async function ScreenerHomePage({
                   <tr key={r.id}>
                     <td style={{ fontWeight: 700 }}>{r.applicant.name}</td>
                     <td>{r.applicant.school}</td>
-                    <td><span className="tag tag-neutral">{r.applicant.program.name}</span></td>
+                    <td><Tag variant="neutral">{r.applicant.program.name}</Tag></td>
                     <td>
-                      {r.decision === "recommend" && <span className="tag tag-accent">Recommended</span>}
-                      {r.decision === "not_recommend" && <span className="tag tag-neutral">Not recommended</span>}
-                      {!r.decision && <span className="tag tag-outline">Not yet assessed</span>}
+                      {r.decision === "recommend" && <Tag variant="accent">Recommended</Tag>}
+                      {r.decision === "not_recommend" && <Tag variant="neutral">Not recommended</Tag>}
+                      {!r.decision && <Tag variant="outline">Not yet assessed</Tag>}
                     </td>
                     <td>
-                      <Link href={`/screener/${r.applicantId}`} className="btn btn-ghost" aria-label={`View applicant ${r.applicant.name}`}>
+                      <LinkButton href={`/screener/${r.applicantId}`} variant="ghost" aria-label={`View applicant ${r.applicant.name}`}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
-                      </Link>
+                      </LinkButton>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
       </div>
     </div>
