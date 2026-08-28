@@ -2,10 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { APPLICANT_PHASES } from "@/lib/steps";
+import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
-
-const PAPER_SCREENING_PHASE_INDEX = APPLICANT_PHASES.indexOf("Paper Screening");
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);

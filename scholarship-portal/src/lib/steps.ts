@@ -4,6 +4,7 @@ export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision
 // The admin-side review pipeline for the Applicant queue (distinct from the applicant-
 // facing Application.status tracker in STAGE_LABELS/statusMeta below).
 export const APPLICANT_PHASES = ["Application Proper", "Paper Screening", "Interviews", "Final Scoring & Deliberations"];
+export const PAPER_SCREENING_PHASE_INDEX = APPLICANT_PHASES.indexOf("Paper Screening");
 
 // Same order/length as APPLICANT_PHASES — what actually happens at each stage.
 export const APPLICANT_PHASE_DESCRIPTIONS = [

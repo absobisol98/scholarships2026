@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
-import { APPLICANT_PHASES } from "@/lib/steps";
+import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { parseRegionMap, parseOptions } from "@/lib/admin-data";
 
 function str(fd: FormData, name: string): string {
@@ -125,6 +125,15 @@ export async function promoteApplicant(programKey: string, applicantId: number) 
 export async function demoteApplicant(programKey: string, applicantId: number) {
   const a = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
   const next = Math.max(a.phaseIndex - 1, 0);
+
+  // Can't drop below Paper Screening while a screener still has this applicant assigned —
+  // that would leave phase and assignment state inconsistent (a candidate a screener is
+  // actively reviewing, showing as not yet in screening). Unassign first, then demote.
+  if (next < PAPER_SCREENING_PHASE_INDEX) {
+    const assignmentCount = await db.applicantAssignment.count({ where: { applicantId } });
+    if (assignmentCount > 0) return;
+  }
+
   await db.applicant.update({ where: { id: applicantId }, data: { phaseIndex: next } });
   revalidatePath(`/admin/${programKey}/queue`);
 }
