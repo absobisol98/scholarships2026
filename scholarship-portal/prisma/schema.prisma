@@ -151,6 +151,11 @@ model Application {
   essayText  String @default("")
   essayText2 String @default("")
 
+  // Answers to admin-added custom FieldConfig rows (fieldKey: null) — a JSON object
+  // keyed by FieldConfig.id, e.g. {"clxyz...": "some answer"}. The known default fields
+  // above keep their own typed columns; only genuinely custom fields land here.
+  customFieldsJson String @default("{}")
+
   // Checklist completion, tracked per-application
   personalDone   Boolean @default(false)
   familyDone     Boolean @default(false)
@@ -338,6 +343,12 @@ model FieldConfig {
   order       Int     @default(0)
   fieldType   String  @default("text") // "text" | "paragraph" | "dropdown" | "number" — the applicant-facing input type
   optionsJson String  @default("[]") // dropdown choices, or quick-pick suggestions for the other types: JSON string array
+
+  // Ties this row to a specific Application scalar column (e.g. "fullName", "dob") or to
+  // one of the special widget sentinels ("cert" | "video" | "essayText" |
+  // "familyMembers") — null means this is an admin-added custom field, whose answers live
+  // in Application.customFieldsJson instead of a dedicated column.
+  fieldKey String?
 
   @@index([programId, step])
 }

@@ -1,4 +1,5 @@
 import { PrismaClient } from "../src/generated/prisma";
+import { LABEL_TO_FIELD_KEY } from "./field-key-map";
 
 const db = new PrismaClient();
 
@@ -56,7 +57,7 @@ const DEFAULT_FIELDS_BY_STEP: Record<string, string[]> = {
   academic: ["School name", "GPA", "Expected graduation", "Intended major", "Certificate of school registration", "Introduction video"],
   leadership: ["Leadership role / title", "Organization", "Duration", "People led / team size", "Description of leadership experience"],
   community: ["Volunteer organization(s)", "Hours per month", "Years involved", "Describe your community involvement"],
-  statement: ["Personal statement essay", "Why this scholarship matters to your goals"],
+  statement: ["Describe a challenge you've overcome and what it taught you", "Why this scholarship matters to your goals"],
 };
 
 const STEPS_BY_PROGRAM: Record<string, string[]> = {
@@ -194,7 +195,25 @@ async function main() {
           enabled: true,
           order: i,
           fieldType: fieldTypeFor(label),
+          fieldKey: LABEL_TO_FIELD_KEY[step]?.[label] ?? null,
         })),
+      });
+    }
+    // The repeatable family-members block (generika only) isn't a scalar field, so it
+    // gets its own sentinel-fieldKey row rather than one from DEFAULT_FIELDS_BY_STEP.
+    if (key === "generika") {
+      const familyLabels = DEFAULT_FIELDS_BY_STEP.family;
+      await db.fieldConfig.create({
+        data: {
+          programId: program.id,
+          step: "family",
+          label: "Additional family members",
+          required: false,
+          enabled: true,
+          order: familyLabels.length,
+          fieldType: "text",
+          fieldKey: "familyMembers",
+        },
       });
     }
     for (const wave of ["midYear", "yearEnd"] as const) {

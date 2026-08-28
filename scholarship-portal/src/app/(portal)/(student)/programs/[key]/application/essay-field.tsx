@@ -2,14 +2,22 @@
 
 import { useState } from "react";
 
-export function EssayField({ defaultValue }: { defaultValue: string }) {
+export function EssayField({
+  defaultValue,
+  label = "Personal Statement — Describe a challenge you've overcome and what it taught you (500 words max)",
+  required = true,
+}: {
+  defaultValue: string;
+  label?: string;
+  required?: boolean;
+}) {
   const [value, setValue] = useState(defaultValue);
   const wordCount = value.trim() === "" ? 0 : value.trim().split(/\s+/).length;
 
   return (
     <div className="field">
       <label htmlFor="f-essay1">
-        Personal Statement — Describe a challenge you&apos;ve overcome and what it taught you (500 words max) <span aria-hidden="true">*</span>
+        {label} {required && <span aria-hidden="true">*</span>}
       </label>
       <textarea
         id="f-essay1"
@@ -19,8 +27,8 @@ export function EssayField({ defaultValue }: { defaultValue: string }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         aria-describedby="f-essay1-count"
-        required
-        aria-required="true"
+        required={required}
+        aria-required={required}
       />
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
         <span className="text-muted" style={{ fontSize: 11 }}>Autosaves as you type</span>

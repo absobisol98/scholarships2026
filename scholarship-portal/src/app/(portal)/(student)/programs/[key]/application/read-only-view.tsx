@@ -1,31 +1,16 @@
-type ApplicationData = {
-  fullName: string;
-  dob: string;
-  email: string;
-  phone: string;
-  address: string;
-  guardianName: string;
-  guardianOcc: string;
-  income: string;
-  dependents: string;
+import { valueForField, parseCustomFields } from "@/lib/field-config";
+
+type FieldConfigRow = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  fieldKey: string | null;
+  fieldType: string;
+};
+
+type ApplicationData = Record<string, unknown> & {
+  customFieldsJson: string;
   familyMembers: { name: string; relationship: string; occupation: string }[];
-  school: string;
-  gpa: string;
-  graduation: string;
-  major: string;
-  certFileName: string | null;
-  videoFileName: string | null;
-  leadRole: string;
-  leadOrg: string;
-  leadDuration: string;
-  leadPeople: string;
-  leadDesc: string;
-  volunteerOrg: string;
-  volunteerHours: string;
-  volunteerYears: string;
-  communityDesc: string;
-  essayText: string;
-  essayText2: string;
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -37,12 +22,31 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// One card per step, listing whatever fields are currently enabled for it — so a field an
+// admin has since disabled or relabeled shows up (or not) exactly as it would on the live
+// form today, not as it was when the applicant answered it.
+function Section({
+  title,
+  fields,
+  application,
+  custom,
+}: {
+  title: string;
+  fields: FieldConfigRow[];
+  application: ApplicationData;
+  custom: Record<string, string>;
+}) {
+  const rows = fields.filter((f) => f.enabled && f.fieldKey !== "familyMembers");
+  if (rows.length === 0) return null;
   return (
     <div className="card elev-sm">
       <div className="card-kicker">{title}</div>
       <div className="grid-2" style={{ marginTop: 8, rowGap: "var(--space-3)" }}>
-        {children}
+        {rows.map((f) => (
+          <div key={f.id} style={f.fieldType === "paragraph" ? { gridColumn: "1 / -1" } : undefined}>
+            <Row label={f.label} value={valueForField(f, application, custom)} />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -51,27 +55,29 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // A read-only rendering of everything the applicant already submitted — shown wherever
 // the form itself is locked (already submitted, or the access window has closed) so the
 // applicant can still see their own answers instead of a blank "you can't edit this" card.
-export function ReadOnlyApplicationView({ application, isGenerika }: { application: ApplicationData; isGenerika: boolean }) {
+export function ReadOnlyApplicationView({
+  application,
+  fieldsByStep,
+  isGenerika,
+}: {
+  application: ApplicationData;
+  fieldsByStep: Map<string, FieldConfigRow[]>;
+  isGenerika: boolean;
+}) {
+  const custom = parseCustomFields(application.customFieldsJson);
+  const personal = fieldsByStep.get("personal") ?? [];
+  const family = fieldsByStep.get("family") ?? [];
+  const academicOrLeadership = fieldsByStep.get(isGenerika ? "leadership" : "academic") ?? [];
+  const community = fieldsByStep.get("community") ?? [];
+  const statement = fieldsByStep.get("statement") ?? [];
+  const familyMembersEnabled = family.some((f) => f.enabled && f.fieldKey === "familyMembers");
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
-      <Section title="Personal information">
-        <Row label="Full name" value={application.fullName} />
-        <Row label="Date of birth" value={application.dob} />
-        <Row label="Email" value={application.email} />
-        <Row label="Phone" value={application.phone} />
-        <div style={{ gridColumn: "1 / -1" }}>
-          <Row label="Mailing address" value={application.address} />
-        </div>
-      </Section>
+      <Section title="Personal information" fields={personal} application={application} custom={custom} />
+      <Section title="Family information" fields={family} application={application} custom={custom} />
 
-      <Section title="Family information">
-        <Row label="Parent / guardian name" value={application.guardianName} />
-        <Row label="Parent / guardian occupation" value={application.guardianOcc} />
-        <Row label="Household annual income" value={application.income} />
-        <Row label="Number of dependents" value={application.dependents} />
-      </Section>
-
-      {isGenerika && application.familyMembers.length > 0 && (
+      {isGenerika && familyMembersEnabled && application.familyMembers.length > 0 && (
         <div className="card elev-sm">
           <div className="card-kicker">Family members</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
@@ -86,49 +92,9 @@ export function ReadOnlyApplicationView({ application, isGenerika }: { applicati
         </div>
       )}
 
-      {isGenerika ? (
-        <Section title="Leadership experience">
-          <Row label="Leadership role / title" value={application.leadRole} />
-          <Row label="Organization" value={application.leadOrg} />
-          <Row label="Duration" value={application.leadDuration} />
-          <Row label="People led / team size" value={application.leadPeople} />
-          <div style={{ gridColumn: "1 / -1" }}>
-            <Row label="Description" value={application.leadDesc} />
-          </div>
-        </Section>
-      ) : (
-        <Section title="Academic information">
-          <div style={{ gridColumn: "1 / -1" }}>
-            <Row label="School name" value={application.school} />
-          </div>
-          <Row label="GPA" value={application.gpa} />
-          <Row label="Expected graduation" value={application.graduation} />
-          <div style={{ gridColumn: "1 / -1" }}>
-            <Row label="Intended major / field of study" value={application.major} />
-          </div>
-          <Row label="Certificate of school registration" value={application.certFileName ?? ""} />
-          <Row label="Introduction video" value={application.videoFileName ?? ""} />
-        </Section>
-      )}
-
-      <Section title="Community involvement">
-        <div style={{ gridColumn: "1 / -1" }}>
-          <Row label="Volunteer organization(s)" value={application.volunteerOrg} />
-        </div>
-        <Row label="Hours per month" value={application.volunteerHours} />
-        <Row label="Years involved" value={application.volunteerYears} />
-        <div style={{ gridColumn: "1 / -1" }}>
-          <Row label="Description" value={application.communityDesc} />
-        </div>
-      </Section>
-
-      <div className="card elev-sm">
-        <div className="card-kicker">Personal statement</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: 8 }}>
-          <Row label="Essay" value={application.essayText} />
-          <Row label="Why does this scholarship matter to your goals?" value={application.essayText2} />
-        </div>
-      </div>
+      <Section title={isGenerika ? "Leadership experience" : "Academic information"} fields={academicOrLeadership} application={application} custom={custom} />
+      <Section title="Community involvement" fields={community} application={application} custom={custom} />
+      <Section title="Personal statement" fields={statement} application={application} custom={custom} />
     </div>
   );
 }

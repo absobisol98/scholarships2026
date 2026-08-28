@@ -68,13 +68,13 @@ export function StepForm({
       {showSaveModal && (
         <div className="dialog-backdrop">
           <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="save-modal-title" aria-describedby="save-modal-desc">
-            <div className="dialog-title" id="save-modal-title">Progress saved</div>
+            <div className="dialog-title" id="save-modal-title">Save your progress?</div>
             <p className="dialog-body" id="save-modal-desc">
-              Your progress on this application has been saved as a draft. You can pick up right where you left off anytime from the scholarships list.
+              Your progress will be saved as a draft. You can pick up right where you left off anytime from the scholarships list.
             </p>
             <div className="dialog-actions">
               <button type="button" className="btn btn-secondary" autoFocus onClick={() => setShowSaveModal(false)}>Keep editing</button>
-              <button type="submit" className="btn btn-primary" formAction={onSaveDraft}>Go to homepage</button>
+              <button type="submit" formNoValidate className="btn btn-primary" formAction={onSaveDraft}>Save &amp; go to homepage</button>
             </div>
           </div>
         </div>

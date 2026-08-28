@@ -4,6 +4,10 @@ import { Prisma } from "@/generated/prisma";
 import { APPLICANT_PHASES } from "@/lib/steps";
 import { getCurrentStaff } from "@/lib/auth";
 
+// Re-exported for existing admin call sites — these now live in field-config.ts, shared
+// with the student-facing application form.
+export { parseOptions, getFieldsConfig, STEP_LABELS_MAP, STEPS_BY_FORM_KIND } from "@/lib/field-config";
+
 export type CriteriaFlagCohort = {
   criteria: { key: string; label: string; type: string; value: string; enabled: boolean }[];
 };
@@ -19,17 +23,6 @@ export function parseRegionMap(value: string): Record<string, string[]> {
     // legacy plain-text value (or empty) — start fresh
   }
   return {};
-}
-
-// A dropdown-type criterion's selectable options, stored as a JSON string array.
-export function parseOptions(optionsJson: string): string[] {
-  try {
-    const parsed = JSON.parse(optionsJson);
-    if (Array.isArray(parsed)) return parsed.filter((v) => typeof v === "string");
-  } catch {
-    // empty/invalid — start fresh
-  }
-  return [];
 }
 
 export function evaluateCriteria(
@@ -267,16 +260,6 @@ export async function getPipelineStats(programId: number) {
   };
 }
 
-export async function getFieldsConfig(programId: number) {
-  const rows = await db.fieldConfig.findMany({ where: { programId }, orderBy: [{ step: "asc" }, { order: "asc" }] });
-  const byStep = new Map<string, typeof rows>();
-  for (const row of rows) {
-    if (!byStep.has(row.step)) byStep.set(row.step, []);
-    byStep.get(row.step)!.push(row);
-  }
-  return byStep;
-}
-
 export async function getSurveyWaves(programId: number) {
   return db.surveyWave.findMany({
     where: { programId },
@@ -294,16 +277,3 @@ export async function getSurveySends(applicantIds: number[]) {
   return byApplicant;
 }
 
-export const STEP_LABELS_MAP: Record<string, string> = {
-  personal: "Personal Info",
-  family: "Family Info",
-  academic: "Academic Info",
-  leadership: "Leadership",
-  community: "Community Involvement",
-  statement: "Personal Statement",
-};
-
-export const STEPS_BY_FORM_KIND: Record<string, string[]> = {
-  standard: ["personal", "family", "academic", "community", "statement"],
-  generika: ["personal", "family", "leadership", "community", "statement"],
-};

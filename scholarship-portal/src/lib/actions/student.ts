@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentStudent } from "@/lib/auth";
 import { formatDateLong } from "@/lib/date";
+import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -39,23 +40,46 @@ async function getProgramAndApp(programKey: string) {
   return { student, program, application };
 }
 
-function personalFields(fd: FormData) {
-  return {
-    fullName: str(fd, "fullName"),
-    dob: str(fd, "dob"),
-    email: str(fd, "email"),
-    phone: str(fd, "phone"),
-    address: str(fd, "address"),
-  };
+function stepNameFor(formKind: string, step: number): string {
+  const steps = STEPS_BY_FORM_KIND[formKind] ?? STEPS_BY_FORM_KIND.standard;
+  return steps[step];
 }
 
-function familyFields(fd: FormData) {
-  return {
-    guardianName: str(fd, "guardianName"),
-    guardianOcc: str(fd, "guardianOcc"),
-    income: str(fd, "income"),
-    dependents: str(fd, "dependents"),
-  };
+const STEP_DONE_FLAGS = ["personalDone", "familyDone", "academicsDone", "communityDone"] as const;
+
+// Reads whichever fields are actually enabled for this program/step out of the submitted
+// FormData — never a fixed field list — so a disabled field is never read, never required,
+// and never blanks its already-saved column value on the next save. Known fieldKeys write
+// straight to their Application column; a null fieldKey (an admin-added custom field)
+// merges into customFieldsJson, keyed by the field's own id.
+async function buildStepData(programId: number, step: string, fd: FormData, application: { customFieldsJson: string }): Promise<Record<string, unknown>> {
+  const fields = await getEnabledFields(programId, step);
+  const data: Record<string, unknown> = {};
+  const custom = parseCustomFields(application.customFieldsJson);
+  let customChanged = false;
+
+  for (const f of fields) {
+    if (!f.fieldKey) {
+      custom[f.id] = str(fd, `custom-${f.id}`);
+      customChanged = true;
+      continue;
+    }
+    if (f.fieldKey === "cert") {
+      const v = fileName(fd, "cert");
+      if (v) data.certFileName = v;
+      continue;
+    }
+    if (f.fieldKey === "video") {
+      const v = fileName(fd, "video");
+      if (v) data.videoFileName = v;
+      continue;
+    }
+    if (f.fieldKey === "familyMembers") continue; // handled separately by saveFamilyMembers
+    data[f.fieldKey] = str(fd, f.fieldKey);
+  }
+
+  if (customChanged) data.customFieldsJson = JSON.stringify(custom);
+  return data;
 }
 
 async function saveFamilyMembers(applicationId: number, fd: FormData) {
@@ -72,56 +96,20 @@ async function saveFamilyMembers(applicationId: number, fd: FormData) {
   if (rows.length) await db.familyMember.createMany({ data: rows });
 }
 
-function academicFields(fd: FormData) {
-  return {
-    school: str(fd, "school"),
-    gpa: str(fd, "gpa"),
-    graduation: str(fd, "graduation"),
-    major: str(fd, "major"),
-    certFileName: fileName(fd, "cert"),
-    videoFileName: fileName(fd, "video"),
-  };
-}
-
-function leadershipFields(fd: FormData) {
-  return {
-    leadRole: str(fd, "leadRole"),
-    leadOrg: str(fd, "leadOrg"),
-    leadDuration: str(fd, "leadDuration"),
-    leadPeople: str(fd, "leadPeople"),
-    leadDesc: str(fd, "leadDesc"),
-  };
-}
-
-function communityFields(fd: FormData) {
-  return {
-    volunteerOrg: str(fd, "volunteerOrg"),
-    volunteerHours: str(fd, "volunteerHours"),
-    volunteerYears: str(fd, "volunteerYears"),
-    communityDesc: str(fd, "communityDesc"),
-  };
-}
-
 export async function saveStepAndContinue(programKey: string, step: number, fd: FormData) {
   const { program, application } = await getProgramAndApp(programKey);
   const isGenerika = program.formKind === "generika";
+  const stepName = stepNameFor(program.formKind, step);
 
-  if (step === 2 && !isGenerika) {
+  if (stepName === "academic") {
     if (isOversized(fd, "cert", MAX_CERT_BYTES) || isOversized(fd, "video", MAX_VIDEO_BYTES)) {
       redirect(`/programs/${programKey}/application?error=file_too_large`);
     }
   }
 
-  let data: Record<string, unknown> = {};
-  if (step === 0) data = { ...personalFields(fd), personalDone: true };
-  else if (step === 1) {
-    data = { ...familyFields(fd), familyDone: true };
-    if (isGenerika) await saveFamilyMembers(application.id, fd);
-  } else if (step === 2) {
-    data = isGenerika ? { ...leadershipFields(fd), academicsDone: true } : { ...academicFields(fd), academicsDone: true };
-  } else if (step === 3) {
-    data = { ...communityFields(fd), communityDone: true };
-  }
+  const data = await buildStepData(program.id, stepName, fd, application);
+  if (stepName === "family" && isGenerika) await saveFamilyMembers(application.id, fd);
+  if (step < STEP_DONE_FLAGS.length) data[STEP_DONE_FLAGS[step]] = true;
 
   await db.application.update({
     where: { id: application.id },
@@ -143,15 +131,10 @@ export async function goPrevStep(programKey: string) {
 export async function saveDraft(programKey: string, step: number, fd: FormData) {
   const { program, application } = await getProgramAndApp(programKey);
   const isGenerika = program.formKind === "generika";
+  const stepName = stepNameFor(program.formKind, step);
 
-  let data: Record<string, unknown> = {};
-  if (step === 0) data = personalFields(fd);
-  else if (step === 1) {
-    data = familyFields(fd);
-    if (isGenerika) await saveFamilyMembers(application.id, fd);
-  } else if (step === 2) data = isGenerika ? leadershipFields(fd) : academicFields(fd);
-  else if (step === 3) data = communityFields(fd);
-  else if (step === 4) data = { essayText: str(fd, "essayText"), essayText2: str(fd, "essayText2") };
+  const data = await buildStepData(program.id, stepName, fd, application);
+  if (stepName === "family" && isGenerika) await saveFamilyMembers(application.id, fd);
 
   await db.application.update({
     where: { id: application.id },
@@ -162,19 +145,12 @@ export async function saveDraft(programKey: string, step: number, fd: FormData) 
 }
 
 export async function submitApplication(programKey: string, fd: FormData) {
-  const { application } = await getProgramAndApp(programKey);
-  const essayText = str(fd, "essayText");
-  const essayText2 = str(fd, "essayText2");
+  const { program, application } = await getProgramAndApp(programKey);
+  const data = await buildStepData(program.id, "statement", fd, application);
 
   await db.application.update({
     where: { id: application.id },
-    data: {
-      essayText,
-      essayText2,
-      essaysDone: true,
-      status: "submitted",
-      submittedDate: formatDateLong(),
-    },
+    data: { ...data, essaysDone: true, status: "submitted", submittedDate: formatDateLong() },
   });
 
   redirect(`/programs/${programKey}/status`);
