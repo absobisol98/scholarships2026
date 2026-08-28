@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireScreener, getCurrentStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { AutoSubmitSelect } from "@/components/auto-submit-select";
 
 export default async function ScreenerHomePage({
   searchParams,
@@ -42,8 +43,6 @@ export default async function ScreenerHomePage({
     return filterOk && qOk;
   });
 
-  const filterHref = (f: string) => `/screener?filter=${f}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
-
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
@@ -54,17 +53,36 @@ export default async function ScreenerHomePage({
           Applicants assigned to you for review. You can see each one&apos;s details and red-flag summary, but not edit criteria or deadlines.
         </p>
 
-        <form method="GET" style={{ display: "flex", gap: "var(--space-3)", margin: "var(--space-4) 0", alignItems: "center", flexWrap: "wrap" }}>
-          <input type="hidden" name="filter" value={filter} />
-          <input className="input" aria-label="Search assigned applicants" name="q" placeholder="Search by name or school..." style={{ maxWidth: 260 }} defaultValue={q} />
-          <div className="seg" role="radiogroup" aria-label="Filter by assessment status">
-            <label className="seg-opt"><input type="radio" name="filterradio" checked={filter === "all"} readOnly /><Link href={filterHref("all")} style={{ color: "inherit", textDecoration: "none" }}>All ({countAll})</Link></label>
-            <label className="seg-opt"><input type="radio" name="filterradio" checked={filter === "unassessed"} readOnly /><Link href={filterHref("unassessed")} style={{ color: "inherit", textDecoration: "none" }}>Not yet assessed ({countUnassessed})</Link></label>
-            <label className="seg-opt"><input type="radio" name="filterradio" checked={filter === "recommend"} readOnly /><Link href={filterHref("recommend")} style={{ color: "inherit", textDecoration: "none" }}>Recommended ({countRecommend})</Link></label>
-            <label className="seg-opt"><input type="radio" name="filterradio" checked={filter === "not_recommend"} readOnly /><Link href={filterHref("not_recommend")} style={{ color: "inherit", textDecoration: "none" }}>Not recommended ({countNotRecommend})</Link></label>
+        <form method="GET" className="card elev-sm" style={{ margin: "var(--space-4) 0" }}>
+          <div className="filters-panel-header">
+            <span className="card-kicker">Filters</span>
+            <Link href="/screener" style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
           </div>
-          <button type="submit" className="btn btn-secondary">Search</button>
-          <span className="text-muted" style={{ fontSize: 12, marginLeft: "auto" }}>{filtered.length} applicant{filtered.length === 1 ? "" : "s"}</span>
+          <div className="filters-row">
+            <div className="field">
+              <label htmlFor="screener-search">Name or school</label>
+              <input id="screener-search" className="input" name="q" placeholder="Search by name or school..." defaultValue={q} />
+            </div>
+            <div className="field">
+              <label htmlFor="screener-filter">Assessment status</label>
+              <AutoSubmitSelect
+                id="screener-filter"
+                name="filter"
+                defaultValue={filter}
+                options={[
+                  { value: "all", label: `All (${countAll})` },
+                  { value: "unassessed", label: `Not yet assessed (${countUnassessed})` },
+                  { value: "recommend", label: `Recommended (${countRecommend})` },
+                  { value: "not_recommend", label: `Not recommended (${countNotRecommend})` },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="hr" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <button type="submit" className="btn btn-secondary">Search</button>
+            <span className="text-muted" style={{ fontSize: 12 }}>{filtered.length} applicant{filtered.length === 1 ? "" : "s"}</span>
+          </div>
         </form>
 
         {assignments.length === 0 ? (

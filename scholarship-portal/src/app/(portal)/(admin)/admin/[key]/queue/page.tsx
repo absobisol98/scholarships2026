@@ -5,6 +5,7 @@ import { promoteApplicant, demoteApplicant } from "@/lib/actions/admin";
 import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
+import { AutoSubmitSelect } from "@/components/auto-submit-select";
 
 export default async function QueuePage({
   params,
@@ -31,9 +32,6 @@ export default async function QueuePage({
   const countFlagged = applicants.filter((a) => a.flags.length > 0).length;
   const countClear = applicants.filter((a) => a.flags.length === 0).length;
 
-  const filterHref = (s: string) => `/admin/${program.key}/queue?status=${s}&flag=${flag}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
-  const flagFilterHref = (f: string) => `/admin/${program.key}/queue?status=${status}&flag=${f}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
-
   return (
     <div>
       <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Applications Overview" }]} />
@@ -46,23 +44,48 @@ export default async function QueuePage({
         <button type="button" className="btn btn-secondary" style={{ flex: "none" }}>Export CSV</button>
       </div>
 
-      <form method="GET" className="table-toolbar" style={{ margin: "var(--space-4) 0" }}>
-        <input type="hidden" name="status" value={status} />
-        <input type="hidden" name="flag" value={flag} />
-        <label htmlFor="queue-search" className="sr-only">Search applicants by name</label>
-        <input id="queue-search" className="input" name="q" placeholder="Search applicants..." style={{ maxWidth: 260 }} defaultValue={q} />
-        <div className="seg" role="radiogroup" aria-label="Filter applicants by status">
-          <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "all"} readOnly /><Link href={filterHref("all")} style={{ color: "inherit", textDecoration: "none" }}>All ({countAll})</Link></label>
-          <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "review"} readOnly /><Link href={filterHref("review")} style={{ color: "inherit", textDecoration: "none" }}>Needs review ({countReview})</Link></label>
-          <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "decided"} readOnly /><Link href={filterHref("decided")} style={{ color: "inherit", textDecoration: "none" }}>Decided ({countDecided})</Link></label>
+      <form method="GET" className="card elev-sm" style={{ margin: "var(--space-4) 0" }}>
+        <div className="filters-panel-header">
+          <span className="card-kicker">Filters</span>
+          <Link href={`/admin/${program.key}/queue`} style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
         </div>
-        <div className="seg" role="radiogroup" aria-label="Filter applicants by red flag">
-          <label className="seg-opt"><input type="radio" name="flagradio" checked={flag === "all"} readOnly /><Link href={flagFilterHref("all")} style={{ color: "inherit", textDecoration: "none" }}>All ({countAll})</Link></label>
-          <label className="seg-opt"><input type="radio" name="flagradio" checked={flag === "flagged"} readOnly /><Link href={flagFilterHref("flagged")} style={{ color: "inherit", textDecoration: "none" }}>Red flagged ({countFlagged})</Link></label>
-          <label className="seg-opt"><input type="radio" name="flagradio" checked={flag === "clear"} readOnly /><Link href={flagFilterHref("clear")} style={{ color: "inherit", textDecoration: "none" }}>No flags ({countClear})</Link></label>
+        <div className="filters-row">
+          <div className="field">
+            <label htmlFor="queue-search">Name</label>
+            <input id="queue-search" className="input" name="q" placeholder="Search applicants..." defaultValue={q} />
+          </div>
+          <div className="field">
+            <label htmlFor="queue-status">Status</label>
+            <AutoSubmitSelect
+              id="queue-status"
+              name="status"
+              defaultValue={status}
+              options={[
+                { value: "all", label: `All (${countAll})` },
+                { value: "review", label: `Needs review (${countReview})` },
+                { value: "decided", label: `Decided (${countDecided})` },
+              ]}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="queue-flag">Red flag</label>
+            <AutoSubmitSelect
+              id="queue-flag"
+              name="flag"
+              defaultValue={flag}
+              options={[
+                { value: "all", label: `All (${countAll})` },
+                { value: "flagged", label: `Red flagged (${countFlagged})` },
+                { value: "clear", label: `No flags (${countClear})` },
+              ]}
+            />
+          </div>
         </div>
-        <button type="submit" className="btn btn-secondary">Search</button>
-        <span className="text-muted" style={{ fontSize: 12, marginLeft: "auto" }}>{filtered.length} applicants</span>
+        <div className="hr" />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <button type="submit" className="btn btn-secondary">Search</button>
+          <span className="text-muted" style={{ fontSize: 12 }}>{filtered.length} applicants</span>
+        </div>
       </form>
 
       <PhaseLegend />

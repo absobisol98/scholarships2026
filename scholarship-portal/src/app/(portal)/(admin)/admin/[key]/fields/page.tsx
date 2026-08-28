@@ -34,11 +34,19 @@ export default async function FieldsPage({
         Choose which fields applicants see for each step, mark fields required, rename them, set the input type, or add new ones.
       </p>
 
-      <form method="GET" className="table-toolbar" style={{ marginTop: "var(--space-6)" }}>
-        <label htmlFor="fields-search" className="sr-only">Search fields by label</label>
-        <input id="fields-search" className="input" name="q" placeholder="Search fields..." defaultValue={q} />
-        <button type="submit" className="btn btn-secondary">Search</button>
-        {q && <Link href={`/admin/${program.key}/fields`} className="text-muted" style={{ fontSize: 13 }}>Clear</Link>}
+      <form method="GET" className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
+        <div className="filters-panel-header">
+          <span className="card-kicker">Filters</span>
+          <Link href={`/admin/${program.key}/fields`} style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
+        </div>
+        <div className="filters-row">
+          <div className="field">
+            <label htmlFor="fields-search">Field label</label>
+            <input id="fields-search" className="input" name="q" placeholder="Search fields..." defaultValue={q} />
+          </div>
+        </div>
+        <div className="hr" />
+        <button type="submit" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>Search</button>
       </form>
 
       <div className="card elev-sm">

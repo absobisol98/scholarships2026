@@ -72,11 +72,19 @@ export default async function ManageUsersPage({
           <NewUserModal programs={programs.map((p) => ({ id: p.id, name: p.name }))} onCreate={createStaffAccount} />
         </div>
 
-        <form method="GET" className="table-toolbar" style={{ marginTop: "var(--space-6)" }}>
-          <label htmlFor="users-search" className="sr-only">Search by name or email</label>
-          <input id="users-search" className="input" name="q" placeholder="Search by name or email..." defaultValue={q} />
-          <button type="submit" className="btn btn-secondary">Search</button>
-          {q && <Link href="/admin/users" className="text-muted" style={{ fontSize: 13 }}>Clear</Link>}
+        <form method="GET" className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
+          <div className="filters-panel-header">
+            <span className="card-kicker">Filters</span>
+            <Link href="/admin/users" style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
+          </div>
+          <div className="filters-row">
+            <div className="field">
+              <label htmlFor="users-search">Name or email</label>
+              <input id="users-search" className="input" name="q" placeholder="Search by name or email..." defaultValue={q} />
+            </div>
+          </div>
+          <div className="hr" />
+          <button type="submit" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>Search</button>
         </form>
 
         <UsersTable rows={rows} onBulkDeactivate={bulkDeactivateStaff} createdAtSortHref={createdAtSortHref} sortDir={sort === "createdAt" ? sortDir : "asc"} />

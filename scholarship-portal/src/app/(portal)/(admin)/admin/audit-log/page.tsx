@@ -34,11 +34,19 @@ export default async function AuditLogPage({
           A record of user-management changes, red-flag overrides, and award decisions across every program.
         </p>
 
-        <form method="GET" className="table-toolbar" style={{ marginTop: "var(--space-6)" }}>
-          <label htmlFor="audit-search" className="sr-only">Search by actor or action</label>
-          <input id="audit-search" className="input" name="q" placeholder="Search by actor or action..." defaultValue={q} />
-          <button type="submit" className="btn btn-secondary">Search</button>
-          {q && <Link href="/admin/audit-log" className="text-muted" style={{ fontSize: 13 }}>Clear</Link>}
+        <form method="GET" className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
+          <div className="filters-panel-header">
+            <span className="card-kicker">Filters</span>
+            <Link href="/admin/audit-log" style={{ fontSize: 13, fontWeight: 600, color: "var(--color-accent)" }}>Reset</Link>
+          </div>
+          <div className="filters-row">
+            <div className="field">
+              <label htmlFor="audit-search">Actor or action</label>
+              <input id="audit-search" className="input" name="q" placeholder="Search by actor or action..." defaultValue={q} />
+            </div>
+          </div>
+          <div className="hr" />
+          <button type="submit" className="btn btn-secondary" style={{ alignSelf: "flex-start" }}>Search</button>
         </form>
 
         <div className="card elev-sm">
