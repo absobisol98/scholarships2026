@@ -11,24 +11,28 @@ export default async function QueuePage({
   searchParams,
 }: {
   params: Promise<{ key: string }>;
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; flag?: string }>;
 }) {
   const { key } = await params;
-  const { q = "", status = "all" } = await searchParams;
+  const { q = "", status = "all", flag = "all" } = await searchParams;
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
   const applicants = await getApplicantsForProgram(program.id);
   const filtered = applicants.filter((a) => {
     const statusOk = status === "all" || a.status === status;
+    const flagOk = flag === "all" || (flag === "flagged" && a.flags.length > 0) || (flag === "clear" && a.flags.length === 0);
     const qOk = q === "" || a.name.toLowerCase().includes(q.toLowerCase());
-    return statusOk && qOk;
+    return statusOk && flagOk && qOk;
   });
   const countAll = applicants.length;
   const countReview = applicants.filter((a) => a.status === "review").length;
   const countDecided = applicants.filter((a) => a.status === "decided").length;
+  const countFlagged = applicants.filter((a) => a.flags.length > 0).length;
+  const countClear = applicants.filter((a) => a.flags.length === 0).length;
 
-  const filterHref = (s: string) => `/admin/${program.key}/queue?status=${s}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const filterHref = (s: string) => `/admin/${program.key}/queue?status=${s}&flag=${flag}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const flagFilterHref = (f: string) => `/admin/${program.key}/queue?status=${status}&flag=${f}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
   return (
     <div>
@@ -44,12 +48,18 @@ export default async function QueuePage({
 
       <form method="GET" className="table-toolbar" style={{ margin: "var(--space-4) 0" }}>
         <input type="hidden" name="status" value={status} />
+        <input type="hidden" name="flag" value={flag} />
         <label htmlFor="queue-search" className="sr-only">Search applicants by name</label>
         <input id="queue-search" className="input" name="q" placeholder="Search applicants..." style={{ maxWidth: 260 }} defaultValue={q} />
         <div className="seg" role="radiogroup" aria-label="Filter applicants by status">
           <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "all"} readOnly /><Link href={filterHref("all")} style={{ color: "inherit", textDecoration: "none" }}>All ({countAll})</Link></label>
           <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "review"} readOnly /><Link href={filterHref("review")} style={{ color: "inherit", textDecoration: "none" }}>Needs review ({countReview})</Link></label>
           <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "decided"} readOnly /><Link href={filterHref("decided")} style={{ color: "inherit", textDecoration: "none" }}>Decided ({countDecided})</Link></label>
+        </div>
+        <div className="seg" role="radiogroup" aria-label="Filter applicants by red flag">
+          <label className="seg-opt"><input type="radio" name="flagradio" checked={flag === "all"} readOnly /><Link href={flagFilterHref("all")} style={{ color: "inherit", textDecoration: "none" }}>All ({countAll})</Link></label>
+          <label className="seg-opt"><input type="radio" name="flagradio" checked={flag === "flagged"} readOnly /><Link href={flagFilterHref("flagged")} style={{ color: "inherit", textDecoration: "none" }}>Red flagged ({countFlagged})</Link></label>
+          <label className="seg-opt"><input type="radio" name="flagradio" checked={flag === "clear"} readOnly /><Link href={flagFilterHref("clear")} style={{ color: "inherit", textDecoration: "none" }}>No flags ({countClear})</Link></label>
         </div>
         <button type="submit" className="btn btn-secondary">Search</button>
         <span className="text-muted" style={{ fontSize: 12, marginLeft: "auto" }}>{filtered.length} applicants</span>
