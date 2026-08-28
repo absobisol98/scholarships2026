@@ -75,15 +75,7 @@ export default async function QueuePage({
               return (
                 <tr key={a.id}>
                   <td>{a.appId}</td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontWeight: 700 }}>{a.name}</span>
-                      {a.flags.length > 0 && !a.flagOverridden && <span className="tag tag-outline" style={{ borderColor: "var(--color-accent)", color: "var(--color-accent-700)" }}>Red Flag</span>}
-                      {a.flags.length > 0 && a.flagOverridden && <span className="tag tag-neutral">Flag overridden</span>}
-                      {a.decision && <span className="tag tag-accent">{a.decision === "awarded" ? "Awarded" : a.decision === "waitlisted" ? "Waitlisted" : "Declined"}</span>}
-                    </div>
-                    <span className="text-muted" style={{ fontSize: 12 }}>{a.school}</span>
-                  </td>
+                  <td style={{ fontWeight: 700 }}>{a.name}</td>
                   <td><span className="tag tag-neutral">{a.phaseLabel}</span></td>
                   <td>{a.submitted}</td>
                   <td>
