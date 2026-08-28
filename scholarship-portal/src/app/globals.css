@@ -223,11 +223,31 @@ textarea.input { min-height: 90px; resize: vertical; }
 .field-group-row { background: var(--color-neutral-200); padding: 10px var(--space-2) !important; }
 .field-group-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: inherit; font: inherit; font-weight: 700; font-size: 13px; padding: 0; }
 .field-group-toggle svg { transition: transform 0.15s ease; flex: none; }
-.link-edit, .link-delete { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; padding: 0; }
-.link-edit { color: var(--color-accent-2-600); }
-.link-edit:hover { color: var(--color-accent-2-700); text-decoration: underline; }
-.link-delete { color: #b3261e; }
-.link-delete:hover { color: #8c1d17; text-decoration: underline; }
+.link-edit, .link-delete, .link-view {
+  display: inline-flex; align-items: center; gap: 4px; background: none; border: none;
+  cursor: pointer; font-size: 13px; font-weight: 600; padding: 2px 0; text-decoration: none;
+}
+/* accent-2-800 (not -600) on the app's light table backgrounds — the lighter shades read
+   under 4.5:1 against --color-bg/--color-surface and fail WCAG 2.1 AA for normal text. */
+.link-edit { color: var(--color-accent-2-800); }
+.link-edit:hover { color: var(--color-accent-2-900); text-decoration: underline; }
+.link-delete { color: #8c1d17; }
+.link-delete:hover { color: #6c1512; text-decoration: underline; }
+.link-view { color: var(--color-text); }
+.link-view:hover { color: var(--color-accent-700); text-decoration: underline; }
+
+/* — Breadcrumb — */
+.breadcrumb { display: flex; align-items: center; gap: 6px; margin-bottom: var(--space-2); flex-wrap: wrap; }
+.breadcrumb ol { display: flex; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.breadcrumb li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.breadcrumb a { color: color-mix(in srgb, var(--color-text) 70%, transparent); text-decoration: none; font-weight: 500; }
+.breadcrumb a:hover { color: var(--color-accent); text-decoration: underline; }
+.breadcrumb [aria-current="page"] { color: var(--color-text); font-weight: 700; }
+.breadcrumb svg { flex: none; color: color-mix(in srgb, var(--color-text) 40%, transparent); }
+
+/* — Table toolbar (search / filter row above a data table) — */
+.table-toolbar { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.table-toolbar .input { max-width: 320px; }
 
 @media (max-width: 860px) {
   .app-body { flex-direction: column; }

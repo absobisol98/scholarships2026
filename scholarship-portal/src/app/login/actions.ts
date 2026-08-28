@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSessionCookieValue, SESSION_COOKIE, type Role } from "@/lib/session";
 import { homeForRole, getDemoStudent, getDemoStaff, initialsFor } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -21,6 +22,11 @@ async function loginAs(role: Role, studentId?: number, staffId?: string) {
     path: "/",
     maxAge: ONE_WEEK,
   });
+  // Without this, the browser's client-side router cache can keep serving a route's
+  // previously-rendered payload (e.g. the demo persona's /browse) across a login/logout
+  // that lands on the exact same URL for a different account — this forces every route to
+  // re-render fresh instead of reusing anything cached under the old session.
+  revalidatePath("/", "layout");
   redirect(homeForRole(role));
 }
 
@@ -86,5 +92,6 @@ export async function loginAsScreener() {
 export async function logout() {
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
+  revalidatePath("/", "layout");
   redirect("/login");
 }

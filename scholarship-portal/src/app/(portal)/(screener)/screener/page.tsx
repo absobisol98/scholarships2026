@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireScreener, getCurrentStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Breadcrumb } from "@/components/breadcrumb";
 
 export default async function ScreenerHomePage({
   searchParams,
@@ -46,6 +47,7 @@ export default async function ScreenerHomePage({
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
+        <Breadcrumb items={[{ label: "Paper Screener" }, { label: "My assigned applicants" }]} />
         <h6 style={{ color: "var(--color-accent)" }}>Paper Screener</h6>
         <h2 style={{ marginBottom: 4 }}>My assigned applicants</h2>
         <p className="text-muted" style={{ maxWidth: 560, marginBottom: 0 }}>

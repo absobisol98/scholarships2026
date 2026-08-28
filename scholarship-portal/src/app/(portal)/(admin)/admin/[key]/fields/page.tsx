@@ -1,29 +1,47 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getFieldsConfig, parseOptions, STEP_LABELS_MAP, STEPS_BY_FORM_KIND } from "@/lib/admin-data";
 import { updateFieldLabel, toggleFieldEnabled, toggleFieldRequired, removeField, addField, setFieldType, addFieldOption, removeFieldOption } from "@/lib/actions/admin";
 import { FIELD_TYPE_LABELS } from "@/components/field-type-select";
 import { FieldGroupSection } from "./field-group-section";
 import { EditFieldModal } from "./edit-field-modal";
+import { Breadcrumb } from "@/components/breadcrumb";
 
 const TABLE_COLUMNS = 5;
 
-export default async function FieldsPage({ params }: { params: Promise<{ key: string }> }) {
+export default async function FieldsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ key: string }>;
+  searchParams: Promise<{ q?: string }>;
+}) {
   const { key } = await params;
   const program = await getProgramByKey(key);
   if (!program) notFound();
+  const { q = "" } = await searchParams;
 
   const fieldsByStep = await getFieldsConfig(program.id);
   const steps = STEPS_BY_FORM_KIND[program.formKind] ?? STEPS_BY_FORM_KIND.standard;
+  const matchesSearch = (label: string) => q === "" || label.toLowerCase().includes(q.toLowerCase());
 
   return (
     <div className="page-wrap">
+      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Manage Fields" }]} />
       <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
       <h2 style={{ marginBottom: 4 }}>Manage application fields</h2>
       <p className="text-muted" style={{ maxWidth: 640 }}>
         Choose which fields applicants see for each step, mark fields required, rename them, set the input type, or add new ones.
       </p>
 
-      <div className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
+      <form method="GET" className="table-toolbar" style={{ marginTop: "var(--space-6)" }}>
+        <label htmlFor="fields-search" className="sr-only">Search fields by label</label>
+        <input id="fields-search" className="input" name="q" placeholder="Search fields..." defaultValue={q} />
+        <button type="submit" className="btn btn-secondary">Search</button>
+        {q && <Link href={`/admin/${program.key}/fields`} className="text-muted" style={{ fontSize: 13 }}>Clear</Link>}
+      </form>
+
+      <div className="card elev-sm">
         <div className="table-scroll">
           <table className="table" aria-label="Application fields">
             <thead>
@@ -37,12 +55,14 @@ export default async function FieldsPage({ params }: { params: Promise<{ key: st
             </thead>
             <tbody>
               {steps.map((step) => {
-                const fields = fieldsByStep.get(step) ?? [];
+                const allFields = fieldsByStep.get(step) ?? [];
+                const fields = allFields.filter((f) => matchesSearch(f.label));
+                if (q && fields.length === 0) return null;
                 const onAddField = addField.bind(null, program.key, program.id, step);
                 return (
                   <FieldGroupSection
                     key={step}
-                    label={STEP_LABELS_MAP[step]}
+                    label={`${STEP_LABELS_MAP[step]} (${fields.length})`}
                     colSpan={TABLE_COLUMNS}
                     addFieldForm={
                       <form action={onAddField}>

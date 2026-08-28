@@ -1,10 +1,17 @@
+import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createStaffAccount, toggleStaffActive, addStaffProgramAssignment, removeStaffProgramAssignment, updateStaffEmail } from "@/lib/actions/staff";
 import { EditAdminModal } from "./edit-admin-modal";
+import { Breadcrumb } from "@/components/breadcrumb";
 
-export default async function ManageUsersPage() {
+export default async function ManageUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireSuperAdmin();
+  const { q = "" } = await searchParams;
 
   const [staff, programs] = await Promise.all([
     db.staffAccount.findMany({
@@ -15,20 +22,31 @@ export default async function ManageUsersPage() {
     db.program.findMany({ orderBy: { order: "asc" } }),
   ]);
 
-  const admins = staff.filter((s) => s.role === "admin");
-  const screeners = staff.filter((s) => s.role === "screener");
+  const matches = (s: { name: string; email: string }) =>
+    q === "" || s.name.toLowerCase().includes(q.toLowerCase()) || s.email.toLowerCase().includes(q.toLowerCase());
+
+  const admins = staff.filter((s) => s.role === "admin" && matches(s));
+  const screeners = staff.filter((s) => s.role === "screener" && matches(s));
 
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
+        <Breadcrumb items={[{ label: "Admin", href: "/admin" }, { label: "Manage Users" }]} />
         <h6 style={{ color: "var(--color-accent)" }}>Super Admin</h6>
         <h2 style={{ marginBottom: 4 }}>Manage Users</h2>
         <p className="text-muted" style={{ maxWidth: 640 }}>
           Create or deactivate Program Admin and Paper Screener accounts, and control which program(s) each Admin manages.
         </p>
 
-        <div className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
-          <div className="card-kicker">Program Admins</div>
+        <form method="GET" className="table-toolbar" style={{ marginTop: "var(--space-6)" }}>
+          <label htmlFor="users-search" className="sr-only">Search by name or email</label>
+          <input id="users-search" className="input" name="q" placeholder="Search by name or email..." defaultValue={q} />
+          <button type="submit" className="btn btn-secondary">Search</button>
+          {q && <Link href="/admin/users" className="text-muted" style={{ fontSize: 13 }}>Clear</Link>}
+        </form>
+
+        <div className="card elev-sm">
+          <div className="card-kicker">Program Admins ({admins.length})</div>
           <div className="table-scroll" style={{ marginTop: "var(--space-2)" }}>
             <table className="table" aria-label="Program Admins">
               <thead>
@@ -41,6 +59,9 @@ export default async function ManageUsersPage() {
                 </tr>
               </thead>
               <tbody>
+                {admins.length === 0 && (
+                  <tr><td colSpan={5} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No matching program admins.</td></tr>
+                )}
                 {admins.map((a) => {
                   const assignedIds = new Set(a.programAssignments.map((pa) => pa.programId));
                   const availablePrograms = programs.filter((p) => !assignedIds.has(p.id));
@@ -68,17 +89,29 @@ export default async function ManageUsersPage() {
                         </div>
                       </td>
                       <td>
-                        <EditAdminModal
-                          adminName={a.name}
-                          email={a.email}
-                          active={a.active}
-                          assignments={a.programAssignments.map((pa) => ({ id: pa.id, programId: pa.programId, programName: pa.program.name }))}
-                          availablePrograms={availablePrograms.map((p) => ({ id: p.id, name: p.name }))}
-                          onToggleActive={onToggle}
-                          onAddAssignment={onAddAssignment}
-                          onRemoveAssignment={onRemoveAssignment}
-                          onEmailChange={async (value) => { "use server"; await updateStaffEmail(a.id, value); }}
-                        />
+                        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+                          <EditAdminModal
+                            adminName={a.name}
+                            email={a.email}
+                            active={a.active}
+                            assignments={a.programAssignments.map((pa) => ({ id: pa.id, programId: pa.programId, programName: pa.program.name }))}
+                            availablePrograms={availablePrograms.map((p) => ({ id: p.id, name: p.name }))}
+                            onToggleActive={onToggle}
+                            onAddAssignment={onAddAssignment}
+                            onRemoveAssignment={onRemoveAssignment}
+                            onEmailChange={async (value) => { "use server"; await updateStaffEmail(a.id, value); }}
+                          />
+                          <form action={onToggle}>
+                            <button type="submit" className={a.active ? "link-delete" : "link-edit"}>
+                              {a.active ? (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" /></svg>
+                              ) : (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                              )}
+                              {a.active ? "Deactivate" : "Reactivate"}
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -110,7 +143,7 @@ export default async function ManageUsersPage() {
         </div>
 
         <div className="card elev-sm" style={{ marginTop: "var(--space-4)" }}>
-          <div className="card-kicker">Paper Screeners</div>
+          <div className="card-kicker">Paper Screeners ({screeners.length})</div>
           <div className="table-scroll" style={{ marginTop: "var(--space-2)" }}>
             <table className="table" aria-label="Paper Screeners">
               <thead>
@@ -123,6 +156,9 @@ export default async function ManageUsersPage() {
                 </tr>
               </thead>
               <tbody>
+                {screeners.length === 0 && (
+                  <tr><td colSpan={5} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No matching paper screeners.</td></tr>
+                )}
                 {screeners.map((s) => {
                   const onToggle = toggleStaffActive.bind(null, s.id);
                   return (
@@ -140,7 +176,14 @@ export default async function ManageUsersPage() {
                       <td>{s.applicantAssignments.length}</td>
                       <td>
                         <form action={onToggle}>
-                          <button type="submit" className="btn btn-secondary" style={{ padding: "6px 12px", whiteSpace: "nowrap" }}>{s.active ? "Deactivate" : "Reactivate"}</button>
+                          <button type="submit" className={s.active ? "link-delete" : "link-edit"}>
+                            {s.active ? (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" /></svg>
+                            ) : (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                            )}
+                            {s.active ? "Deactivate" : "Reactivate"}
+                          </button>
                         </form>
                       </td>
                     </tr>

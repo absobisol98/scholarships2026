@@ -1,33 +1,49 @@
 import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Breadcrumb } from "@/components/breadcrumb";
 
 function formatTimestamp(d: Date): string {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-export default async function AuditLogPage() {
+export default async function AuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireSuperAdmin();
+  const { q = "" } = await searchParams;
 
-  const entries = await db.auditLogEntry.findMany({
+  const allEntries = await db.auditLogEntry.findMany({
     include: { program: true },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+  const entries = q
+    ? allEntries.filter((e) => e.actor.toLowerCase().includes(q.toLowerCase()) || e.action.toLowerCase().includes(q.toLowerCase()))
+    : allEntries;
 
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
-        <Link href="/admin" style={{ fontSize: 12, fontWeight: 600, textDecoration: "none" }}>← All workspaces</Link>
-        <h6 style={{ color: "var(--color-accent)", marginTop: "var(--space-3)" }}>Super Admin</h6>
+        <Breadcrumb items={[{ label: "Admin", href: "/admin" }, { label: "Audit Log" }]} />
+        <h6 style={{ color: "var(--color-accent)" }}>Super Admin</h6>
         <h2 style={{ marginBottom: 4 }}>Audit Log</h2>
         <p className="text-muted" style={{ maxWidth: 640 }}>
           A record of user-management changes, red-flag overrides, and award decisions across every program.
         </p>
 
-        <div className="card elev-sm" style={{ marginTop: "var(--space-6)" }}>
+        <form method="GET" className="table-toolbar" style={{ marginTop: "var(--space-6)" }}>
+          <label htmlFor="audit-search" className="sr-only">Search by actor or action</label>
+          <input id="audit-search" className="input" name="q" placeholder="Search by actor or action..." defaultValue={q} />
+          <button type="submit" className="btn btn-secondary">Search</button>
+          {q && <Link href="/admin/audit-log" className="text-muted" style={{ fontSize: 13 }}>Clear</Link>}
+        </form>
+
+        <div className="card elev-sm">
           {entries.length === 0 ? (
-            <p className="card-body" style={{ margin: 0 }}>No activity recorded yet.</p>
+            <p className="card-body" style={{ margin: 0 }}>{q ? "No matching activity." : "No activity recorded yet."}</p>
           ) : (
             <div className="table-scroll">
               <table className="table" aria-label="Audit log entries">

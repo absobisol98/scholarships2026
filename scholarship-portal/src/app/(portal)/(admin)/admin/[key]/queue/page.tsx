@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getProgramByKey, getApplicantsForProgram } from "@/lib/admin-data";
 import { promoteApplicant, demoteApplicant } from "@/lib/actions/admin";
 import { APPLICANT_PHASES } from "@/lib/steps";
+import { Breadcrumb } from "@/components/breadcrumb";
 
 export default async function QueuePage({
   params,
@@ -30,6 +31,7 @@ export default async function QueuePage({
 
   return (
     <div>
+      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Applications Overview" }]} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
         <div>
           <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
@@ -39,9 +41,10 @@ export default async function QueuePage({
         <button type="button" className="btn btn-secondary" style={{ flex: "none" }}>Export CSV</button>
       </div>
 
-      <form method="GET" style={{ display: "flex", gap: "var(--space-3)", margin: "var(--space-4) 0", alignItems: "center", flexWrap: "wrap" }}>
+      <form method="GET" className="table-toolbar" style={{ margin: "var(--space-4) 0" }}>
         <input type="hidden" name="status" value={status} />
-        <input className="input" aria-label="Search applicants" name="q" placeholder="Search applicants..." style={{ maxWidth: 260 }} defaultValue={q} />
+        <label htmlFor="queue-search" className="sr-only">Search applicants by name</label>
+        <input id="queue-search" className="input" name="q" placeholder="Search applicants..." style={{ maxWidth: 260 }} defaultValue={q} />
         <div className="seg" role="radiogroup" aria-label="Filter applicants by status">
           <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "all"} readOnly /><Link href={filterHref("all")} style={{ color: "inherit", textDecoration: "none" }}>All ({countAll})</Link></label>
           <label className="seg-opt"><input type="radio" name="statusradio" checked={status === "review"} readOnly /><Link href={filterHref("review")} style={{ color: "inherit", textDecoration: "none" }}>Needs review ({countReview})</Link></label>
