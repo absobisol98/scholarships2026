@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
-import { getProgramByKey, getApplication } from "@/lib/student-data";
+import { getProgramByKey, resolveApplicationForDisplay } from "@/lib/student-data";
 import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus } from "@/lib/steps";
 import { Card, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
@@ -12,7 +12,7 @@ export default async function StatusPage({ params }: { params: Promise<{ key: st
   if (!program) notFound();
 
   const student = await getCurrentStudent();
-  const application = await getApplication(student.id, program.id);
+  const application = await resolveApplicationForDisplay(student.id, program.id);
   const status = application?.status ?? "not_started";
   const meta = statusMeta(status);
   const stageIndex = stageIndexForStatus(status);

@@ -7,6 +7,7 @@ import { getCurrentStudent } from "@/lib/auth";
 import { formatDateLong } from "@/lib/date";
 import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
+import { resolveApplicationForAward } from "@/lib/student-data";
 import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
 import { uploadDocument } from "@/lib/storage";
 import { findMissingRequiredFields } from "@/lib/validation";
@@ -35,8 +36,11 @@ function isOversized(fd: FormData, name: string, maxBytes: number): boolean {
 async function getProgramAndApp(programKey: string) {
   const student = await getCurrentStudent();
   const program = await db.program.findUniqueOrThrow({ where: { key: programKey } });
-  const application = await db.application.findUniqueOrThrow({
-    where: { studentId_programId: { studentId: student.id, programId: program.id } },
+  // A write action only ever targets the in-progress cycle — the currently active cohort,
+  // never "whichever application is most recent" the way the read-side display rules do.
+  const activeCohort = await getActiveCohortWithCriteria(program.id);
+  const application = await db.application.findFirstOrThrow({
+    where: { studentId: student.id, programId: program.id, cohortId: activeCohort?.id ?? null },
   });
   return { student, program, application };
 }
@@ -254,14 +258,26 @@ export async function submitApplication(programKey: string, fd: FormData) {
   redirect(`/programs/${programKey}/status`);
 }
 
+// Deliberately not getProgramAndApp: that resolves the CURRENT active cohort's
+// application, but an award decision belongs to whichever application was actually
+// decided — which may be an older cohort's application if the scholar has since started a
+// renewal. Uses the same resolution rule as the Award page itself.
+async function getAwardedApplication(programKey: string) {
+  const student = await getCurrentStudent();
+  const program = await db.program.findUniqueOrThrow({ where: { key: programKey } });
+  const application = await resolveApplicationForAward(student.id, program.id);
+  if (!application) throw new Error(`No application found for ${programKey}`);
+  return application;
+}
+
 export async function acceptAward(programKey: string) {
-  const { application } = await getProgramAndApp(programKey);
+  const application = await getAwardedApplication(programKey);
   await db.application.update({ where: { id: application.id }, data: { awardResponse: "accepted" } });
   revalidatePath(`/programs/${programKey}/award`);
 }
 
 export async function declineAward(programKey: string) {
-  const { application } = await getProgramAndApp(programKey);
+  const application = await getAwardedApplication(programKey);
   await db.application.update({ where: { id: application.id }, data: { awardResponse: "declined" } });
   revalidatePath(`/programs/${programKey}/award`);
 }

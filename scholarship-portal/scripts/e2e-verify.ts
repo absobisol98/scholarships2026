@@ -162,10 +162,8 @@ async function main() {
     // through Personal/Family, which have required fields the UI would otherwise block on.
     await page.goto(`${BASE}/programs/ugo/application`);
     const uploadTestStudent = await db.student.findFirstOrThrow({ where: { email } });
-    await db.application.update({
-      where: { studentId_programId: { studentId: uploadTestStudent.id, programId: ugo.id } },
-      data: { formStep: 2 },
-    });
+    const uploadTestApp = await db.application.findFirstOrThrow({ where: { studentId: uploadTestStudent.id, programId: ugo.id } });
+    await db.application.update({ where: { id: uploadTestApp.id }, data: { formStep: 2 } });
     page.on("response", (res) => {
       if (res.url().includes("/programs/ugo/application")) console.log(`[upload-limit][debug] response ${res.status()} ${res.url()}`);
     });
@@ -202,8 +200,8 @@ async function main() {
       await certInput.setInputFiles({ name: "small-cert.pdf", mimeType: "application/pdf", buffer: smallBuffer });
       await page.locator('button.btn-primary:has-text("Continue")').first().click();
       await page.waitForTimeout(1000);
-      const savedApp = await db.application.findUniqueOrThrow({
-        where: { studentId_programId: { studentId: uploadTestStudent.id, programId: ugo.id } },
+      const savedApp = await db.application.findFirstOrThrow({
+        where: { studentId: uploadTestStudent.id, programId: ugo.id },
       });
       // certFileName now holds a storage path (app-{id}/cert/{timestamp}-{name}), not the
       // raw original filename — see src/lib/storage.ts's uploadDocument.
@@ -251,8 +249,8 @@ async function main() {
     console.log(url.includes("missing_required") ? "[required-field] PASS — blocked with missing_required" : "[required-field] FAIL — not blocked");
 
     const reqTestStudent = await db.student.findFirstOrThrow({ where: { email } });
-    const reqTestApp = await db.application.findUniqueOrThrow({
-      where: { studentId_programId: { studentId: reqTestStudent.id, programId: ugo.id } },
+    const reqTestApp = await db.application.findFirstOrThrow({
+      where: { studentId: reqTestStudent.id, programId: ugo.id },
     });
     console.log(`[required-field] DB state: formStep=${reqTestApp.formStep} status=${reqTestApp.status} personalDone=${reqTestApp.personalDone}`);
     console.log(

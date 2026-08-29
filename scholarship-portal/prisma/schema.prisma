@@ -202,7 +202,10 @@ model Application {
   recommendations     Recommendation[]
   surveySends         SurveySend[]
 
-  @@unique([studentId, programId])
+  // Includes cohortId (not just studentId+programId) so a scholar can have a separate
+  // Application per renewal cycle — see getApplication/resolveApplicationForDisplay/
+  // resolveApplicationForAward in src/lib/student-data.ts for how the right one is picked.
+  @@unique([studentId, programId, cohortId])
   @@index([programId, status])
   @@index([programId, dob])
   @@index([programId, decision])

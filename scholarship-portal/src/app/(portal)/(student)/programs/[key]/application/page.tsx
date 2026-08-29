@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
-import { getProgramByKey, ensureApplication, checklistFor, getActiveCohort, getApplication } from "@/lib/student-data";
+import { getProgramByKey, ensureApplication, checklistFor, getActiveCohort, getApplication, resolveApplicationForDisplay } from "@/lib/student-data";
 import { buildSteps, FORM_STEP_LABELS, GENERIKA_STEP_LABELS } from "@/lib/steps";
 import { saveStepAndContinue, goPrevStep, saveDraft, submitApplication } from "@/lib/actions/student";
 import { getFieldsConfig, STEPS_BY_FORM_KIND, valueForField, parseCustomFields } from "@/lib/field-config";
@@ -46,27 +46,49 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
   const student = await getCurrentStudent();
   const isGenerika = program.formKind === "generika";
 
-  // The program's active cohort controls whether new applicants can start applying
-  // (signupsOpen), whether an applicant already in this cycle can still get in
-  // (loginsOpen), and whether an application from a now-superseded cycle is still
-  // reachable (oldAccountsCanLogin). No active cohort means nothing to gate against.
-  const [activeCohort, existingApplication, fieldsByStep] = await Promise.all([
-    getActiveCohort(program.id),
-    getApplication(student.id, program.id),
+  // The program's active cohort controls whether new applicants (including a returning
+  // scholar starting a renewal) can start applying (signupsOpen), whether an applicant
+  // already in this cycle can still get in (loginsOpen), and whether a scholar whose only
+  // application is tied to an older, now-inactive cohort can still reach anything for this
+  // program at all (oldAccountsCanLogin) — checked below only when relevant, i.e. only when
+  // they don't yet have an application in the current cycle. No active cohort means nothing
+  // to gate against.
+  const activeCohort = await getActiveCohort(program.id);
+  const [existingApplication, fieldsByStep] = await Promise.all([
+    getApplication(student.id, program.id, activeCohort?.id ?? null),
     getFieldsConfig(program.id),
   ]);
 
   if (activeCohort) {
-    if (!existingApplication && !activeCohort.signupsOpen) {
-      return (
-        <Card>
-          <CardBody>
-            Applications for {program.name} aren&apos;t open right now. Check back once the next cycle opens, or view your other applications from the Browse page.
-          </CardBody>
-        </Card>
-      );
-    }
-    if (existingApplication && existingApplication.cohortId === activeCohort.id && !activeCohort.loginsOpen) {
+    if (!existingApplication) {
+      if (!activeCohort.signupsOpen) {
+        return (
+          <Card>
+            <CardBody>
+              Applications for {program.name} aren&apos;t open right now. Check back once the next cycle opens, or view your other applications from the Browse page.
+            </CardBody>
+          </Card>
+        );
+      }
+      // No application in the current cycle yet. If this student has a prior application
+      // to this program from an earlier cycle (a past scholar potentially renewing),
+      // respect the "old accounts can login" gate before letting them start a fresh one.
+      if (!activeCohort.oldAccountsCanLogin) {
+        const priorApplication = await resolveApplicationForDisplay(student.id, program.id);
+        if (priorApplication) {
+          return (
+            <>
+              <Card>
+                <CardBody>
+                  This application is from a previous {program.name} cycle that&apos;s no longer accessible for changes. You can still review what you submitted below.
+                </CardBody>
+              </Card>
+              <ReadOnlyApplicationView application={priorApplication} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
+            </>
+          );
+        }
+      }
+    } else if (!activeCohort.loginsOpen) {
       return (
         <>
           <Card>
@@ -78,21 +100,9 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
         </>
       );
     }
-    if (existingApplication && existingApplication.cohortId !== activeCohort.id && !activeCohort.oldAccountsCanLogin) {
-      return (
-        <>
-          <Card>
-            <CardBody>
-              This application is from a previous {program.name} cycle that&apos;s no longer accessible for changes. You can still review what you submitted below.
-            </CardBody>
-          </Card>
-          <ReadOnlyApplicationView application={existingApplication} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
-        </>
-      );
-    }
   }
 
-  const application = await ensureApplication(student, program.id);
+  const application = await ensureApplication(student, program.id, activeCohort?.id ?? null);
   const step = application.formStep;
   const labels = isGenerika ? GENERIKA_STEP_LABELS : FORM_STEP_LABELS;
   const stepDots = buildSteps(step, labels);

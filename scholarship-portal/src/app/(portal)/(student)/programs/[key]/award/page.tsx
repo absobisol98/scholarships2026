@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
-import { getProgramByKey, getApplication } from "@/lib/student-data";
+import { getProgramByKey, resolveApplicationForAward } from "@/lib/student-data";
 import { acceptAward, declineAward } from "@/lib/actions/student";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { AwardActions } from "./award-actions";
@@ -11,7 +11,7 @@ export default async function AwardPage({ params }: { params: Promise<{ key: str
   if (!program) notFound();
 
   const student = await getCurrentStudent();
-  const application = await getApplication(student.id, program.id);
+  const application = await resolveApplicationForAward(student.id, program.id);
   const status = application?.status ?? "not_started";
   const isAwarded = status === "awarded";
 

@@ -345,10 +345,12 @@ async function main() {
 
   const programByIdForCohort: Record<number, string> = cohortsByProgramId;
   const createdApplicants: Record<string, { id: number }> = { "Amara Chen": amaraApplication };
+  const createdStudents: Record<string, { id: number }> = {};
   for (const a of applicationSeeds) {
     const [firstName] = a.name.split(" ");
     const email = `${firstName.toLowerCase()}@example.com`;
     const seedStudent = await db.student.create({ data: { name: a.name, initials: firstName[0], email } });
+    createdStudents[a.name] = seedStudent;
     const created = await db.application.create({
       data: {
         studentId: seedStudent.id,
@@ -376,6 +378,37 @@ async function main() {
     });
     createdApplicants[a.name] = created;
   }
+
+  // Renewal example: Malik Owusu was already awarded a U-GO scholarship in Batch 2027.
+  // Batch 2028 has since opened — he gets a second, separate Application for the new
+  // cycle, proving a scholar can have more than one Application to the same program (see
+  // the studentId+programId+cohortId unique index on Application) without losing access to
+  // his original award (see resolveApplicationForAward in src/lib/student-data.ts).
+  await db.cohort.update({ where: { id: cohortsByProgramId[ugo.id] }, data: { status: "closed" } });
+  const ugoRenewalCohort = await db.cohort.create({
+    data: {
+      programId: ugo.id,
+      name: "U-GO Batch 2028",
+      status: "active",
+      openDate: "Jan 5, 2028",
+      cutoffDate: "Mar 1, 2028",
+      autoSubmitPolicy: "leave_incomplete",
+      criteria: { create: ugoCriteria() },
+      history: { create: [{ date: "Jan 5, 2028", summary: "Batch 2028 opened for new and renewing applicants." }] },
+    },
+  });
+  await db.application.create({
+    data: {
+      studentId: createdStudents["Malik Owusu"].id,
+      programId: ugo.id,
+      cohortId: ugoRenewalCohort.id,
+      status: "in_progress",
+      fullName: "Malik Owusu",
+      email: "malik@example.com",
+      nationality: "Filipino",
+      sex: "Male",
+    },
+  });
 
   // — Staff accounts (RBAC demo) —
   // Exactly one seeded StaffAccount per staff role is isDemo:true — that's who "Log in as
