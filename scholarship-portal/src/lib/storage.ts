@@ -21,14 +21,30 @@ function sanitizeFileName(name: string): string {
 
 // Stores under app-{applicationId}/{field}/{timestamp}-{sanitized original name} — the
 // timestamp keeps re-uploads from colliding, and the sanitized name tail stays readable so
-// certFileName/videoFileName can still recover a display name from the path alone.
-export async function uploadDocument(applicationId: number, field: "cert" | "video", file: File): Promise<string> {
+// certFileName/videoFileName/recommendationFileName can still recover a display name from
+// the path alone.
+export async function uploadDocument(applicationId: number, field: "cert" | "video" | "recommendation", file: File): Promise<string> {
   const path = `app-${applicationId}/${field}/${Date.now()}-${sanitizeFileName(file.name)}`;
   const { error } = await client().storage.from(bucket()).upload(path, file, {
     contentType: file.type || undefined,
     upsert: false,
   });
   if (error) throw new Error(`Failed to upload document: ${error.message}`);
+  return path;
+}
+
+// A program's own recommendation-form template (admin-uploaded, one per program — not tied
+// to any single application). Deliberately a separate path prefix from uploadDocument's
+// app-{applicationId}/... shape: reusing that function with a programId in place of an
+// applicationId would make a program's template path look identical in shape to some
+// application's own document path — a real risk of confusing the two.
+export async function uploadProgramTemplate(programId: number, file: File): Promise<string> {
+  const path = `program-${programId}/recommendation-template/${Date.now()}-${sanitizeFileName(file.name)}`;
+  const { error } = await client().storage.from(bucket()).upload(path, file, {
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+  if (error) throw new Error(`Failed to upload template: ${error.message}`);
   return path;
 }
 

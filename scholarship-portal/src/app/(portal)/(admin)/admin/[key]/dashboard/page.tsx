@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getCohortsForProgram, getApplicantStatusCounts, getPipelineStats } from "@/lib/admin-data";
 import { PIPELINE_STAGES } from "@/lib/steps";
-import { setActiveBatch, toggleCohortFlag } from "@/lib/actions/admin";
+import { setActiveBatch, toggleCohortFlag, uploadRecommendationTemplate } from "@/lib/actions/admin";
 import { Card, CardKicker, CardTitle, CardBody } from "@/components/ui/card";
 import { Button, LinkButton } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 import { ActiveBatchSelect } from "./active-batch-select";
 
 export default async function DashboardPage({ params }: { params: Promise<{ key: string }> }) {
@@ -23,6 +24,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
   const onToggleSignups = activeCohort ? toggleCohortFlag.bind(null, program.key, activeCohort.id, "signupsOpen") : undefined;
   const onToggleLogins = activeCohort ? toggleCohortFlag.bind(null, program.key, activeCohort.id, "loginsOpen") : undefined;
   const onToggleOldAccounts = activeCohort ? toggleCohortFlag.bind(null, program.key, activeCohort.id, "oldAccountsCanLogin") : undefined;
+  const onUploadTemplate = uploadRecommendationTemplate.bind(null, program.key, program.id);
 
   return (
     <div className="page-wrap">
@@ -95,6 +97,30 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
           </div>
         </Card>
       </div>
+
+      <Card elevation="md" style={{ marginTop: "var(--space-4)", maxWidth: 480 }}>
+        <CardKicker>Recommendation form template</CardKicker>
+        <CardBody style={{ marginTop: -4 }}>
+          Shortlisted applicants (anyone in Paper Screening) download this template, get it
+          completed, and re-upload it before they can be moved on to Interviews.
+        </CardBody>
+        {program.recommendationTemplatePath && (
+          <a
+            href={`/api/documents/program/${program.id}/template`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 13, fontWeight: 600 }}
+          >
+            Current template ↗
+          </a>
+        )}
+        <form action={onUploadTemplate} style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
+          <Field label={program.recommendationTemplatePath ? "Replace template" : "Upload template"} htmlFor="recommendation-template" style={{ flex: 1, marginBottom: 0 }}>
+            <Input id="recommendation-template" name="template" type="file" accept=".pdf,.doc,.docx" required aria-required="true" />
+          </Field>
+          <Button type="submit" variant="secondary">Upload</Button>
+        </form>
+      </Card>
     </div>
   );
 }

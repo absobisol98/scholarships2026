@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
 import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { parseRegionMap, parseOptions } from "@/lib/admin-data";
+import { uploadProgramTemplate } from "@/lib/storage";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -113,10 +114,27 @@ export async function toggleCohortFlag(programKey: string, cohortId: string, fie
   revalidatePath(`/admin/${programKey}/dashboard`);
 }
 
+// The blank recommendation-form template applicants download during Paper Screening (see
+// promoteApplicant below) and re-upload completed — one per program, admin-uploaded.
+export async function uploadRecommendationTemplate(programKey: string, programId: number, fd: FormData) {
+  const file = fd.get("template");
+  if (!(file instanceof File) || file.size === 0) return;
+  const path = await uploadProgramTemplate(programId, file);
+  await db.program.update({ where: { id: programId }, data: { recommendationTemplatePath: path } });
+  revalidatePath(`/admin/${programKey}/dashboard`);
+}
+
 // — Applicants queue —
 
 export async function promoteApplicant(programKey: string, applicationId: number) {
   const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+
+  // Can't leave Paper Screening without a completed recommendation form on file — see
+  // APPLICANT_PHASE_DESCRIPTIONS in src/lib/steps.ts ("Shortlisted applicants with
+  // completed recommendation forms proceed to an online interview"). Anyone in Paper
+  // Screening already counts as "shortlisted" — no separate marker to check.
+  if (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && !a.recommendationFileName) return;
+
   const next = Math.min(a.phaseIndex + 1, APPLICANT_PHASES.length - 1);
   await db.application.update({ where: { id: applicationId }, data: { phaseIndex: next } });
   revalidatePath(`/admin/${programKey}/queue`);

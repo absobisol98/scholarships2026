@@ -133,6 +133,7 @@ const APPLICATION_LIST_SELECT = {
   decision: true,
   phaseIndex: true,
   flagOverridden: true,
+  recommendationFileName: true,
   nationality: true,
   sex: true,
   yearLevel: true,

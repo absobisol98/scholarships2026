@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentStudent } from "@/lib/auth";
 import { formatDateLong } from "@/lib/date";
 import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
+import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { resolveApplicationForAward } from "@/lib/student-data";
 import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
@@ -333,4 +334,22 @@ export async function submitCheckInResponse(programKey: string, wave: string, fd
   await db.surveySend.update({ where: { id: send.id }, data: { completedAt: new Date() } });
   revalidatePath(`/programs/${programKey}/award`);
   redirect(`/programs/${programKey}/award`);
+}
+
+const MAX_RECOMMENDATION_BYTES = 10 * 1024 * 1024;
+
+// Uploads the applicant's completed recommendation form — required before promoteApplicant
+// (src/lib/actions/admin.ts) will move them out of Paper Screening into Interviews. Only
+// meaningful once an admin has actually reviewed and shortlisted the applicant (moved them
+// into Paper Screening) — a plain-submitted, not-yet-reviewed applicant has nothing to
+// upload yet, so this is rejected server-side too, not just hidden in the UI.
+export async function uploadRecommendationForm(programKey: string, fd: FormData) {
+  const { application } = await getProgramAndApp(programKey);
+  if (application.phaseIndex < PAPER_SCREENING_PHASE_INDEX) redirect(`/programs/${programKey}/status?error=not_shortlisted`);
+  const file = fd.get("recommendation");
+  if (!(file instanceof File) || file.size === 0) redirect(`/programs/${programKey}/status?error=missing_file`);
+  if (file.size > MAX_RECOMMENDATION_BYTES) redirect(`/programs/${programKey}/status?error=file_too_large`);
+  const path = await uploadDocument(application.id, "recommendation", file);
+  await db.application.update({ where: { id: application.id }, data: { recommendationFileName: path } });
+  revalidatePath(`/programs/${programKey}/status`);
 }
