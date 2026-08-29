@@ -52,7 +52,13 @@ export default async function QueuePage({
           <h2 style={{ marginBottom: 4 }}>Applications Overview</h2>
           <p className="text-muted" style={{ marginBottom: 0 }}>Cycle closes {program.deadlineFull}</p>
         </div>
-        <Button type="button" variant="secondary" style={{ flex: "none" }}>Export CSV</Button>
+        <LinkButton
+          href={`/api/export/${program.id}?status=${status}&flag=${flag}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+          variant="secondary"
+          style={{ flex: "none" }}
+        >
+          Export CSV
+        </LinkButton>
       </div>
 
       <FiltersPanel

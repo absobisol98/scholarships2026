@@ -120,6 +120,13 @@ model Application {
   phone    String @default("")
   address  String @default("")
 
+  // Location, for demographic reporting (region/province/city/municipality breakdowns) —
+  // region is a fixed dropdown, the rest free text (see src/lib/program-defaults.ts).
+  region       String @default("")
+  province     String @default("")
+  city         String @default("")
+  municipality String @default("")
+
   // Eligibility-relevant demographic fields — checked against the active Cohort's
   // Criterion rows (see evaluateCriteria in src/lib/admin-data.ts) right after the
   // Personal step is saved, so an ineligible applicant is stopped early rather than at

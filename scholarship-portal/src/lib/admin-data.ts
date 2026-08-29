@@ -206,17 +206,25 @@ export async function getEligibleUnassignedCount(programId: number) {
 // SQL-side criteria evaluation would need a dynamic per-cohort query builder — real
 // future work if this combination ever becomes an actual bottleneck, not implied by
 // today's usage.
-export async function getApplicantsPage(
-  programId: number,
-  opts: { q?: string; status?: string; flag?: string; page?: number; pageSize?: number }
-) {
-  const { q = "", status = "all", flag = "all", page = 1, pageSize = 50 } = opts;
-  const where = {
+// Shared by getApplicantsPage and getApplicantsForExport so the export always matches
+// exactly what the queue page's filters currently show — one place that decides what
+// "review"/"decided"/a search term mean, not two copies that could drift.
+function buildApplicantsWhere(programId: number, opts: { q?: string; status?: string }) {
+  const { q = "", status = "all" } = opts;
+  return {
     programId,
     status: { in: SUBMITTED_STATUSES },
     ...(status === "review" ? { decision: null } : status === "decided" ? { decision: { not: null } } : {}),
     ...(q ? { fullName: { contains: q, mode: "insensitive" as const } } : {}),
   };
+}
+
+export async function getApplicantsPage(
+  programId: number,
+  opts: { q?: string; status?: string; flag?: string; page?: number; pageSize?: number }
+) {
+  const { flag = "all", page = 1, pageSize = 50 } = opts;
+  const where = buildApplicantsWhere(programId, opts);
 
   if (flag === "all") {
     const [total, rows, activeCohort] = await Promise.all([
@@ -236,6 +244,47 @@ export async function getApplicantsPage(
     .filter((a) => (flag === "flagged" ? a.flags.length > 0 : a.flags.length === 0));
   const start = (page - 1) * pageSize;
   return { rows: filtered.slice(start, start + pageSize), total: filtered.length, page, pageSize };
+}
+
+// Wider than APPLICATION_LIST_SELECT (which deliberately excludes columns the queue table
+// doesn't render) — the CSV export needs contact info and demographics the table doesn't.
+const EXPORT_SELECT = {
+  id: true,
+  fullName: true,
+  email: true,
+  phone: true,
+  dob: true,
+  sex: true,
+  yearLevel: true,
+  institutionType: true,
+  nationality: true,
+  region: true,
+  province: true,
+  city: true,
+  municipality: true,
+  income: true,
+  school: true,
+  gpa: true,
+  submittedDate: true,
+  decision: true,
+  awardResponse: true,
+  phaseIndex: true,
+  flagOverridden: true,
+} as const;
+
+// Same filters as the Applications Overview queue's own q/status/flag controls, so
+// "export what I'm looking at" is literally true — flag filtering happens in JS (same
+// reason getApplicantFlagCounts does) since it's computed from dynamic cohort criteria,
+// not a stored column.
+export async function getApplicantsForExport(programId: number, opts: { q?: string; status?: string; flag?: string }) {
+  const { flag = "all" } = opts;
+  const where = buildApplicantsWhere(programId, opts);
+  const [rows, activeCohort] = await Promise.all([
+    db.application.findMany({ where, orderBy: { id: "asc" }, select: EXPORT_SELECT }),
+    getActiveCohortWithCriteria(programId),
+  ]);
+  const mapped = rows.map((a) => ({ ...a, flags: evaluateCriteria(toEligibilityShape(a), activeCohort) }));
+  return flag === "all" ? mapped : mapped.filter((a) => (flag === "flagged" ? a.flags.length > 0 : a.flags.length === 0));
 }
 
 // Full, select-trimmed eligible+unassigned application list for
