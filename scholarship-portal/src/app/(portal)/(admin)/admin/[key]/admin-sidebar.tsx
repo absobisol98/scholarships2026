@@ -61,6 +61,13 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
           >
             Audit Log
           </SideItem>
+          <SideItem
+            href="/admin/programs"
+            active={pathname.startsWith("/admin/programs")}
+            icon={<><path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></>}
+          >
+            Manage Programs
+          </SideItem>
         </>
       )}
     </nav>

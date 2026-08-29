@@ -6,7 +6,9 @@ import { LinkButton, type ButtonVariant } from "@/components/ui/button";
 
 export default async function BrowsePage() {
   const student = await getCurrentStudent();
-  const rows = await listProgramsForBrowse(student.id);
+  // Only active programs appear here — a deactivated program's own submission history is
+  // still reachable from /submissions, this listing just stops surfacing it as an option.
+  const rows = (await listProgramsForBrowse(student.id)).filter((r) => r.program.active);
 
   return (
     <div className="page-wrap">
@@ -14,7 +16,7 @@ export default async function BrowsePage() {
         <div>
           <h2 style={{ marginBottom: 4 }}>Choose a scholarship to apply for</h2>
           <p className="text-muted" style={{ maxWidth: 560 }}>
-            Three programs are currently accepting applications. You can apply to more than one — each keeps its own progress and deadline.
+            {rows.length} program{rows.length === 1 ? " is" : "s are"} currently accepting applications. You can apply to more than one — each keeps its own progress and deadline.
           </p>
         </div>
         <LinkButton href="/submissions" variant="secondary" style={{ flex: "none", whiteSpace: "nowrap" }}>
