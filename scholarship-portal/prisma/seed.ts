@@ -155,6 +155,7 @@ async function main() {
       tagsJson: JSON.stringify(["Merit", "STEM majors"]),
       formKind: "standard",
       order: 1,
+      active: true,
     },
   });
 
@@ -169,6 +170,7 @@ async function main() {
       tagsJson: JSON.stringify(["Need-based", "First-gen"]),
       formKind: "generika",
       order: 2,
+      active: false,
     },
   });
 
@@ -183,6 +185,7 @@ async function main() {
       tagsJson: JSON.stringify(["Merit", "Service record"]),
       formKind: "standard",
       order: 3,
+      active: false,
     },
   });
 

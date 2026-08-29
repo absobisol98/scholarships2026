@@ -56,6 +56,19 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
     getFieldsConfig(program.id),
   ]);
 
+  // A deactivated program blocks new applications outright, independent of cohort
+  // configuration (unlike signupsOpen below, this isn't cohort-scoped) — someone who
+  // already applied is unaffected and keeps normal access to their own application.
+  if (!existingApplication && !program.active) {
+    return (
+      <Card>
+        <CardBody>
+          Applications for {program.name} aren&apos;t open right now. Check back later, or view your other applications from the Browse page.
+        </CardBody>
+      </Card>
+    );
+  }
+
   if (activeCohort) {
     if (!existingApplication && !activeCohort.signupsOpen) {
       return (
