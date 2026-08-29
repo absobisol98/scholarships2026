@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, getApplication } from "@/lib/student-data";
 import { uploadRecommendationForm } from "@/lib/actions/student";
-import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus } from "@/lib/steps";
+import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
@@ -13,6 +13,7 @@ import { displayFileName } from "@/lib/storage";
 const ERROR_MESSAGES: Record<string, string> = {
   missing_file: "Please choose a file to upload.",
   file_too_large: "That file is too large — recommendation forms must be under 10MB.",
+  not_shortlisted: "Your application hasn't been shortlisted for this yet.",
 };
 
 export default async function StatusPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ error?: string }> }) {
@@ -57,11 +58,11 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         </Card>
       )}
 
-      {status === "submitted" && program.recommendationTemplatePath && (
+      {application && application.phaseIndex >= PAPER_SCREENING_PHASE_INDEX && program.recommendationTemplatePath && (
         <Card style={{ marginTop: "var(--space-6)" }}>
           <CardKicker>Recommendation form</CardKicker>
           <CardBody style={{ marginTop: -4 }}>
-            Once your application is reviewed and shortlisted, you&apos;ll need a completed
+            Your application has been reviewed and shortlisted — you&apos;ll need a completed
             recommendation form on file before moving on to an interview.
           </CardBody>
           <a href={`/api/documents/program/${program.id}/template`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
