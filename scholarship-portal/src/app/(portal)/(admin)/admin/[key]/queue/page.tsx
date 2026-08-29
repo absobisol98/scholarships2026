@@ -112,7 +112,15 @@ export default async function QueuePage({
           submitted: a.submitted,
           onPromote: promoteApplicant.bind(null, program.key, a.id),
           onDemote: demoteApplicant.bind(null, program.key, a.id),
-          promoteDisabled: a.phaseIndex >= APPLICANT_PHASES.length - 1,
+          // Can't leave Paper Screening without a completed recommendation form on file —
+          // see promoteApplicant's own matching check in src/lib/actions/admin.ts.
+          promoteDisabled:
+            a.phaseIndex >= APPLICANT_PHASES.length - 1 ||
+            (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && !a.recommendationFileName),
+          promoteTitle:
+            a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && !a.recommendationFileName
+              ? "Waiting on this applicant's recommendation form — see their application detail page."
+              : undefined,
           // Can't drop below Paper Screening while a screener still has this applicant
           // assigned — unassign them first (on the applicant's detail page).
           demoteDisabled: a.phaseIndex <= 0 || (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && a.screenerCount > 0),

@@ -4,7 +4,8 @@ import { getSession } from "@/lib/auth";
 import { canAccessProgram } from "@/lib/admin-data";
 import { getSignedDocumentUrl } from "@/lib/storage";
 
-// Resolves a certificate/video field to a freshly-signed Supabase Storage URL and
+// Resolves a certificate/video/recommendation-form field to a freshly-signed Supabase
+// Storage URL and
 // redirects — never bakes a signed URL into server-rendered HTML, since one embedded in a
 // revisited page would silently 403 once it expires. Three roles can reach a given
 // application's documents: the owning student, an admin/super admin scoped to that
@@ -12,7 +13,7 @@ import { getSignedDocumentUrl } from "@/lib/storage";
 export async function GET(_req: Request, { params }: { params: Promise<{ applicationId: string; field: string }> }) {
   const { applicationId: applicationIdParam, field } = await params;
   const applicationId = Number(applicationIdParam);
-  if (!Number.isInteger(applicationId) || (field !== "cert" && field !== "video")) {
+  if (!Number.isInteger(applicationId) || (field !== "cert" && field !== "video" && field !== "recommendation")) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -33,7 +34,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ applica
   }
   if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const path = field === "cert" ? application.certFileName : application.videoFileName;
+  const path = field === "cert" ? application.certFileName : field === "video" ? application.videoFileName : application.recommendationFileName;
   if (!path) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const signedUrl = await getSignedDocumentUrl(path, 60);

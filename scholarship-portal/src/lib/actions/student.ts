@@ -265,3 +265,17 @@ export async function declineAward(programKey: string) {
   await db.application.update({ where: { id: application.id }, data: { awardResponse: "declined" } });
   revalidatePath(`/programs/${programKey}/award`);
 }
+
+const MAX_RECOMMENDATION_BYTES = 10 * 1024 * 1024;
+
+// Uploads the applicant's completed recommendation form — required before promoteApplicant
+// (src/lib/actions/admin.ts) will move them out of Paper Screening into Interviews.
+export async function uploadRecommendationForm(programKey: string, fd: FormData) {
+  const { application } = await getProgramAndApp(programKey);
+  const file = fd.get("recommendation");
+  if (!(file instanceof File) || file.size === 0) redirect(`/programs/${programKey}/status?error=missing_file`);
+  if (file.size > MAX_RECOMMENDATION_BYTES) redirect(`/programs/${programKey}/status?error=file_too_large`);
+  const path = await uploadDocument(application.id, "recommendation", file);
+  await db.application.update({ where: { id: application.id }, data: { recommendationFileName: path } });
+  revalidatePath(`/programs/${programKey}/status`);
+}

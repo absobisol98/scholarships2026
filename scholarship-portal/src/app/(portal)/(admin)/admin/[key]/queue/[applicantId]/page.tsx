@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
 import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 import { getFieldsConfig } from "@/lib/field-config";
+import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment } from "@/lib/actions/decisions";
 import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
@@ -132,6 +133,24 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
           ))}
         </div>
       </Card>
+
+      {application.phaseIndex >= PAPER_SCREENING_PHASE_INDEX && (
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Recommendation form</CardKicker>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+            {application.recommendationFileName ? (
+              <>
+                <Tag variant="accent">Uploaded</Tag>
+                <a href={`/api/documents/${application.id}/recommendation`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
+                  Open ↗
+                </a>
+              </>
+            ) : (
+              <span className="text-muted" style={{ fontSize: 13 }}>Not yet uploaded — required before this applicant can move to Interviews.</span>
+            )}
+          </div>
+        </Card>
+      )}
 
       {(recommendations.length > 0 || scoresByScreener.size > 0) && (
         <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>

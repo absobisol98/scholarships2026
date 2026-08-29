@@ -27,6 +27,10 @@ model Program {
   formKind      String // "standard" | "generika" (swaps academic step for leadership step)
   photoUrl      String?
   order         Int      @default(0)
+  // Admin-uploaded blank recommendation-form template (Storage path), downloaded by
+  // shortlisted applicants during Paper Screening and re-uploaded completed — see
+  // Application.recommendationFileName below.
+  recommendationTemplatePath String?
 
   cohorts      Cohort[]
   applications Application[]
@@ -147,6 +151,13 @@ model Application {
   major       String @default("")
   certFileName  String?
   videoFileName String?
+
+  // Shortlisted applicants (anyone in the Paper Screening phase — see PAPER_SCREENING_PHASE_INDEX
+  // in src/lib/steps.ts) download the program's recommendation-form template and re-upload
+  // it completed here. promoteApplicant (src/lib/actions/admin.ts) requires this to be set
+  // before advancing an applicant out of Paper Screening into Interviews. Not the same thing
+  // as the Recommendation model below (a screener's own recommend/not-recommend verdict).
+  recommendationFileName String?
 
   // Leadership (Generika-style programs)
   leadRole     String @default("")

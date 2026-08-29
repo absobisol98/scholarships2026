@@ -155,6 +155,7 @@ async function main() {
       tagsJson: JSON.stringify(["Merit", "STEM majors"]),
       formKind: "standard",
       order: 1,
+      recommendationTemplatePath: "program-seed/recommendation-template/ugo-recommendation-template.pdf",
     },
   });
 
@@ -328,11 +329,11 @@ async function main() {
   // cosmetic 4.0-scale number — same reasoning as Amara's fix above.
   const applicationSeeds = [
     // Flagged: wrong sex, graduating this cycle (excluded), private institution, GWA below threshold.
-    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: 82, submitted: "Aug 11, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", phaseIndex: 3 },
+    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: 82, submitted: "Aug 11, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", phaseIndex: 3, recommendationFileName: "app-seed/recommendation/diego-recommendation.pdf" },
     // Flagged: not a Filipino citizen, private institution — year and GWA otherwise pass.
     { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: 96, submitted: "Aug 9, 2026", decision: null, nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", phaseIndex: 0 },
     // Flagged: wrong sex, graduating this cycle (excluded) — institution and GWA otherwise pass.
-    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: 88, submitted: "Aug 13, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3 },
+    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: 88, submitted: "Aug 13, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3, recommendationFileName: "app-seed/recommendation/malik-recommendation.pdf" },
     // Cleanly eligible, second example for the "randomly assign eligible applicants" demo.
     { programId: ugo.id, name: "Grace Delacruz", school: "Cordillera State College", gpa: 89, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, phaseIndex: 0 },
     // Cleanly eligible for Generika: right nationality, right year, GWA above its 85% threshold.
@@ -367,6 +368,7 @@ async function main() {
         yearLevel: a.yearLevel,
         institutionType: a.institutionType,
         phaseIndex: a.phaseIndex,
+        recommendationFileName: a.recommendationFileName,
         personalDone: true,
         familyDone: true,
         academicsDone: true,
