@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
 import { db } from "@/lib/db";
-import { createScreenerGroup, deleteScreenerGroup } from "@/lib/actions/screenerGroups";
+import { createScreenerGroup, deleteScreenerGroup, bulkImportScreeners, setStaffPassword, generateScreenerMagicLink } from "@/lib/actions/screenerGroups";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { Card, CardKicker } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Table, TableScroll } from "@/components/ui/table";
+import { ScreenerOnboardingPanel } from "./screener-onboarding-panel";
 
 export default async function ScreenerGroupsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -20,10 +21,18 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
   ]);
 
   const onCreateGroup = createScreenerGroup.bind(null, program.key, program.id);
+  const onImportScreeners = bulkImportScreeners.bind(null, program.key);
+  const onSetPassword = setStaffPassword.bind(null, program.key);
+  const onGenerateMagicLink = generateScreenerMagicLink.bind(null, program.key);
 
-  const candidateCounts = await Promise.all(
-    groups.map((g) => db.screenerAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))
-  );
+  const [candidateCounts, pendingScreeners] = await Promise.all([
+    Promise.all(groups.map((g) => db.screenerAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))),
+    db.staffAccount.findMany({
+      where: { role: "screener", passwordHash: null },
+      select: { id: true, name: true, email: true, company: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   return (
     <div className="page-wrap">
@@ -87,6 +96,14 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
           <Button type="submit" variant="primary">Create group</Button>
         </form>
       </Card>
+
+      <ScreenerOnboardingPanel
+        groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+        pendingScreeners={pendingScreeners}
+        onImport={onImportScreeners}
+        onSetPassword={onSetPassword}
+        onGenerateMagicLink={onGenerateMagicLink}
+      />
     </div>
   );
 }

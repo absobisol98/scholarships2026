@@ -262,6 +262,15 @@ model StaffAccount {
   isDemo    Boolean  @default(false) // the one account "Log in as ..." actually assumes, per role
   createdAt DateTime @default(now())
 
+  company              String? // bulk-import roster field, mainly populated for screeners
+  // Real password auth — scoped to screener accounts only. A null passwordHash means this
+  // account still logs in by email alone (every other role, and any screener created before
+  // this feature or never given a password), matching loginWithEmail's existing behavior.
+  passwordHash         String?
+  inviteToken          String?   @unique // opaque, single-use magic-link token to nominate a password
+  inviteTokenExpiresAt DateTime?
+  privacyAcceptedAt    DateTime? // set once a screener clicks "Proceed" on the first-login PH Data Privacy Act modal
+
   programAssignments   StaffProgramAssignment[]
   screenerAssignments  ScreenerAssignment[]
   rubricScores         RubricScore[]
