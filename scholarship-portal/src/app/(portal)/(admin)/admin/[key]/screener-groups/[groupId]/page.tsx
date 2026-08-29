@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
+import { getProgramByKey, getEligibleUnassignedCount, getEligibleUnassignedApplicants } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { APPLICANT_PHASES } from "@/lib/steps";
-import { addGroupMember, removeGroupMember, randomlyAssignEligibleApplicants } from "@/lib/actions/screenerGroups";
+import { addGroupMember, removeGroupMember, randomlyAssignEligibleApplicants, removeFromGroup, assignSelectedToGroup } from "@/lib/actions/screenerGroups";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
 import { Card, CardKicker } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/field";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Table, TableScroll } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
+import { EligibleApplicantsPicker } from "./eligible-applicants-picker";
 
 export default async function ScreenerGroupDetailPage({ params }: { params: Promise<{ key: string; groupId: string }> }) {
   const { key, groupId } = await params;
@@ -21,7 +22,7 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
 
   const memberIds = group.members.map((m) => m.staffId);
 
-  const [eligibleUnassignedCount, activeScreeners, candidates] = await Promise.all([
+  const [eligibleUnassignedCount, activeScreeners, candidates, eligibleIds] = await Promise.all([
     getEligibleUnassignedCount(program.id),
     db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
     db.application.findMany({
@@ -31,17 +32,24 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
         fullName: true,
         school: true,
         phaseIndex: true,
-        screenerAssignments: { where: { screenerId: { in: memberIds } }, select: { screener: { select: { name: true } } } },
+        screenerAssignments: { where: { screenerId: { in: memberIds } }, select: { screenerId: true, screener: { select: { name: true } } } },
       },
       orderBy: { fullName: "asc" },
     }),
+    getEligibleUnassignedApplicants(program.id),
   ]);
+  const eligibleRows = eligibleIds.length === 0 ? [] : await db.application.findMany({
+    where: { id: { in: eligibleIds } },
+    select: { id: true, fullName: true, school: true },
+    orderBy: { fullName: "asc" },
+  });
 
   const memberIdSet = new Set(memberIds);
   const availableToAdd = activeScreeners.filter((s) => !memberIdSet.has(s.id));
 
   const onAddMember = addGroupMember.bind(null, program.key, group.id);
   const onRandomAssign = randomlyAssignEligibleApplicants.bind(null, program.key, program.id, group.id);
+  const onAssignSelected = assignSelectedToGroup.bind(null, program.key, program.id, group.id);
 
   return (
     <div className="page-wrap">
@@ -114,6 +122,14 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
             Randomly assign eligible candidates
           </Button>
         </form>
+
+        <div className="hr" style={{ margin: "var(--space-4) 0" }} />
+        <CardKicker>Other eligible applicants</CardKicker>
+        {group.members.length === 0 ? (
+          <p className="text-muted" style={{ fontSize: 13, margin: "8px 0 0" }}>Add a member to this group before assigning applicants.</p>
+        ) : (
+          <EligibleApplicantsPicker rows={eligibleRows} onAssign={onAssignSelected} />
+        )}
       </Card>
 
       <div style={{ marginTop: "var(--space-4)" }}>
@@ -129,11 +145,12 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
               <th scope="col">Assigned to</th>
               <th scope="col">Phase</th>
               <th scope="col">View</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {candidates.length === 0 && (
-              <tr><td colSpan={5} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No candidates assigned to this group yet.</td></tr>
+              <tr><td colSpan={6} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No candidates assigned to this group yet.</td></tr>
             )}
             {candidates.map((c) => {
               const phaseLabel = APPLICANT_PHASES[c.phaseIndex] ?? APPLICANT_PHASES[0];
@@ -147,6 +164,19 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
                     <LinkButton href={`/admin/${program.key}/queue/${c.id}`} variant="ghost" aria-label={`View application form for ${c.fullName}`}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
                     </LinkButton>
+                  </td>
+                  <td>
+                    {c.screenerAssignments.map((sa) => {
+                      const onRemove = removeFromGroup.bind(null, program.key, group.id, c.id, sa.screenerId);
+                      return (
+                        <form key={sa.screenerId} action={onRemove} style={{ display: "inline" }}>
+                          <button type="submit" className="link-delete" aria-label={`Remove ${c.fullName} from ${sa.screener.name}`}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                            Remove
+                          </button>
+                        </form>
+                      );
+                    })}
                   </td>
                 </tr>
               );

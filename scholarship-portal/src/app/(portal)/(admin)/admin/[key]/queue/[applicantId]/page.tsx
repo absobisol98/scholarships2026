@@ -6,7 +6,6 @@ import { getFieldsConfig } from "@/lib/field-config";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment, resetIneligibleAttempts } from "@/lib/actions/decisions";
-import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 import { WAVE_TITLES } from "@/lib/steps";
 import { Card, CardKicker } from "@/components/ui/card";
@@ -25,14 +24,24 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const application = await getApplicationForReview(Number(applicantId));
   if (!application || application.programId !== program.id) notFound();
 
-  const [activeCohort, fieldsByStep, recommendations, rubricScores, activeScreeners, surveyResponses] = await Promise.all([
+  const [activeCohort, fieldsByStep, recommendations, rubricScores, screenerGroups, surveyResponses] = await Promise.all([
     getActiveCohortWithCriteria(program.id),
     getFieldsConfig(program.id),
     db.recommendation.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
     db.rubricScore.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
-    db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
+    db.screenerGroup.findMany({ where: { programId: program.id }, include: { members: true } }),
     db.surveyResponse.findMany({ where: { applicationId: application.id }, include: { surveyQuestion: { include: { surveyWave: true } } } }),
   ]);
+  // A screener's assignment is always a byproduct of screener-group membership now (see
+  // screenerGroups.ts) — resolve which group(s) explain each assigned screener so this
+  // read-only card can say "assigned via <group>" instead of offering its own assign control.
+  const groupNamesByStaffId = new Map<string, string[]>();
+  for (const g of screenerGroups) {
+    for (const m of g.members) {
+      if (!groupNamesByStaffId.has(m.staffId)) groupNamesByStaffId.set(m.staffId, []);
+      groupNamesByStaffId.get(m.staffId)!.push(g.name);
+    }
+  }
   const responsesByWave = new Map<string, { label: string; answer: string }[]>();
   for (const r of surveyResponses) {
     const wave = r.surveyQuestion.surveyWave.wave;
@@ -41,7 +50,6 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   }
   const isGenerika = program.formKind === "generika";
   const flags = evaluateCriteria(toEligibilityShape(application), activeCohort);
-  const isEligible = flags.length === 0 || application.flagOverridden;
   const isSuperAdmin = session.role === "super_admin";
 
   const scoresByScreener = new Map<string, { name: string; scores: Record<string, number> }>();
@@ -53,12 +61,8 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const onOverride = overrideFlag.bind(null, program.key, application.id);
   const onClearOverride = clearFlagOverride.bind(null, program.key, application.id);
   const onSetDecision = setApplicantDecision.bind(null, program.key, application.id);
-  const onAssignScreener = assignScreener.bind(null, program.key, application.id);
   const onResetAttempts = resetIneligibleAttempts.bind(null, program.key, application.id);
   const MAX_INELIGIBLE_ATTEMPTS = 3; // must match src/lib/actions/student.ts
-
-  const assignedScreenerIds = new Set(application.screenerAssignments.map((sa) => sa.screenerId));
-  const availableScreeners = activeScreeners.filter((s) => !assignedScreenerIds.has(s.id));
 
   return (
     <div className="page-wrap">
@@ -129,34 +133,20 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
       <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
         <CardKicker>Paper Screener assignment</CardKicker>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 8 }}>
-          {application.screenerAssignments.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>No screener assigned yet</span>}
-          {application.screenerAssignments.map((sa) => {
-            const onUnassign = unassignScreener.bind(null, program.key, application.id, sa.screenerId);
-            return (
-              <Tag key={sa.id} variant="neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                {sa.screener.name}
-                <form action={onUnassign} style={{ display: "inline" }}>
-                  <button type="submit" aria-label={`Unassign ${sa.screener.name}`} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, fontSize: 12, lineHeight: 1 }}>×</button>
-                </form>
-              </Tag>
-            );
-          })}
-          {availableScreeners.length > 0 && (isEligible ? (
-            <form action={onAssignScreener} style={{ display: "inline-flex", gap: 4 }}>
-              <Select name="screenerId" style={{ fontSize: 12, padding: "4px 8px", minHeight: "unset" }} defaultValue="">
-                <option value="" disabled>+ Assign screener…</option>
-                {availableScreeners.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </Select>
-              <Button type="submit" variant="ghost" style={{ padding: "2px 6px" }}>Add</Button>
-            </form>
-          ) : (
+          {application.screenerAssignments.length === 0 ? (
             <span className="text-muted" style={{ fontSize: 12 }}>
-              Can&apos;t assign a screener — this applicant has an unresolved red flag.
-              {isSuperAdmin ? " Override the flag above if it doesn't apply." : " A Super Admin can override the flag above if it doesn't apply."}
+              Not yet assigned to a screener group. Use the Screener Groups tab to assign this applicant.
             </span>
-          ))}
+          ) : (
+            application.screenerAssignments.map((sa) => {
+              const groups = groupNamesByStaffId.get(sa.screenerId);
+              return (
+                <Tag key={sa.id} variant="neutral">
+                  {sa.screener.name}{groups && groups.length > 0 ? ` — via ${groups.join(", ")}` : ""}
+                </Tag>
+              );
+            })
+          )}
         </div>
       </Card>
 

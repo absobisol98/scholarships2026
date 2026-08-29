@@ -29,3 +29,11 @@ export async function saveAssessment(applicationId: number, fd: FormData) {
   revalidatePath("/screener");
   redirect(`/screener/${applicationId}?saved=1`);
 }
+
+// The "Proceed" action on the first-login PH Data Privacy Act welcome modal — a one-time
+// gate, not re-shown once accepted.
+export async function acceptPrivacyNotice() {
+  const screener = await getCurrentStaff("screener");
+  await db.staffAccount.update({ where: { id: screener.id }, data: { privacyAcceptedAt: new Date() } });
+  revalidatePath("/", "layout");
+}

@@ -14,12 +14,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   missing_email: "Enter your email to log in.",
   google_auth_failed: "Google sign-in didn't complete. Please try again.",
   rate_limited: "Too many attempts. Please wait a moment and try again.",
+  wrong_password: "Incorrect password for that account.",
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; onboarded?: string }> }) {
   const session = await getSession();
   if (session) redirect(homeForRole(session.role));
-  const { error } = await searchParams;
+  const { error, onboarded } = await searchParams;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "var(--space-4)" }}>
@@ -30,6 +31,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         {error && ERROR_MESSAGES[error] && (
           <Card role="alert" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-2-100)" }}>
             <CardBody style={{ color: "var(--color-accent-2-800)" }}>{ERROR_MESSAGES[error]}</CardBody>
+          </Card>
+        )}
+        {onboarded && (
+          <Card role="status" style={{ marginBottom: "var(--space-4)", background: "var(--color-accent-100)" }}>
+            <CardBody>Password set — you can now log in.</CardBody>
           </Card>
         )}
 
@@ -61,7 +67,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <Field label="Email" htmlFor="login-email">
               <Input id="login-email" name="email" type="email" placeholder="you@example.com" />
             </Field>
-            <Field label="Password" htmlFor="login-password">
+            <Field label="Password (only checked for Paper Screener accounts with one set)" htmlFor="login-password">
               <Input id="login-password" name="password" type="password" placeholder="••••••••" />
             </Field>
 

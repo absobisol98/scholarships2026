@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import { AvatarBadge } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { WelcomePrivacyModal } from "@/components/welcome-privacy-modal";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -10,6 +11,7 @@ export default async function PortalLayout({ children }: { children: React.React
 
   let userLabel = "";
   let userInitials = "";
+  let showPrivacyModal = false;
   if (session.role === "student") {
     const student = await getCurrentStudent();
     userLabel = student.name;
@@ -18,6 +20,7 @@ export default async function PortalLayout({ children }: { children: React.React
     const staff = await getCurrentStaff(session.role);
     userLabel = staff.name;
     userInitials = initialsFor(staff.name);
+    showPrivacyModal = session.role === "screener" && !staff.privacyAcceptedAt;
   }
 
   return (
@@ -47,6 +50,8 @@ export default async function PortalLayout({ children }: { children: React.React
       <div className="app-body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {children}
       </div>
+
+      {showPrivacyModal && <WelcomePrivacyModal name={userLabel} />}
     </div>
   );
 }

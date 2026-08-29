@@ -19,11 +19,16 @@ export async function loginAsStudent() {
   await loginAs("student", demo.id);
 }
 
-// Real login for a returning account, applicant or staff — no passwords in this demo, so an
-// email match is enough. Checked across both Student and StaffAccount since email is the one
-// identifier shared by every role.
+// Real login for a returning account, applicant or staff — no passwords for most of this
+// app, so an email match is enough. The one exception: a screener account that's had a
+// password set (via bulk-import onboarding — admin-set or magic-link-nominated) must also
+// match that password. Every other case — students, admins, super admins, and any screener
+// who never got a password — is untouched, byte-for-byte the same email-only check as
+// before. Checked across both Student and StaffAccount since email is the one identifier
+// shared by every role.
 export async function loginWithEmail(fd: FormData) {
   const email = str(fd, "email").trim().toLowerCase();
+  const password = str(fd, "password");
   if (!email) redirect("/login?error=missing_email");
 
   const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
@@ -35,6 +40,11 @@ export async function loginWithEmail(fd: FormData) {
   const staff = await db.staffAccount.findFirst({ where: { email } });
   if (staff) {
     if (!staff.active) redirect(`/login?error=${staff.role}_deactivated`);
+    if (staff.role === "screener" && staff.passwordHash) {
+      const bcrypt = await import("bcryptjs");
+      const matches = password ? await bcrypt.compare(password, staff.passwordHash) : false;
+      if (!matches) redirect("/login?error=wrong_password");
+    }
     await loginAs(staff.role as Role, undefined, staff.id);
   }
 
