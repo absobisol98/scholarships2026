@@ -6,6 +6,10 @@ export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision
 export const APPLICANT_PHASES = ["Application Proper", "Paper Screening", "Interviews", "Final Scoring & Deliberations"];
 export const PAPER_SCREENING_PHASE_INDEX = APPLICANT_PHASES.indexOf("Paper Screening");
 
+// Shared between the admin surveys page and the student-facing check-in page — keep in
+// sync with SurveyWave.wave's actual values ("midYear" | "yearEnd").
+export const WAVE_TITLES: Record<string, string> = { midYear: "Mid-Year Check-in", yearEnd: "Year-End Check-in" };
+
 // Application.status values that mean "this is a completed submission" — the admin/screener
 // side (Applications Overview, screener assignment, rubric scoring, decisions) only ever
 // operates on rows in this set, so a draft ("not_started"/"in_progress") never surfaces there.

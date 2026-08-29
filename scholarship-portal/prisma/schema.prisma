@@ -201,6 +201,7 @@ model Application {
   rubricScores        RubricScore[]
   recommendations     Recommendation[]
   surveySends         SurveySend[]
+  surveyResponses     SurveyResponse[]
 
   // Includes cohortId (not just studentId+programId) so a scholar can have a separate
   // Application per renewal cycle — see getApplication/resolveApplicationForDisplay/
@@ -375,18 +376,38 @@ model SurveyQuestion {
   label        String
   order        Int        @default(0)
 
+  responses SurveyResponse[]
+
   @@index([surveyWaveId])
 }
 
-// Records that a survey wave was sent to a given applicant.
+// Records that a survey wave was sent to a given applicant. completedAt is set once every
+// question in the wave has a SurveyResponse on file (see submitCheckInResponse in
+// src/lib/actions/student.ts) — null means sent but not yet answered.
 model SurveySend {
   id            Int         @id @default(autoincrement())
   applicationId Int
   application   Application @relation(fields: [applicationId], references: [id])
   wave          String // "midYear" | "yearEnd"
   sentDate      String
+  completedAt   DateTime?
 
   @@unique([applicationId, wave])
+}
+
+// One scholar's answer to one check-in survey question. Upserted per question (stable
+// SurveyQuestion ids), so a resubmission edits in place rather than duplicating rows —
+// mirrors the RubricScore.upsert pattern in src/lib/assessment.ts.
+model SurveyResponse {
+  id               String         @id @default(cuid())
+  applicationId    Int
+  application      Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  surveyQuestionId String
+  surveyQuestion   SurveyQuestion @relation(fields: [surveyQuestionId], references: [id], onDelete: Cascade)
+  answer           String
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([applicationId, surveyQuestionId])
 }
 
 // Self-contained, Postgres-backed rate limiting (no external service) — one row per

@@ -297,10 +297,10 @@ export async function getSurveyWaves(programId: number) {
 
 export async function getSurveySends(applicationIds: number[]) {
   const rows = await db.surveySend.findMany({ where: { applicationId: { in: applicationIds } } });
-  const byApplication = new Map<number, Record<string, string>>();
+  const byApplication = new Map<number, Record<string, { sentDate: string; completedAt: Date | null }>>();
   for (const r of rows) {
     if (!byApplication.has(r.applicationId)) byApplication.set(r.applicationId, {});
-    byApplication.get(r.applicationId)![r.wave] = r.sentDate;
+    byApplication.get(r.applicationId)![r.wave] = { sentDate: r.sentDate, completedAt: r.completedAt };
   }
   return byApplication;
 }
