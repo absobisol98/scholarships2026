@@ -34,6 +34,18 @@ export async function clearFlagOverride(programKey: string, applicationId: numbe
   revalidatePath(`/admin/${programKey}/queue`);
 }
 
+// Clears the failed-eligibility-attempt counter (see MAX_INELIGIBLE_ATTEMPTS in
+// src/lib/actions/student.ts) so a genuine mistake — a typo, not someone probing for a
+// combination of answers that passes — isn't locked out permanently.
+export async function resetIneligibleAttempts(programKey: string, applicationId: number) {
+  const application = await db.application.update({
+    where: { id: applicationId },
+    data: { ineligibleAttempts: 0 },
+  });
+  await logAudit(`Reset ineligible-attempt count for ${application.fullName}`, application.programId);
+  revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
+}
+
 const DECISION_LABELS: Record<string, string> = {
   awarded: "Awarded",
   waitlisted: "Waitlisted",

@@ -4,7 +4,7 @@ import { requireAdminLike } from "@/lib/auth";
 import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 import { getFieldsConfig } from "@/lib/field-config";
 import { db } from "@/lib/db";
-import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment } from "@/lib/actions/decisions";
+import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment, resetIneligibleAttempts } from "@/lib/actions/decisions";
 import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 import { Card, CardKicker } from "@/components/ui/card";
@@ -45,6 +45,8 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const onClearOverride = clearFlagOverride.bind(null, program.key, application.id);
   const onSetDecision = setApplicantDecision.bind(null, program.key, application.id);
   const onAssignScreener = assignScreener.bind(null, program.key, application.id);
+  const onResetAttempts = resetIneligibleAttempts.bind(null, program.key, application.id);
+  const MAX_INELIGIBLE_ATTEMPTS = 3; // must match src/lib/actions/student.ts
 
   const assignedScreenerIds = new Set(application.screenerAssignments.map((sa) => sa.screenerId));
   const availableScreeners = activeScreeners.filter((s) => !assignedScreenerIds.has(s.id));
@@ -96,6 +98,19 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
               <Button type="submit" variant="secondary">Override flag</Button>
             </form>
           ) : null}
+        </Card>
+      )}
+
+      {application.ineligibleAttempts > 0 && (
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)", background: application.ineligibleAttempts >= MAX_INELIGIBLE_ATTEMPTS ? "var(--color-accent-2-100)" : undefined }}>
+          <CardKicker>Eligibility attempts</CardKicker>
+          <p style={{ margin: "8px 0 0", fontSize: 13 }}>
+            Failed the eligibility check <b>{application.ineligibleAttempts}</b> time{application.ineligibleAttempts === 1 ? "" : "s"} before submitting.
+            {application.ineligibleAttempts >= MAX_INELIGIBLE_ATTEMPTS && " Further attempts on this application are now locked."}
+          </p>
+          <form action={onResetAttempts} style={{ marginTop: 8 }}>
+            <Button type="submit" variant="secondary" style={{ padding: "6px 12px" }}>Reset attempts</Button>
+          </form>
         </Card>
       )}
 
