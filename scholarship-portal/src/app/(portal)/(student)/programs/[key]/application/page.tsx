@@ -11,7 +11,7 @@ import { StepForm } from "./step-form";
 import { FamilyMembersEditor } from "./family-members-editor";
 import { EssayField } from "./essay-field";
 import { DynamicField } from "./dynamic-field";
-import { ReadOnlyApplicationView } from "./read-only-view";
+import { ReadOnlyApplicationView } from "@/components/application-view";
 
 const CONTINUE_LABELS_STANDARD = [
   "Continue to family information",

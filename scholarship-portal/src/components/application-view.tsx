@@ -10,6 +10,7 @@ type FieldConfigRow = {
 };
 
 type ApplicationData = Record<string, unknown> & {
+  id: number;
   customFieldsJson: string;
   familyMembers: { name: string; relationship: string; occupation: string }[];
 };
@@ -19,6 +20,26 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="field" style={{ marginBottom: 0 }}>
       <span className="text-muted" style={{ fontSize: 12 }}>{label}</span>
       <p style={{ margin: "2px 0 0", fontSize: 14 }}>{value || <span className="text-muted">Not provided</span>}</p>
+    </div>
+  );
+}
+
+// cert/video render as a real, openable link (through the authorizing route handler)
+// instead of plain text — this is what actually lets a student/admin/screener verify a
+// submitted document, not just see that a filename was once recorded.
+function DocumentRow({ label, applicationId, field, path }: { label: string; applicationId: number; field: "cert" | "video"; path: string }) {
+  return (
+    <div className="field" style={{ marginBottom: 0 }}>
+      <span className="text-muted" style={{ fontSize: 12 }}>{label}</span>
+      <p style={{ margin: "2px 0 0", fontSize: 14 }}>
+        {path ? (
+          <a href={`/api/documents/${applicationId}/${field}`} target="_blank" rel="noreferrer">
+            Open {field === "cert" ? "certificate" : "video"} ↗
+          </a>
+        ) : (
+          <span className="text-muted">Not provided</span>
+        )}
+      </p>
     </div>
   );
 }
@@ -45,7 +66,11 @@ function Section({
       <div className="grid-2" style={{ marginTop: 8, rowGap: "var(--space-3)" }}>
         {rows.map((f) => (
           <div key={f.id} style={f.fieldType === "paragraph" ? { gridColumn: "1 / -1" } : undefined}>
-            <Row label={f.label} value={valueForField(f, application, custom)} />
+            {f.fieldKey === "cert" || f.fieldKey === "video" ? (
+              <DocumentRow label={f.label} applicationId={application.id} field={f.fieldKey} path={valueForField(f, application, custom)} />
+            ) : (
+              <Row label={f.label} value={valueForField(f, application, custom)} />
+            )}
           </div>
         ))}
       </div>
@@ -53,9 +78,11 @@ function Section({
   );
 }
 
-// A read-only rendering of everything the applicant already submitted — shown wherever
-// the form itself is locked (already submitted, or the access window has closed) so the
-// applicant can still see their own answers instead of a blank "you can't edit this" card.
+// A read-only rendering of everything the applicant already submitted — shown wherever the
+// form itself is locked (already submitted, or the access window has closed) for the
+// applicant's own view, and reused as-is for the admin/screener review pages, so every
+// audience sees exactly the same set of fields the applicant actually answered (including
+// any admin-added custom fields), not a hand-picked subset.
 export function ReadOnlyApplicationView({
   application,
   fieldsByStep,

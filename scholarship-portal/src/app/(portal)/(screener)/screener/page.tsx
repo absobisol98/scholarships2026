@@ -19,18 +19,18 @@ export default async function ScreenerHomePage({
   const { q = "", filter = "all" } = await searchParams;
 
   const [assignments, recommendations] = await Promise.all([
-    db.applicantAssignment.findMany({
+    db.screenerAssignment.findMany({
       where: { screenerId: screener.id },
-      include: { applicant: { include: { program: true } } },
+      include: { application: { include: { program: true } } },
       orderBy: { assignedAt: "asc" },
     }),
     db.recommendation.findMany({ where: { screenerId: screener.id } }),
   ]);
-  const recommendationByApplicantId = new Map(recommendations.map((r) => [r.applicantId, r.decision]));
+  const recommendationByApplicationId = new Map(recommendations.map((r) => [r.applicationId, r.decision]));
 
   const rows = assignments.map((a) => ({
     ...a,
-    decision: recommendationByApplicantId.get(a.applicantId) ?? null,
+    decision: recommendationByApplicationId.get(a.applicationId) ?? null,
   }));
 
   const countAll = rows.length;
@@ -44,7 +44,7 @@ export default async function ScreenerHomePage({
       (filter === "unassessed" && !r.decision) ||
       (filter === "recommend" && r.decision === "recommend") ||
       (filter === "not_recommend" && r.decision === "not_recommend");
-    const qOk = q === "" || r.applicant.name.toLowerCase().includes(q.toLowerCase()) || r.applicant.school.toLowerCase().includes(q.toLowerCase());
+    const qOk = q === "" || r.application.fullName.toLowerCase().includes(q.toLowerCase()) || r.application.school.toLowerCase().includes(q.toLowerCase());
     return filterOk && qOk;
   });
 
@@ -110,16 +110,16 @@ export default async function ScreenerHomePage({
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id}>
-                    <td style={{ fontWeight: 700 }}>{r.applicant.name}</td>
-                    <td>{r.applicant.school}</td>
-                    <td><Tag variant="neutral">{r.applicant.program.name}</Tag></td>
+                    <td style={{ fontWeight: 700 }}>{r.application.fullName}</td>
+                    <td>{r.application.school}</td>
+                    <td><Tag variant="neutral">{r.application.program.name}</Tag></td>
                     <td>
                       {r.decision === "recommend" && <Tag variant="accent">Recommended</Tag>}
                       {r.decision === "not_recommend" && <Tag variant="neutral">Not recommended</Tag>}
                       {!r.decision && <Tag variant="outline">Not yet assessed</Tag>}
                     </td>
                     <td>
-                      <LinkButton href={`/screener/${r.applicantId}`} variant="ghost" aria-label={`View applicant ${r.applicant.name}`}>
+                      <LinkButton href={`/screener/${r.applicationId}`} variant="ghost" aria-label={`View applicant ${r.application.fullName}`}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
                       </LinkButton>
                     </td>

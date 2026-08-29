@@ -20,23 +20,38 @@ async function main() {
   console.log("Launching browser...");
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] });
 
-  // Seed enough extra applicants that the queue's real page size (50) actually needs a
-  // second page — the normal demo seed data is far too small to exercise pagination.
+  // Seed enough extra submitted applications that the queue's real page size (50) actually
+  // needs a second page — the normal demo seed data is far too small to exercise
+  // pagination. Real Student+Application pairs (not a disconnected "Applicant" roster row)
+  // so they show up in the Applications Overview queue the same way a genuine submission
+  // would — @example.test emails mean the cleanup pass at the end sweeps them up alongside
+  // the other test students, no separate cleanup query needed.
   console.log("Seeding pagination test data...");
   const ugo = await db.program.findUniqueOrThrow({ where: { key: "ugo" } });
-  await db.applicant.createMany({
-    data: Array.from({ length: 60 }, (_, i) => ({
+  const paginationEmails = Array.from({ length: 60 }, (_, i) => `pagination-test-${i}-${Date.now()}@example.test`);
+  await db.student.createMany({
+    data: paginationEmails.map((email, i) => ({ name: `Pagination Test Applicant ${i}`, initials: "PT", email })),
+  });
+  const paginationStudents = await db.student.findMany({ where: { email: { in: paginationEmails } }, select: { id: true } });
+  await db.application.createMany({
+    data: paginationStudents.map((s, i) => ({
+      studentId: s.id,
       programId: ugo.id,
-      name: `Pagination Test Applicant ${i}`,
+      status: "submitted",
+      formStep: 4,
+      submittedDate: "2026-01-01",
+      fullName: `Pagination Test Applicant ${i}`,
       school: "Test School",
       gpa: "90",
-      submitted: "2026-01-01",
-      status: "review",
       nationality: "Filipino",
       sex: "Male",
       yearLevel: "Grade 12",
       institutionType: "Public school",
-      gwa: 90,
+      personalDone: true,
+      familyDone: true,
+      academicsDone: true,
+      communityDone: true,
+      essaysDone: true,
     })),
   });
   console.log("Seeded. Starting checks...");
@@ -193,7 +208,6 @@ async function main() {
   await browser.close();
 
   console.log("\nCleaning up test data...");
-  await db.applicant.deleteMany({ where: { name: { startsWith: "Pagination Test Applicant" } } });
   const testStudents = await db.student.findMany({ where: { email: { endsWith: "@example.test" } }, select: { id: true } });
   await db.application.deleteMany({ where: { studentId: { in: testStudents.map((s) => s.id) } } });
   await db.student.deleteMany({ where: { id: { in: testStudents.map((s) => s.id) } } });

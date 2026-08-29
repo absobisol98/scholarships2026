@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
-import { getProgramByKey, getApplicant, getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
+import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
+import { getFieldsConfig } from "@/lib/field-config";
 import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment } from "@/lib/actions/decisions";
 import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
@@ -10,6 +11,7 @@ import { Card, CardKicker } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { ReadOnlyApplicationView } from "@/components/application-view";
 
 const DECISION_LABELS: Record<string, string> = { awarded: "Awarded", waitlisted: "Waitlisted", declined: "Declined" };
 
@@ -18,18 +20,19 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const { key, applicantId } = await params;
   const program = await getProgramByKey(key);
   if (!program) notFound();
-  const applicant = await getApplicant(Number(applicantId));
-  if (!applicant || applicant.programId !== program.id) notFound();
+  const application = await getApplicationForReview(Number(applicantId));
+  if (!application || application.programId !== program.id) notFound();
 
-  const [activeCohort, recommendations, rubricScores, activeScreeners] = await Promise.all([
+  const [activeCohort, fieldsByStep, recommendations, rubricScores, activeScreeners] = await Promise.all([
     getActiveCohortWithCriteria(program.id),
-    db.recommendation.findMany({ where: { applicantId: applicant.id }, include: { screener: true } }),
-    db.rubricScore.findMany({ where: { applicantId: applicant.id }, include: { screener: true } }),
+    getFieldsConfig(program.id),
+    db.recommendation.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
+    db.rubricScore.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
     db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
   ]);
-  const flags = evaluateCriteria(applicant, activeCohort);
-  const isEligible = flags.length === 0 || applicant.flagOverridden;
-  const attachments: string[] = JSON.parse(applicant.attachmentsJson);
+  const isGenerika = program.formKind === "generika";
+  const flags = evaluateCriteria(toEligibilityShape(application), activeCohort);
+  const isEligible = flags.length === 0 || application.flagOverridden;
   const isSuperAdmin = session.role === "super_admin";
 
   const scoresByScreener = new Map<string, { name: string; scores: Record<string, number> }>();
@@ -38,12 +41,12 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
     scoresByScreener.get(s.screenerId)!.scores[s.criterionKey] = s.score;
   }
 
-  const onOverride = overrideFlag.bind(null, program.key, applicant.id);
-  const onClearOverride = clearFlagOverride.bind(null, program.key, applicant.id);
-  const onSetDecision = setApplicantDecision.bind(null, program.key, applicant.id);
-  const onAssignScreener = assignScreener.bind(null, program.key, applicant.id);
+  const onOverride = overrideFlag.bind(null, program.key, application.id);
+  const onClearOverride = clearFlagOverride.bind(null, program.key, application.id);
+  const onSetDecision = setApplicantDecision.bind(null, program.key, application.id);
+  const onAssignScreener = assignScreener.bind(null, program.key, application.id);
 
-  const assignedScreenerIds = new Set(applicant.screenerAssignments.map((sa) => sa.screenerId));
+  const assignedScreenerIds = new Set(application.screenerAssignments.map((sa) => sa.screenerId));
   const availableScreeners = activeScreeners.filter((s) => !assignedScreenerIds.has(s.id));
 
   return (
@@ -52,65 +55,32 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
       <h6 style={{ color: "var(--color-accent)", marginTop: "var(--space-3)" }}>Submitted application</h6>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
         <div>
-          <h2 style={{ marginBottom: 2 }}>{applicant.name}</h2>
-          <span className="text-muted" style={{ fontSize: 13 }}>{applicant.school}</span>
+          <h2 style={{ marginBottom: 2 }}>{application.fullName}</h2>
+          <span className="text-muted" style={{ fontSize: 13 }}>{application.school}</span>
         </div>
         <div style={{ display: "flex", gap: 6, flex: "none" }}>
-          {applicant.decision && <Tag variant="accent" style={{ whiteSpace: "nowrap" }}>{DECISION_LABELS[applicant.decision]}</Tag>}
-          <Tag variant="outline" style={{ whiteSpace: "nowrap" }}>Submitted&nbsp;{applicant.submitted}</Tag>
+          {application.decision && <Tag variant="accent" style={{ whiteSpace: "nowrap" }}>{DECISION_LABELS[application.decision]}</Tag>}
+          <Tag variant="outline" style={{ whiteSpace: "nowrap" }}>Submitted&nbsp;{application.submittedDate}</Tag>
         </div>
       </div>
 
       <div className="hr" />
 
-      <div className="cols-flex" style={{ marginTop: "var(--space-6)", alignItems: "flex-start" }}>
-        <Card elevation="sm" style={{ flex: 1 }}>
-          <CardKicker style={{ fontWeight: 700, fontSize: 13 }}>Personal &amp; Family Info</CardKicker>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Nationality</span><span>{applicant.nationality}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Sex</span><span>{applicant.sex}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Year level</span><span>{applicant.yearLevel}</span></div>
-          </div>
-        </Card>
-        <Card elevation="sm" style={{ flex: 1 }}>
-          <CardKicker style={{ fontSize: 13, fontWeight: 700 }}>Academic Info</CardKicker>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">School</span><span>{applicant.school}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Institution type</span><span>{applicant.institutionType}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">GWA</span><span>{applicant.gwa}%</span></div>
-          </div>
-        </Card>
-      </div>
-
-      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
-        <CardKicker>Attachments</CardKicker>
-        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 8 }}>
-          {attachments.map((f) => (
-            <Tag key={f} variant="outline">{f}</Tag>
-          ))}
-        </div>
-      </Card>
-
-      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
-        <CardKicker>Personal Statement</CardKicker>
-        <p style={{ fontSize: 14, lineHeight: 1.75, opacity: 0.9, marginTop: 8 }}>
-          {applicant.essay || "No personal statement on file for this record."}
-        </p>
-      </Card>
+      <ReadOnlyApplicationView application={application} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
 
       {flags.length > 0 && (
-        <Card elevation="sm" style={{ marginTop: "var(--space-4)", background: applicant.flagOverridden ? "var(--color-neutral-200)" : "var(--color-accent-100)" }}>
-          <CardKicker><b>{applicant.flagOverridden ? "Red Flag — Overridden" : "Red Flag"}</b></CardKicker>
-          <ul className={applicant.flagOverridden ? "text-muted" : undefined} style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: applicant.flagOverridden ? undefined : "var(--color-accent-800)", display: "flex", flexDirection: "column", gap: 4 }}>
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)", background: application.flagOverridden ? "var(--color-neutral-200)" : "var(--color-accent-100)" }}>
+          <CardKicker><b>{application.flagOverridden ? "Red Flag — Overridden" : "Red Flag"}</b></CardKicker>
+          <ul className={application.flagOverridden ? "text-muted" : undefined} style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: application.flagOverridden ? undefined : "var(--color-accent-800)", display: "flex", flexDirection: "column", gap: 4 }}>
             {flags.map((f) => (
               <li key={f}>{f}</li>
             ))}
           </ul>
 
-          {applicant.flagOverridden ? (
+          {application.flagOverridden ? (
             <div style={{ marginTop: 10, fontSize: 13 }}>
               <p style={{ margin: 0 }}>
-                Overridden by <b>{applicant.flagOverriddenBy}</b> — <span className="text-muted">&ldquo;{applicant.flagOverrideReason}&rdquo;</span>
+                Overridden by <b>{application.flagOverriddenBy}</b> — <span className="text-muted">&ldquo;{application.flagOverrideReason}&rdquo;</span>
               </p>
               {isSuperAdmin && (
                 <form action={onClearOverride} style={{ marginTop: 8 }}>
@@ -132,9 +102,9 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
       <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
         <CardKicker>Paper Screener assignment</CardKicker>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 8 }}>
-          {applicant.screenerAssignments.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>No screener assigned yet</span>}
-          {applicant.screenerAssignments.map((sa) => {
-            const onUnassign = unassignScreener.bind(null, program.key, applicant.id, sa.screenerId);
+          {application.screenerAssignments.length === 0 && <span className="text-muted" style={{ fontSize: 12 }}>No screener assigned yet</span>}
+          {application.screenerAssignments.map((sa) => {
+            const onUnassign = unassignScreener.bind(null, program.key, application.id, sa.screenerId);
             return (
               <Tag key={sa.id} variant="neutral" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                 {sa.screener.name}
@@ -195,7 +165,7 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
               // screener's own edit access locks once this applicant moves past Paper
               // Screening. Changes here are attributed to the original screener but
               // recorded in the Audit Log so there's a trail of who actually made them.
-              const onOverrideAssessment = overrideAssessment.bind(null, program.key, applicant.id, screenerId);
+              const onOverrideAssessment = overrideAssessment.bind(null, program.key, application.id, screenerId);
               return (
                 <form key={screenerId} action={onOverrideAssessment} style={{ paddingBottom: 12, borderBottom: "1px solid var(--color-divider)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>

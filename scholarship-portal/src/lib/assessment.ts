@@ -9,15 +9,15 @@ function str(fd: FormData, name: string): string {
 
 // Shared by the screener's own saveAssessment and the Super Admin's overrideAssessment —
 // same upsert logic, just a different caller supplies which screenerId the rows belong to.
-export async function applyAssessment(applicantId: number, screenerId: string, fd: FormData) {
+export async function applyAssessment(applicationId: number, screenerId: string, fd: FormData) {
   for (const { key } of RUBRIC_CRITERIA) {
     const raw = str(fd, `score_${key}`);
     if (!raw) continue;
     const score = Math.min(5, Math.max(1, Number(raw)));
     await db.rubricScore.upsert({
-      where: { applicantId_screenerId_criterionKey: { applicantId, screenerId, criterionKey: key } },
+      where: { applicationId_screenerId_criterionKey: { applicationId, screenerId, criterionKey: key } },
       update: { score },
-      create: { applicantId, screenerId, criterionKey: key, score },
+      create: { applicationId, screenerId, criterionKey: key, score },
     });
   }
 
@@ -25,9 +25,9 @@ export async function applyAssessment(applicantId: number, screenerId: string, f
   if (decision === "recommend" || decision === "not_recommend") {
     const comment = str(fd, "comment").trim();
     await db.recommendation.upsert({
-      where: { applicantId_screenerId: { applicantId, screenerId } },
+      where: { applicationId_screenerId: { applicationId, screenerId } },
       update: { decision, comment },
-      create: { applicantId, screenerId, decision, comment },
+      create: { applicationId, screenerId, decision, comment },
     });
   }
 }

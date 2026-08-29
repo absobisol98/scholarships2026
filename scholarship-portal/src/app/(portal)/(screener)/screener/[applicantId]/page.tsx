@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireScreener, getCurrentStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
+import { getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
+import { getFieldsConfig } from "@/lib/field-config";
 import { saveAssessment } from "@/lib/actions/screener";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
@@ -10,6 +11,7 @@ import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { Field, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { ReadOnlyApplicationView } from "@/components/application-view";
 
 export default async function ScreenerApplicantPage({
   params,
@@ -24,21 +26,25 @@ export default async function ScreenerApplicantPage({
   const { saved, error } = await searchParams;
   const id = Number(applicantId);
 
-  const assignment = await db.applicantAssignment.findFirst({ where: { screenerId: screener.id, applicantId: id } });
+  const assignment = await db.screenerAssignment.findFirst({ where: { screenerId: screener.id, applicationId: id } });
   if (!assignment) notFound();
 
-  const applicant = await db.applicant.findUnique({ where: { id }, include: { program: true } });
-  if (!applicant) notFound();
+  const application = await db.application.findUnique({
+    where: { id },
+    include: { program: true, familyMembers: { orderBy: { order: "asc" } } },
+  });
+  if (!application) notFound();
 
-  const [activeCohort, scores, recommendation] = await Promise.all([
-    getActiveCohortWithCriteria(applicant.programId),
-    db.rubricScore.findMany({ where: { applicantId: id, screenerId: screener.id } }),
-    db.recommendation.findFirst({ where: { applicantId: id, screenerId: screener.id } }),
+  const [activeCohort, fieldsByStep, scores, recommendation] = await Promise.all([
+    getActiveCohortWithCriteria(application.programId),
+    getFieldsConfig(application.programId),
+    db.rubricScore.findMany({ where: { applicationId: id, screenerId: screener.id } }),
+    db.recommendation.findFirst({ where: { applicationId: id, screenerId: screener.id } }),
   ]);
-  const flags = evaluateCriteria(applicant, activeCohort);
+  const isGenerika = application.program.formKind === "generika";
+  const flags = evaluateCriteria(toEligibilityShape(application), activeCohort);
   const scoreByKey = new Map(scores.map((s) => [s.criterionKey, s.score]));
-  const attachments: string[] = JSON.parse(applicant.attachmentsJson);
-  const isLocked = applicant.phaseIndex > PAPER_SCREENING_PHASE_INDEX;
+  const isLocked = application.phaseIndex > PAPER_SCREENING_PHASE_INDEX;
 
   const onSave = saveAssessment.bind(null, id);
 
@@ -61,51 +67,18 @@ export default async function ScreenerApplicantPage({
           </Card>
         )}
 
-        <h6 style={{ color: "var(--color-accent)", marginTop: "var(--space-3)" }}>Paper Screener · {applicant.program.name}</h6>
+        <h6 style={{ color: "var(--color-accent)", marginTop: "var(--space-3)" }}>Paper Screener · {application.program.name}</h6>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
           <div>
-            <h2 style={{ marginBottom: 2 }}>{applicant.name}</h2>
-            <span className="text-muted" style={{ fontSize: 13 }}>{applicant.school}</span>
+            <h2 style={{ marginBottom: 2 }}>{application.fullName}</h2>
+            <span className="text-muted" style={{ fontSize: 13 }}>{application.school}</span>
           </div>
-          <Tag variant="outline" style={{ whiteSpace: "nowrap", flex: "none" }}>Submitted&nbsp;{applicant.submitted}</Tag>
+          <Tag variant="outline" style={{ whiteSpace: "nowrap", flex: "none" }}>Submitted&nbsp;{application.submittedDate}</Tag>
         </div>
 
         <div className="hr" />
 
-        <div className="cols-flex" style={{ marginTop: "var(--space-6)", alignItems: "flex-start" }}>
-          <Card elevation="sm" style={{ flex: 1 }}>
-            <CardKicker style={{ fontWeight: 700, fontSize: 13 }}>Personal &amp; Family Info</CardKicker>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Nationality</span><span>{applicant.nationality}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Sex</span><span>{applicant.sex}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Year level</span><span>{applicant.yearLevel}</span></div>
-            </div>
-          </Card>
-          <Card elevation="sm" style={{ flex: 1 }}>
-            <CardKicker style={{ fontSize: 13, fontWeight: 700 }}>Academic Info</CardKicker>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, fontSize: 13 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">School</span><span>{applicant.school}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">Institution type</span><span>{applicant.institutionType}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span className="text-muted">GWA</span><span>{applicant.gwa}%</span></div>
-            </div>
-          </Card>
-        </div>
-
-        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
-          <CardKicker>Attachments</CardKicker>
-          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 8 }}>
-            {attachments.map((f) => (
-              <Tag key={f} variant="outline">{f}</Tag>
-            ))}
-          </div>
-        </Card>
-
-        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
-          <CardKicker>Personal Statement</CardKicker>
-          <p style={{ fontSize: 14, lineHeight: 1.75, opacity: 0.9, marginTop: 8 }}>
-            {applicant.essay || "No personal statement on file for this record."}
-          </p>
-        </Card>
+        <ReadOnlyApplicationView application={application} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
 
         {flags.length > 0 && (
           <Card elevation="sm" style={{ marginTop: "var(--space-4)", background: "var(--color-accent-100)" }}>

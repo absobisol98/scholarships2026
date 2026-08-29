@@ -17,7 +17,7 @@ export default async function SurveysPage({ params }: { params: Promise<{ key: s
 
   const [waves, awardedApplicants] = await Promise.all([
     getSurveyWaves(program.id),
-    db.applicant.findMany({ where: { programId: program.id, decision: "awarded" }, orderBy: { id: "asc" } }),
+    db.application.findMany({ where: { programId: program.id, decision: "awarded" }, orderBy: { id: "asc" } }),
   ]);
   const sends = await getSurveySends(awardedApplicants.map((a) => a.id));
 
@@ -33,7 +33,7 @@ export default async function SurveysPage({ params }: { params: Promise<{ key: s
           const onToggleDeploy = toggleSurveyDeployed.bind(null, program.key, wave.id);
           const sendToIds = sendSurveyToGroup.bind(null, program.key, wave.wave);
           const sentCount = awardedApplicants.filter((a) => sends.get(a.id)?.[wave.wave]).length;
-          const recipients = awardedApplicants.map((a) => ({ id: a.id, name: a.name, alreadySent: !!sends.get(a.id)?.[wave.wave] }));
+          const recipients = awardedApplicants.map((a) => ({ id: a.id, name: a.fullName, alreadySent: !!sends.get(a.id)?.[wave.wave] }));
 
           return (
             <Card key={wave.id} elevation="sm">

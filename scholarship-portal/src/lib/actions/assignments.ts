@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
-import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
+import { getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -12,10 +12,10 @@ function str(fd: FormData, name: string): string {
 
 // Assigning a screener means the applicant has entered paper screening — bump the phase
 // forward to reflect that (never backward; an admin may have already moved it further).
-export async function bumpToPaperScreening(applicantId: number) {
-  const applicant = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
-  if (applicant.phaseIndex < PAPER_SCREENING_PHASE_INDEX) {
-    await db.applicant.update({ where: { id: applicantId }, data: { phaseIndex: PAPER_SCREENING_PHASE_INDEX } });
+export async function bumpToPaperScreening(applicationId: number) {
+  const application = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+  if (application.phaseIndex < PAPER_SCREENING_PHASE_INDEX) {
+    await db.application.update({ where: { id: applicationId }, data: { phaseIndex: PAPER_SCREENING_PHASE_INDEX } });
   }
 }
 
@@ -25,27 +25,27 @@ export async function bumpToPaperScreening(applicantId: number) {
 // screener is the second path, so it's gated the same way randomlyAssignEligibleApplicants
 // already is — a flagged, non-overridden applicant can't be silently pushed into screening
 // just by picking a screener for them.
-export async function assignScreener(programKey: string, applicantId: number, fd: FormData) {
+export async function assignScreener(programKey: string, applicationId: number, fd: FormData) {
   const screenerId = str(fd, "screenerId");
   if (!screenerId) return;
 
-  const applicant = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
-  const activeCohort = await getActiveCohortWithCriteria(applicant.programId);
-  const flags = evaluateCriteria(applicant, activeCohort);
-  if (flags.length > 0 && !applicant.flagOverridden) return;
+  const application = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+  const activeCohort = await getActiveCohortWithCriteria(application.programId);
+  const flags = evaluateCriteria(toEligibilityShape(application), activeCohort);
+  if (flags.length > 0 && !application.flagOverridden) return;
 
-  await db.applicantAssignment.upsert({
-    where: { applicantId_screenerId: { applicantId, screenerId } },
+  await db.screenerAssignment.upsert({
+    where: { applicationId_screenerId: { applicationId, screenerId } },
     update: {},
-    create: { applicantId, screenerId },
+    create: { applicationId, screenerId },
   });
-  await bumpToPaperScreening(applicantId);
-  revalidatePath(`/admin/${programKey}/queue/${applicantId}`);
+  await bumpToPaperScreening(applicationId);
+  revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
   revalidatePath(`/admin/${programKey}/queue`);
 }
 
-export async function unassignScreener(programKey: string, applicantId: number, screenerId: string) {
-  await db.applicantAssignment.deleteMany({ where: { applicantId, screenerId } });
-  revalidatePath(`/admin/${programKey}/queue/${applicantId}`);
+export async function unassignScreener(programKey: string, applicationId: number, screenerId: string) {
+  await db.screenerAssignment.deleteMany({ where: { applicationId, screenerId } });
+  revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
   revalidatePath(`/admin/${programKey}/queue`);
 }

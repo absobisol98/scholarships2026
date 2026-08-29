@@ -115,26 +115,26 @@ export async function toggleCohortFlag(programKey: string, cohortId: string, fie
 
 // — Applicants queue —
 
-export async function promoteApplicant(programKey: string, applicantId: number) {
-  const a = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
+export async function promoteApplicant(programKey: string, applicationId: number) {
+  const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
   const next = Math.min(a.phaseIndex + 1, APPLICANT_PHASES.length - 1);
-  await db.applicant.update({ where: { id: applicantId }, data: { phaseIndex: next } });
+  await db.application.update({ where: { id: applicationId }, data: { phaseIndex: next } });
   revalidatePath(`/admin/${programKey}/queue`);
 }
 
-export async function demoteApplicant(programKey: string, applicantId: number) {
-  const a = await db.applicant.findUniqueOrThrow({ where: { id: applicantId } });
+export async function demoteApplicant(programKey: string, applicationId: number) {
+  const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
   const next = Math.max(a.phaseIndex - 1, 0);
 
   // Can't drop below Paper Screening while a screener still has this applicant assigned —
   // that would leave phase and assignment state inconsistent (a candidate a screener is
   // actively reviewing, showing as not yet in screening). Unassign first, then demote.
   if (next < PAPER_SCREENING_PHASE_INDEX) {
-    const assignmentCount = await db.applicantAssignment.count({ where: { applicantId } });
+    const assignmentCount = await db.screenerAssignment.count({ where: { applicationId } });
     if (assignmentCount > 0) return;
   }
 
-  await db.applicant.update({ where: { id: applicantId }, data: { phaseIndex: next } });
+  await db.application.update({ where: { id: applicationId }, data: { phaseIndex: next } });
   revalidatePath(`/admin/${programKey}/queue`);
 }
 
@@ -218,14 +218,14 @@ export async function toggleSurveyDeployed(programKey: string, surveyWaveId: str
 // SurveySend row for this wave, sentDate refreshed even on a repeat send) in 2 queries
 // instead of N: createMany for whoever doesn't have one yet, updateMany to (re)stamp the
 // date on all of them, new and pre-existing alike.
-export async function sendSurveyToGroup(programKey: string, wave: string, applicantIds: number[]) {
-  if (applicantIds.length === 0) return;
+export async function sendSurveyToGroup(programKey: string, wave: string, applicationIds: number[]) {
+  if (applicationIds.length === 0) return;
   const sentDate = formatDateLong();
   await db.surveySend.createMany({
-    data: applicantIds.map((applicantId) => ({ applicantId, wave, sentDate })),
+    data: applicationIds.map((applicationId) => ({ applicationId, wave, sentDate })),
     skipDuplicates: true,
   });
-  await db.surveySend.updateMany({ where: { applicantId: { in: applicantIds }, wave }, data: { sentDate } });
+  await db.surveySend.updateMany({ where: { applicationId: { in: applicationIds }, wave }, data: { sentDate } });
   revalidatePath(`/admin/${programKey}/surveys`);
 }
 

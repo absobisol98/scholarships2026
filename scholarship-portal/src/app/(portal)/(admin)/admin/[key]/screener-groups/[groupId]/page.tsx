@@ -24,16 +24,16 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
   const [eligibleUnassignedCount, activeScreeners, candidates] = await Promise.all([
     getEligibleUnassignedCount(program.id),
     db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
-    db.applicant.findMany({
+    db.application.findMany({
       where: { programId: program.id, screenerAssignments: { some: { screenerId: { in: memberIds } } } },
       select: {
         id: true,
-        name: true,
+        fullName: true,
         school: true,
         phaseIndex: true,
         screenerAssignments: { where: { screenerId: { in: memberIds } }, select: { screener: { select: { name: true } } } },
       },
-      orderBy: { name: "asc" },
+      orderBy: { fullName: "asc" },
     }),
   ]);
 
@@ -139,12 +139,12 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
               const phaseLabel = APPLICANT_PHASES[c.phaseIndex] ?? APPLICANT_PHASES[0];
               return (
                 <tr key={c.id}>
-                  <td style={{ fontWeight: 700 }}>{c.name}</td>
+                  <td style={{ fontWeight: 700 }}>{c.fullName}</td>
                   <td className="text-muted" style={{ fontSize: 13 }}>{c.school}</td>
                   <td>{c.screenerAssignments.map((sa) => sa.screener.name).join(", ")}</td>
                   <td><Tag variant="neutral">{phaseLabel}</Tag></td>
                   <td>
-                    <LinkButton href={`/admin/${program.key}/queue/${c.id}`} variant="ghost" aria-label={`View application form for ${c.name}`}>
+                    <LinkButton href={`/admin/${program.key}/queue/${c.id}`} variant="ghost" aria-label={`View application form for ${c.fullName}`}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
                     </LinkButton>
                   </td>

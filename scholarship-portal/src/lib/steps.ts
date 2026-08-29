@@ -1,10 +1,15 @@
 export const FORM_STEP_LABELS = ["Personal Info", "Family Info", "Academic Info", "Community", "Statement"];
 export const GENERIKA_STEP_LABELS = ["Personal Info", "Family Info", "Leadership", "Community", "Statement"];
 export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision"];
-// The admin-side review pipeline for the Applicant queue (distinct from the applicant-
-// facing Application.status tracker in STAGE_LABELS/statusMeta below).
+// The admin-side review pipeline for the Applications Overview queue (distinct from the
+// applicant-facing Application.status tracker in STAGE_LABELS/statusMeta below).
 export const APPLICANT_PHASES = ["Application Proper", "Paper Screening", "Interviews", "Final Scoring & Deliberations"];
 export const PAPER_SCREENING_PHASE_INDEX = APPLICANT_PHASES.indexOf("Paper Screening");
+
+// Application.status values that mean "this is a completed submission" — the admin/screener
+// side (Applications Overview, screener assignment, rubric scoring, decisions) only ever
+// operates on rows in this set, so a draft ("not_started"/"in_progress") never surfaces there.
+export const SUBMITTED_STATUSES: string[] = ["submitted", "awarded", "declined"];
 
 // Same order/length as APPLICANT_PHASES — what actually happens at each stage.
 export const APPLICANT_PHASE_DESCRIPTIONS = [

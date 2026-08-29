@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
-import { APPLICANT_PHASES } from "@/lib/steps";
+import { APPLICANT_PHASES, SUBMITTED_STATUSES } from "@/lib/steps";
 import { getCurrentStaff } from "@/lib/auth";
 
 // Re-exported for existing admin call sites — these now live in field-config.ts, shared
@@ -23,6 +23,25 @@ export function parseRegionMap(value: string): Record<string, string[]> {
     // legacy plain-text value (or empty) — start fresh
   }
   return {};
+}
+
+// Application.gpa is a free-typed String (the applicant's own self-reported value);
+// evaluateCriteria's "gte" check needs a number. Centralized here so every admin/screener
+// call site converts the same way instead of repeating `Number(a.gpa) || 0` ad hoc.
+export function toEligibilityShape(a: {
+  nationality: string;
+  sex: string;
+  yearLevel: string;
+  institutionType: string;
+  gpa: string;
+}): { nationality: string; sex: string; yearLevel: string; institutionType: string; gwa: number } {
+  return {
+    nationality: a.nationality,
+    sex: a.sex,
+    yearLevel: a.yearLevel,
+    institutionType: a.institutionType,
+    gwa: Number(a.gpa) || 0,
+  };
 }
 
 export function evaluateCriteria(
@@ -74,7 +93,11 @@ export async function listWorkspacePrograms(accessibleProgramIds: number[] | "al
     where: accessibleProgramIds === "all" ? undefined : { id: { in: accessibleProgramIds } },
     orderBy: { order: "asc" },
   });
-  const counts = await db.applicant.groupBy({ by: ["programId"], _count: { id: true } });
+  const counts = await db.application.groupBy({
+    by: ["programId"],
+    where: { status: { in: SUBMITTED_STATUSES } },
+    _count: { id: true },
+  });
   const countByProgramId = new Map(counts.map((c) => [c.programId, c._count.id]));
   return programs.map((p) => ({ program: p, applicantCount: countByProgramId.get(p.id) ?? 0 }));
 }
@@ -98,14 +121,15 @@ export async function getCohortWithCriteria(cohortId: string) {
   });
 }
 
-// Columns list views actually render/need — excludes `essay`/`attachmentsJson` (large
-// text only the single-applicant detail page needs; see getApplicant below).
-const APPLICANT_LIST_SELECT = {
+// Columns list views actually render/need — excludes the large text/custom-field columns
+// (`essayText`/`essayText2`/`customFieldsJson`) only the single-application detail page
+// needs; see getApplicationForReview below. Scoped to SUBMITTED_STATUSES everywhere this
+// is used (via the `where` each caller builds) so drafts never surface here.
+const APPLICATION_LIST_SELECT = {
   id: true,
-  name: true,
+  fullName: true,
   school: true,
-  submitted: true,
-  status: true,
+  submittedDate: true,
   decision: true,
   phaseIndex: true,
   flagOverridden: true,
@@ -113,17 +137,19 @@ const APPLICANT_LIST_SELECT = {
   sex: true,
   yearLevel: true,
   institutionType: true,
-  gwa: true,
+  gpa: true,
   _count: { select: { screenerAssignments: true } },
 } as const;
 
 function mapApplicantRow(
-  a: Prisma.ApplicantGetPayload<{ select: typeof APPLICANT_LIST_SELECT }>,
+  a: Prisma.ApplicationGetPayload<{ select: typeof APPLICATION_LIST_SELECT }>,
   activeCohort: CriteriaFlagCohort | null
 ) {
-  const flags = evaluateCriteria(a, activeCohort);
+  const flags = evaluateCriteria(toEligibilityShape(a), activeCohort);
   return {
     ...a,
+    name: a.fullName,
+    submitted: a.submittedDate,
     appId: `APP-${String(a.id).padStart(4, "0")}`,
     phaseLabel: APPLICANT_PHASES[a.phaseIndex] ?? APPLICANT_PHASES[0],
     flags,
@@ -135,23 +161,24 @@ function mapApplicantRow(
 // Cheap, index-backed counts for the status filter's option labels and the Dashboard's
 // stat tiles — no row fetch at all, unlike the old getApplicantsForProgram.
 export async function getApplicantStatusCounts(programId: number) {
+  const base = { programId, status: { in: SUBMITTED_STATUSES } };
   const [all, review, decided] = await Promise.all([
-    db.applicant.count({ where: { programId } }),
-    db.applicant.count({ where: { programId, status: "review" } }),
-    db.applicant.count({ where: { programId, status: "decided" } }),
+    db.application.count({ where: base }),
+    db.application.count({ where: { ...base, decision: null } }),
+    db.application.count({ where: { ...base, decision: { not: null } } }),
   ]);
   return { all, review, decided };
 }
 
 // Red-flag status isn't a plain column (it's computed from a cohort's dynamic criteria),
 // so this can't be a DB-side count — but select-trimming to just the criteria-relevant
-// fields (no essay/attachmentsJson) keeps it far cheaper than the old full-column fetch.
+// fields keeps it far cheaper than a full-column fetch.
 export async function getApplicantFlagCounts(programId: number) {
   const [rows, activeCohort] = await Promise.all([
-    db.applicant.findMany({ where: { programId }, select: APPLICANT_LIST_SELECT }),
+    db.application.findMany({ where: { programId, status: { in: SUBMITTED_STATUSES } }, select: APPLICATION_LIST_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
-  const flagged = rows.filter((a) => evaluateCriteria(a, activeCohort).length > 0).length;
+  const flagged = rows.filter((a) => evaluateCriteria(toEligibilityShape(a), activeCohort).length > 0).length;
   return { all: rows.length, flagged, clear: rows.length - flagged };
 }
 
@@ -159,11 +186,11 @@ export async function getApplicantFlagCounts(programId: number) {
 // pages, which only need this one number, not a full applicant list.
 export async function getEligibleUnassignedCount(programId: number) {
   const [rows, activeCohort] = await Promise.all([
-    db.applicant.findMany({ where: { programId }, select: APPLICANT_LIST_SELECT }),
+    db.application.findMany({ where: { programId, status: { in: SUBMITTED_STATUSES } }, select: APPLICATION_LIST_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
   return rows.filter((a) => {
-    const flags = evaluateCriteria(a, activeCohort);
+    const flags = evaluateCriteria(toEligibilityShape(a), activeCohort);
     const eligible = flags.length === 0 || a.flagOverridden;
     return eligible && a._count.screenerAssignments === 0;
   }).length;
@@ -185,21 +212,22 @@ export async function getApplicantsPage(
   const { q = "", status = "all", flag = "all", page = 1, pageSize = 50 } = opts;
   const where = {
     programId,
-    ...(status !== "all" ? { status } : {}),
-    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+    status: { in: SUBMITTED_STATUSES },
+    ...(status === "review" ? { decision: null } : status === "decided" ? { decision: { not: null } } : {}),
+    ...(q ? { fullName: { contains: q, mode: "insensitive" as const } } : {}),
   };
 
   if (flag === "all") {
     const [total, rows, activeCohort] = await Promise.all([
-      db.applicant.count({ where }),
-      db.applicant.findMany({ where, orderBy: { id: "asc" }, skip: (page - 1) * pageSize, take: pageSize, select: APPLICANT_LIST_SELECT }),
+      db.application.count({ where }),
+      db.application.findMany({ where, orderBy: { id: "asc" }, skip: (page - 1) * pageSize, take: pageSize, select: APPLICATION_LIST_SELECT }),
       getActiveCohortWithCriteria(programId),
     ]);
     return { rows: rows.map((a) => mapApplicantRow(a, activeCohort)), total, page, pageSize };
   }
 
   const [matching, activeCohort] = await Promise.all([
-    db.applicant.findMany({ where, orderBy: { id: "asc" }, select: APPLICANT_LIST_SELECT }),
+    db.application.findMany({ where, orderBy: { id: "asc" }, select: APPLICATION_LIST_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
   const filtered = matching
@@ -209,39 +237,38 @@ export async function getApplicantsPage(
   return { rows: filtered.slice(start, start + pageSize), total: filtered.length, page, pageSize };
 }
 
-// Full, select-trimmed (no essay/attachmentsJson) eligible+unassigned applicant list for
-// randomlyAssignEligibleApplicants (src/lib/actions/screenerGroups.ts) — needs every
-// matching id, not a page of them, since it's assigning all of them.
+// Full, select-trimmed eligible+unassigned application list for
+// randomlyAssignEligibleApplicants/assignSelectedToGroup (src/lib/actions/screenerGroups.ts)
+// — needs every matching id, not a page of them, since it's assigning all/many of them.
 export async function getEligibleUnassignedApplicants(programId: number) {
   const [rows, activeCohort] = await Promise.all([
-    db.applicant.findMany({ where: { programId }, select: APPLICANT_LIST_SELECT }),
+    db.application.findMany({ where: { programId, status: { in: SUBMITTED_STATUSES } }, select: APPLICATION_LIST_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
   return rows
     .filter((a) => a._count.screenerAssignments === 0)
-    .filter((a) => evaluateCriteria(a, activeCohort).length === 0 || a.flagOverridden)
+    .filter((a) => evaluateCriteria(toEligibilityShape(a), activeCohort).length === 0 || a.flagOverridden)
     .map((a) => a.id);
 }
 
-export async function getApplicant(applicantId: number) {
-  return db.applicant.findUnique({
-    where: { id: applicantId },
-    include: { screenerAssignments: { include: { screener: true }, orderBy: { assignedAt: "asc" } } },
+export async function getApplicationForReview(applicationId: number) {
+  return db.application.findUnique({
+    where: { id: applicationId },
+    include: { screenerAssignments: { include: { screener: true }, orderBy: { assignedAt: "asc" } }, familyMembers: { orderBy: { order: "asc" } } },
   });
 }
 
-// Real funnel counts for the Dashboard's "Applicants" card — drawn from the actual
-// Student/Application signup flow, not the separate Applicant admin/screener roster
-// (which has no link to Student — see getApplicantsForProgram above). Paper screening
-// is the one exception: that stage genuinely only exists on the Applicant roster, so it's
-// a real number, just from a different set of people than the rows above it. There's no
+// Real funnel counts for the Dashboard's "Applicants" card, drawn entirely from the real
+// Student/Application signup flow now that the admin/screener roster (formerly a separate
+// Applicant model) has been unified into Application — see git history "unify Applicant
+// into Application" for why this used to be two disconnected datasets. There's no
 // interview-scheduling feature anywhere in the app, so Panel interview stays at 0.
 export async function getPipelineStats(programId: number) {
   const [totalStudents, applications, paperScreeningCount] = await Promise.all([
     db.student.count(),
     db.application.findMany({ where: { programId }, select: { status: true, studentId: true } }),
-    db.applicant.count({
-      where: { programId, status: "review", screenerAssignments: { some: {} } },
+    db.application.count({
+      where: { programId, status: { in: SUBMITTED_STATUSES }, decision: null, screenerAssignments: { some: {} } },
     }),
   ]);
 
@@ -250,9 +277,7 @@ export async function getPipelineStats(programId: number) {
   // Application row for this program is exactly what "has started" means.
   const startedStudentIds = new Set(applications.map((a) => a.studentId));
   const applicationCount = applications.filter((a) => a.status === "in_progress").length;
-  const submittedCount = applications.filter(
-    (a) => a.status === "submitted" || a.status === "awarded" || a.status === "declined"
-  ).length;
+  const submittedCount = applications.filter((a) => SUBMITTED_STATUSES.includes(a.status)).length;
 
   return {
     signedUpCount: Math.max(totalStudents - startedStudentIds.size, 0),
@@ -270,13 +295,13 @@ export async function getSurveyWaves(programId: number) {
   });
 }
 
-export async function getSurveySends(applicantIds: number[]) {
-  const rows = await db.surveySend.findMany({ where: { applicantId: { in: applicantIds } } });
-  const byApplicant = new Map<number, Record<string, string>>();
+export async function getSurveySends(applicationIds: number[]) {
+  const rows = await db.surveySend.findMany({ where: { applicationId: { in: applicationIds } } });
+  const byApplication = new Map<number, Record<string, string>>();
   for (const r of rows) {
-    if (!byApplicant.has(r.applicantId)) byApplicant.set(r.applicantId, {});
-    byApplicant.get(r.applicantId)![r.wave] = r.sentDate;
+    if (!byApplication.has(r.applicationId)) byApplication.set(r.applicationId, {});
+    byApplication.get(r.applicationId)![r.wave] = r.sentDate;
   }
-  return byApplicant;
+  return byApplication;
 }
 

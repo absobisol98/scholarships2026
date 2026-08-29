@@ -22,7 +22,7 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
   const onCreateGroup = createScreenerGroup.bind(null, program.key, program.id);
 
   const candidateCounts = await Promise.all(
-    groups.map((g) => db.applicantAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))
+    groups.map((g) => db.screenerAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))
   );
 
   return (
