@@ -12,6 +12,7 @@ import { FamilyMembersEditor } from "./family-members-editor";
 import { EssayField } from "./essay-field";
 import { DynamicField } from "./dynamic-field";
 import { ReadOnlyApplicationView } from "@/components/application-view";
+import { displayFileName } from "@/lib/storage";
 
 const CONTINUE_LABELS_STANDARD = [
   "Continue to family information",
@@ -188,7 +189,7 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
                         label={f.label}
                         htmlFor="f-cert"
                         required={f.required}
-                        hint={<>PDF or image, up to 10MB.{application.certFileName ? ` Currently on file: ${application.certFileName}.` : ""}</>}
+                        hint={<>PDF or image, up to 10MB.{application.certFileName ? ` Currently on file: ${displayFileName(application.certFileName)}.` : ""}</>}
                       >
                         <Input id="f-cert" name="cert" type="file" accept=".pdf,.jpg,.png" aria-describedby="f-cert-hint" />
                       </Field>
@@ -202,7 +203,7 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
                         label={f.label}
                         htmlFor="f-video"
                         required={f.required}
-                        hint={<>A short video introducing yourself, up to 2 minutes.{application.videoFileName ? ` Currently on file: ${application.videoFileName}.` : ""}</>}
+                        hint={<>A short video introducing yourself, up to 2 minutes.{application.videoFileName ? ` Currently on file: ${displayFileName(application.videoFileName)}.` : ""}</>}
                       >
                         <Input id="f-video" name="video" type="file" accept="video/*" aria-describedby="f-video-hint" />
                       </Field>

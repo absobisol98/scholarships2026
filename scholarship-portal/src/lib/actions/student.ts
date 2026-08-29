@@ -8,24 +8,22 @@ import { formatDateLong } from "@/lib/date";
 import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
+import { uploadDocument } from "@/lib/storage";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
   return typeof v === "string" ? v : "";
 }
 
-function fileName(fd: FormData, name: string): string | undefined {
+// Uploads to Supabase Storage and returns the storage path (or undefined if no new file
+// was attached this request — preserving "don't blank an already-saved file" on a re-save).
+async function uploadIfPresent(fd: FormData, name: "cert" | "video", applicationId: number): Promise<string | undefined> {
   const v = fd.get(name);
-  if (v instanceof File && v.size > 0) return v.name;
+  if (v instanceof File && v.size > 0) return uploadDocument(applicationId, name, v);
   return undefined;
 }
 
 const MAX_CERT_BYTES = 10 * 1024 * 1024;
-// Video bytes aren't actually persisted anywhere today (only the filename, a known
-// pre-existing stub), so this cap just stops an oversized upload from being accepted only
-// to be discarded. Real "up to 2 minutes" video needs direct-to-object-storage upload
-// (Supabase Storage/S3/etc.), not a Server Action body — that's the fix when file storage
-// gets built for real, not a bigger number here.
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
 function isOversized(fd: FormData, name: string, maxBytes: number): boolean {
@@ -54,7 +52,7 @@ const STEP_DONE_FLAGS = ["personalDone", "familyDone", "academicsDone", "communi
 // and never blanks its already-saved column value on the next save. Known fieldKeys write
 // straight to their Application column; a null fieldKey (an admin-added custom field)
 // merges into customFieldsJson, keyed by the field's own id.
-async function buildStepData(programId: number, step: string, fd: FormData, application: { customFieldsJson: string }): Promise<Record<string, unknown>> {
+async function buildStepData(programId: number, step: string, fd: FormData, application: { id: number; customFieldsJson: string }): Promise<Record<string, unknown>> {
   const fields = await getEnabledFields(programId, step);
   const data: Record<string, unknown> = {};
   const custom = parseCustomFields(application.customFieldsJson);
@@ -67,12 +65,12 @@ async function buildStepData(programId: number, step: string, fd: FormData, appl
       continue;
     }
     if (f.fieldKey === "cert") {
-      const v = fileName(fd, "cert");
+      const v = await uploadIfPresent(fd, "cert", application.id);
       if (v) data.certFileName = v;
       continue;
     }
     if (f.fieldKey === "video") {
-      const v = fileName(fd, "video");
+      const v = await uploadIfPresent(fd, "video", application.id);
       if (v) data.videoFileName = v;
       continue;
     }
