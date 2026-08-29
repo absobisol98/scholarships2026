@@ -27,6 +27,13 @@ async function uploadIfPresent(fd: FormData, name: "cert" | "video", application
 const MAX_CERT_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
+// How many failed eligibility attempts (Personal step's nationality/sex/yearLevel/
+// institutionType, or the Academic step's GWA) a single application gets before it's
+// locked out — the hard eligibility block itself is deliberate (it's how applicant volume
+// gets kept manageable at intake, not just a data-quality check), but nothing previously
+// stopped someone from freely retrying different answers until one combination passed.
+const MAX_INELIGIBLE_ATTEMPTS = 3;
+
 function isOversized(fd: FormData, name: string, maxBytes: number): boolean {
   const v = fd.get(name);
   return v instanceof File && v.size > maxBytes;
@@ -107,7 +114,12 @@ async function saveFamilyMembers(applicationId: number, fd: FormData) {
 // data. Only runs on the forward-progressing "Continue" action (saveStepAndContinue), not
 // "Save and continue later" — a draft is meant to tolerate incompleteness; this is a
 // different kind of concern (this applicant shouldn't be applying at all).
-async function checkDuplicateAndEligibility(programId: number, programKey: string, application: { studentId: number }, data: Record<string, unknown>) {
+async function checkDuplicateAndEligibility(
+  programId: number,
+  programKey: string,
+  application: { id: number; studentId: number; ineligibleAttempts: number },
+  data: Record<string, unknown>
+) {
   const dob = (data.dob as string) ?? "";
   const newName = normalizeName((data.fullName as string) ?? "");
   if (newName && dob) {
@@ -138,6 +150,10 @@ async function checkDuplicateAndEligibility(programId: number, programKey: strin
     }
   }
 
+  if (application.ineligibleAttempts >= MAX_INELIGIBLE_ATTEMPTS) {
+    redirect(`/programs/${programKey}/application?error=too_many_attempts`);
+  }
+
   const activeCohort = await getActiveCohortWithCriteria(programId);
   const flags = evaluateCriteria(
     {
@@ -151,6 +167,7 @@ async function checkDuplicateAndEligibility(programId: number, programKey: strin
     { skipGwa: true }
   );
   if (flags.length > 0) {
+    await db.application.update({ where: { id: application.id }, data: { ineligibleAttempts: { increment: 1 } } });
     await db.auditLogEntry.create({ data: { actor: "System", action: `Blocked ineligible application: ${flags.join("; ")}`, programId } });
     redirect(`/programs/${programKey}/application?error=ineligible`);
   }
@@ -159,12 +176,23 @@ async function checkDuplicateAndEligibility(programId: number, programKey: strin
 // GWA lives on the Academic step (school/gpa), so its eligibility check runs a step later
 // than the rest — the applicant is stopped as soon as the relevant data exists, not held
 // until final submission.
-async function checkGwaEligibility(programId: number, programKey: string, data: Record<string, unknown>) {
+async function checkGwaEligibility(
+  programId: number,
+  programKey: string,
+  application: { id: number; ineligibleAttempts: number },
+  data: Record<string, unknown>
+) {
   const gwa = Number(data.gpa);
   if (Number.isNaN(gwa)) return; // can't evaluate unparseable data — don't block on it
+
+  if (application.ineligibleAttempts >= MAX_INELIGIBLE_ATTEMPTS) {
+    redirect(`/programs/${programKey}/application?error=too_many_attempts`);
+  }
+
   const activeCohort = await getActiveCohortWithCriteria(programId);
   const flags = evaluateCriteria({ nationality: "", sex: "", yearLevel: "", institutionType: "", gwa }, activeCohort, { onlyGwa: true });
   if (flags.length > 0) {
+    await db.application.update({ where: { id: application.id }, data: { ineligibleAttempts: { increment: 1 } } });
     await db.auditLogEntry.create({ data: { actor: "System", action: `Blocked ineligible application: ${flags.join("; ")}`, programId } });
     redirect(`/programs/${programKey}/application?error=ineligible`);
   }
@@ -194,7 +222,7 @@ export async function saveStepAndContinue(programKey: string, step: number, fd: 
   }
 
   if (stepName === "personal") await checkDuplicateAndEligibility(program.id, programKey, application, data);
-  if (stepName === "academic") await checkGwaEligibility(program.id, programKey, data);
+  if (stepName === "academic") await checkGwaEligibility(program.id, programKey, application, data);
   if (step < STEP_DONE_FLAGS.length) data[STEP_DONE_FLAGS[step]] = true;
 
   await db.application.update({

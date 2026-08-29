@@ -138,6 +138,7 @@ const APPLICATION_LIST_SELECT = {
   yearLevel: true,
   institutionType: true,
   gpa: true,
+  ineligibleAttempts: true,
   _count: { select: { screenerAssignments: true } },
 } as const;
 

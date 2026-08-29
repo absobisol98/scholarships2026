@@ -193,6 +193,12 @@ model Application {
   flagOverriddenBy   String?
   flagOverriddenAt   DateTime?
 
+  // Counts failed eligibility-check attempts on the Personal/Academic steps (see
+  // checkDuplicateAndEligibility/checkGwaEligibility in src/lib/actions/student.ts) — caps
+  // how many times someone can try different answers to find a combination that passes,
+  // rather than letting them retry indefinitely. Admin-resettable (resetIneligibleAttempts).
+  ineligibleAttempts Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
