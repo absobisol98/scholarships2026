@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { getCurrentStudent } from "@/lib/auth";
-import { getSubmissionHistory } from "@/lib/student-data";
-import { checklistFor } from "@/lib/student-data";
-import { db } from "@/lib/db";
+import { getSubmissionHistory, checklistFor } from "@/lib/student-data";
 import { Card, CardTitle, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
 import { LinkButton } from "@/components/ui/button";
@@ -10,8 +8,6 @@ import { LinkButton } from "@/components/ui/button";
 export default async function SubmissionsPage() {
   const student = await getCurrentStudent();
   const rows = await getSubmissionHistory(student.id);
-  const applications = await db.application.findMany({ where: { studentId: student.id } });
-  const appByProgramId = new Map(applications.map((a) => [a.programId, a]));
 
   return (
     <div className="page-wrap">
@@ -23,14 +19,13 @@ export default async function SubmissionsPage() {
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: "var(--space-6)" }}>
-        {rows.map(({ program: p, status, statusLabel, statusTagClass, buttonLabel, href }) => {
-          const app = appByProgramId.get(p.id);
+        {rows.map(({ application: app, program: p, status, statusLabel, statusTagClass, buttonLabel, href }) => {
           const isAwarded = status === "awarded" || status === "declined";
-          const checklist = app ? checklistFor(app, p.formKind === "generika") : [];
+          const checklist = checklistFor(app, p.formKind === "generika");
           const pendingItems = checklist.filter((c) => !c.done).map((c) => c.label);
           const hasPending = !isAwarded && pendingItems.length > 0;
           return (
-            <Card key={p.id} elevation="sm">
+            <Card key={app.id} elevation="sm">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
                 <div>
                   <CardTitle>{p.name}</CardTitle>

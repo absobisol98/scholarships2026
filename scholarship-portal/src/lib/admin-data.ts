@@ -304,7 +304,7 @@ export async function getEligibleUnassignedApplicants(programId: number) {
 export async function getApplicationForReview(applicationId: number) {
   return db.application.findUnique({
     where: { id: applicationId },
-    include: { screenerAssignments: { include: { screener: true }, orderBy: { assignedAt: "asc" } }, familyMembers: { orderBy: { order: "asc" } } },
+    include: { screenerAssignments: { include: { screener: true }, orderBy: { assignedAt: "asc" } }, familyMembers: { orderBy: { order: "asc" } }, cohort: true },
   });
 }
 

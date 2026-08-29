@@ -62,6 +62,9 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
         </div>
         <div style={{ display: "flex", gap: 6, flex: "none" }}>
           {application.decision && <Tag variant="accent" style={{ whiteSpace: "nowrap" }}>{DECISION_LABELS[application.decision]}</Tag>}
+          {/* A scholar can have more than one Application to this program now (renewals) —
+              the cohort name is how an admin tells two rows for "the same person" apart. */}
+          {application.cohort && <Tag variant="neutral" style={{ whiteSpace: "nowrap" }}>{application.cohort.name}</Tag>}
           <Tag variant="outline" style={{ whiteSpace: "nowrap" }}>Submitted&nbsp;{application.submittedDate}</Tag>
         </div>
       </div>
