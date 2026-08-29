@@ -309,3 +309,28 @@ export async function declineAward(programKey: string) {
   await db.application.update({ where: { id: application.id }, data: { awardResponse: "declined" } });
   revalidatePath(`/programs/${programKey}/award`);
 }
+
+// A scholar can only answer a wave actually sent to them (a real SurveySend row for their
+// own awarded application), not any wave the program happens to have deployed — that's the
+// authorization rule, checked by looking the row up rather than trusting the URL. Each
+// question is upserted independently (stable SurveyQuestion ids), so resubmitting edits
+// existing answers in place instead of duplicating rows.
+export async function submitCheckInResponse(programKey: string, wave: string, fd: FormData) {
+  const application = await getAwardedApplication(programKey);
+  const send = await db.surveySend.findUnique({ where: { applicationId_wave: { applicationId: application.id, wave } } });
+  if (!send) redirect(`/programs/${programKey}/award`);
+
+  const questions = await db.surveyQuestion.findMany({ where: { surveyWave: { programId: application.programId, wave } } });
+  for (const q of questions) {
+    const answer = str(fd, `q_${q.id}`).trim();
+    if (!answer) continue;
+    await db.surveyResponse.upsert({
+      where: { applicationId_surveyQuestionId: { applicationId: application.id, surveyQuestionId: q.id } },
+      update: { answer },
+      create: { applicationId: application.id, surveyQuestionId: q.id, answer },
+    });
+  }
+  await db.surveySend.update({ where: { id: send.id }, data: { completedAt: new Date() } });
+  revalidatePath(`/programs/${programKey}/award`);
+  redirect(`/programs/${programKey}/award`);
+}

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment, resetIneligibleAttempts } from "@/lib/actions/decisions";
 import { assignScreener, unassignScreener } from "@/lib/actions/assignments";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
+import { WAVE_TITLES } from "@/lib/steps";
 import { Card, CardKicker } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -23,13 +24,20 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const application = await getApplicationForReview(Number(applicantId));
   if (!application || application.programId !== program.id) notFound();
 
-  const [activeCohort, fieldsByStep, recommendations, rubricScores, activeScreeners] = await Promise.all([
+  const [activeCohort, fieldsByStep, recommendations, rubricScores, activeScreeners, surveyResponses] = await Promise.all([
     getActiveCohortWithCriteria(program.id),
     getFieldsConfig(program.id),
     db.recommendation.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
     db.rubricScore.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
     db.staffAccount.findMany({ where: { role: "screener", active: true }, orderBy: { name: "asc" } }),
+    db.surveyResponse.findMany({ where: { applicationId: application.id }, include: { surveyQuestion: { include: { surveyWave: true } } } }),
   ]);
+  const responsesByWave = new Map<string, { label: string; answer: string }[]>();
+  for (const r of surveyResponses) {
+    const wave = r.surveyQuestion.surveyWave.wave;
+    if (!responsesByWave.has(wave)) responsesByWave.set(wave, []);
+    responsesByWave.get(wave)!.push({ label: r.surveyQuestion.label, answer: r.answer });
+  }
   const isGenerika = program.formKind === "generika";
   const flags = evaluateCriteria(toEligibilityShape(application), activeCohort);
   const isEligible = flags.length === 0 || application.flagOverridden;
@@ -221,6 +229,27 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                 </form>
               );
             })}
+          </div>
+        </Card>
+      )}
+
+      {responsesByWave.size > 0 && (
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Check-in responses</CardKicker>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: 8 }}>
+            {Array.from(responsesByWave.entries()).map(([wave, answers]) => (
+              <div key={wave}>
+                <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 6px" }}>{WAVE_TITLES[wave] ?? wave}</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {answers.map((a) => (
+                    <div key={a.label}>
+                      <p className="text-muted" style={{ fontSize: 12, margin: 0 }}>{a.label}</p>
+                      <p style={{ fontSize: 13, margin: "2px 0 0" }}>{a.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
       )}

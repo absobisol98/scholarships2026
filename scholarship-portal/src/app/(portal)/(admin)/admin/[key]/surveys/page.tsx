@@ -2,13 +2,12 @@ import { notFound } from "next/navigation";
 import { getProgramByKey, getSurveyWaves, getSurveySends } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { updateSurveyQuestion, addSurveyQuestion, removeSurveyQuestion, toggleSurveyDeployed, sendSurveyToGroup } from "@/lib/actions/admin";
+import { WAVE_TITLES } from "@/lib/steps";
 import { AutoSaveTextInput } from "@/components/auto-save-text-input";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { SurveySendPanel } from "./survey-send-panel";
-
-const WAVE_TITLES: Record<string, string> = { midYear: "Mid-Year Check-in", yearEnd: "Year-End Check-in" };
 
 export default async function SurveysPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -33,6 +32,7 @@ export default async function SurveysPage({ params }: { params: Promise<{ key: s
           const onToggleDeploy = toggleSurveyDeployed.bind(null, program.key, wave.id);
           const sendToIds = sendSurveyToGroup.bind(null, program.key, wave.wave);
           const sentCount = awardedApplicants.filter((a) => sends.get(a.id)?.[wave.wave]).length;
+          const respondedCount = awardedApplicants.filter((a) => sends.get(a.id)?.[wave.wave]?.completedAt).length;
           const recipients = awardedApplicants.map((a) => ({ id: a.id, name: a.fullName, alreadySent: !!sends.get(a.id)?.[wave.wave] }));
 
           return (
@@ -76,7 +76,7 @@ export default async function SurveysPage({ params }: { params: Promise<{ key: s
                 <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px" }}>Send to awarded scholars</p>
                 <SurveySendPanel waveKey={wave.wave} recipients={recipients} sendToIds={sendToIds} />
                 <p className="text-muted" style={{ fontSize: 12, margin: "var(--space-2) 0 0" }}>
-                  Sent to {sentCount} of {awardedApplicants.length} awarded applicants
+                  Sent to {sentCount} of {awardedApplicants.length} awarded applicants — {respondedCount} responded
                 </p>
               </div>
             </Card>
