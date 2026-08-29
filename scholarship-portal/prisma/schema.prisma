@@ -30,7 +30,6 @@ model Program {
 
   cohorts      Cohort[]
   applications Application[]
-  applicants   Applicant[]
   fieldConfigs FieldConfig[]
   surveyWaves  SurveyWave[]
   staffAssignments StaffProgramAssignment[]
@@ -178,14 +177,35 @@ model Application {
   communityDone  Boolean @default(false)
   essaysDone     Boolean @default(false)
 
+  // Admin-side review state — merged in from the formerly-separate, disconnected
+  // Applicant model (see git history: "unify Applicant into Application"). phaseIndex
+  // tracks progress through APPLICANT_PHASES (src/lib/steps.ts); decision is the Super
+  // Admin's final call, independent of the applicant-facing `status` above (a
+  // "waitlisted" decision, for instance, leaves status at "submitted" since there's no
+  // applicant-facing waitlist state yet).
+  phaseIndex Int     @default(0)
+  decision   String? // "awarded" | "waitlisted" | "declined" | null
+
+  // Super Admin exception handling: a flagged application can be manually cleared without
+  // deleting the underlying flags — the reasons stay visible, just marked resolved.
+  flagOverridden     Boolean   @default(false)
+  flagOverrideReason String?
+  flagOverriddenBy   String?
+  flagOverriddenAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  familyMembers FamilyMember[]
+  familyMembers       FamilyMember[]
+  screenerAssignments ScreenerAssignment[]
+  rubricScores        RubricScore[]
+  recommendations     Recommendation[]
+  surveySends         SurveySend[]
 
   @@unique([studentId, programId])
   @@index([programId, status])
   @@index([programId, dob])
+  @@index([programId, decision])
 }
 
 // Repeatable family-member rows (Generika's "add as many as relevant").
@@ -201,43 +221,6 @@ model FamilyMember {
   @@index([applicationId])
 }
 
-// Admin-side queue of applicants (distinct from the demo student's own applications) —
-// the working list program admins review, promote/demote, and evaluate against cohort criteria.
-model Applicant {
-  id              Int      @id @default(autoincrement())
-  programId       Int
-  program         Program  @relation(fields: [programId], references: [id])
-  name            String
-  school          String
-  gpa             String
-  submitted       String
-  status          String   @default("review") // "review" | "decided"
-  decision        String? // "awarded" | "waitlisted" | "declined" | null
-  nationality     String
-  sex             String
-  yearLevel       String
-  institutionType String
-  gwa             Int
-  phaseIndex      Int      @default(0)
-  essay           String   @default("")
-  attachmentsJson String   @default("[]")
-
-  // Super Admin exception handling: a flagged applicant can be manually cleared without
-  // deleting the underlying flags — the reasons stay visible, just marked resolved.
-  flagOverridden     Boolean   @default(false)
-  flagOverrideReason String?
-  flagOverriddenBy   String?
-  flagOverriddenAt   DateTime?
-
-  surveySends SurveySend[]
-  screenerAssignments ApplicantAssignment[]
-  rubricScores        RubricScore[]
-  recommendations     Recommendation[]
-
-  @@index([programId])
-  @@index([programId, status])
-}
-
 // A staff account: a Program Admin (scoped to one or more programs) or a Paper Screener
 // (scoped to individually-assigned applicants). Demo login still has no real credentials —
 // this models real scope/roster data (what Manage Users administers) without requiring one.
@@ -251,7 +234,7 @@ model StaffAccount {
   createdAt DateTime @default(now())
 
   programAssignments   StaffProgramAssignment[]
-  applicantAssignments ApplicantAssignment[]
+  screenerAssignments  ScreenerAssignment[]
   rubricScores         RubricScore[]
   recommendations      Recommendation[]
   groupMemberships     ScreenerGroupMember[]
@@ -293,45 +276,45 @@ model StaffProgramAssignment {
   @@unique([staffId, programId])
 }
 
-// Which applicants a Paper Screener has been assigned to review, set by an Admin.
-model ApplicantAssignment {
-  id          String   @id @default(cuid())
-  applicantId Int
-  applicant   Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  screenerId  String
-  screener    StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
-  assignedAt  DateTime @default(now())
+// Which applications a Paper Screener has been assigned to review, set by an Admin.
+model ScreenerAssignment {
+  id            String      @id @default(cuid())
+  applicationId Int
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  screenerId    String
+  screener      StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  assignedAt    DateTime     @default(now())
 
-  @@unique([applicantId, screenerId])
+  @@unique([applicationId, screenerId])
   @@index([screenerId])
 }
 
-// A Paper Screener's 1-5 score on one soft (human-judged) criterion for one applicant.
+// A Paper Screener's 1-5 score on one soft (human-judged) criterion for one application.
 model RubricScore {
-  id           String   @id @default(cuid())
-  applicantId  Int
-  applicant    Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  screenerId   String
-  screener     StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
-  criterionKey String // "financial_hardship" | "leadership" | "essay_quality"
-  score        Int
-  updatedAt    DateTime @updatedAt
+  id            String       @id @default(cuid())
+  applicationId Int
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  screenerId    String
+  screener      StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  criterionKey  String // "financial_hardship" | "leadership" | "essay_quality"
+  score         Int
+  updatedAt     DateTime @updatedAt
 
-  @@unique([applicantId, screenerId, criterionKey])
+  @@unique([applicationId, screenerId, criterionKey])
 }
 
-// A Paper Screener's overall recommend / not-recommend call on an applicant, with comments.
+// A Paper Screener's overall recommend / not-recommend call on an application, with comments.
 model Recommendation {
-  id          String   @id @default(cuid())
-  applicantId Int
-  applicant   Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  screenerId  String
-  screener    StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
-  decision    String // "recommend" | "not_recommend"
-  comment     String   @default("")
-  updatedAt   DateTime @updatedAt
+  id            String       @id @default(cuid())
+  applicationId Int
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  screenerId    String
+  screener      StaffAccount @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  decision      String // "recommend" | "not_recommend"
+  comment       String   @default("")
+  updatedAt     DateTime @updatedAt
 
-  @@unique([applicantId, screenerId])
+  @@unique([applicationId, screenerId])
 }
 
 // System/program activity log — user management, red-flag overrides, award decisions.
@@ -392,15 +375,15 @@ model SurveyQuestion {
   @@index([surveyWaveId])
 }
 
-// Records that a survey wave was sent to a given admin-side applicant.
+// Records that a survey wave was sent to a given applicant.
 model SurveySend {
-  id          Int       @id @default(autoincrement())
-  applicantId Int
-  applicant   Applicant @relation(fields: [applicantId], references: [id])
-  wave        String // "midYear" | "yearEnd"
-  sentDate    String
+  id            Int         @id @default(autoincrement())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id])
+  wave          String // "midYear" | "yearEnd"
+  sentDate      String
 
-  @@unique([applicantId, wave])
+  @@unique([applicationId, wave])
 }
 
 // Self-contained, Postgres-backed rate limiting (no external service) — one row per
