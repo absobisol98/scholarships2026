@@ -33,6 +33,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   file_too_large: "That file is too large. Certificates must be under 10MB and videos under 20MB — please choose a smaller file and try again.",
   duplicate_applicant: "An application with this name and date of birth has already been submitted for this program. If you believe this is a mistake, contact the program administrator.",
   ineligible: "Based on what you've entered, you don't currently meet this program's eligibility requirements.",
+  missing_required: "Please fill in all required fields on this step before continuing.",
+  incomplete_application: "Please complete all previous steps before submitting your application.",
 };
 
 export default async function ApplicationFormPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ error?: string }> }) {

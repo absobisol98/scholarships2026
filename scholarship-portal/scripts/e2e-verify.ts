@@ -103,9 +103,11 @@ async function main() {
     const ctx = await browser.newContext();
     ctx.setDefaultTimeout(15000);
     const page = await ctx.newPage();
+    // Staff log in with their email — no separate demo-shortcut buttons on /login anymore.
     await page.goto(`${BASE}/login`);
+    await page.fill("#login-email", "e.cruz@scholarshipportal.example");
     const prevUrl = page.url();
-    await page.click("text=Log in as super admin");
+    await page.click('button:has-text("Log in")');
     await waitForUrlChange(page, prevUrl);
     await page.goto(`${BASE}/admin/users?q=admin`);
     const rowCount = await page.locator("table tbody tr").count();
@@ -119,8 +121,9 @@ async function main() {
     ctx.setDefaultTimeout(15000);
     const page = await ctx.newPage();
     await page.goto(`${BASE}/login`);
+    await page.fill("#login-email", "r.okafor@scholarshipportal.example");
     const prevUrl1 = page.url();
-    await page.click("text=Log in as program admin");
+    await page.click('button:has-text("Log in")');
     await waitForUrlChange(page, prevUrl1);
     await page.goto(`${BASE}/admin/ugo/queue`);
     const bodyText = await page.locator("body").innerText();
@@ -170,6 +173,12 @@ async function main() {
     await page.goto(`${BASE}/programs/ugo/application`);
     const certInput = page.locator("#f-cert");
     if (await certInput.count() > 0) {
+      // The Academic step's own required fields (school, gpa) block HTML5 form submission
+      // just as surely as an oversized file would silently not — fill them first so this
+      // check actually isolates the file-size rejection instead of a masked, unrelated
+      // "form never submitted at all" false negative.
+      await page.fill("#f-school", "Test State University");
+      await page.fill("#f-gpa", "90");
       const bigBuffer = Buffer.alloc(11 * 1024 * 1024, "a"); // 11MB > 10MB cert cap
       await certInput.setInputFiles({ name: "huge-cert.pdf", mimeType: "application/pdf", buffer: bigBuffer });
       const attachedSize = await certInput.evaluate((el: HTMLInputElement) => el.files?.[0]?.size);
@@ -185,9 +194,10 @@ async function main() {
     }
 
     // --- 6. Normal-sized file still saves correctly (same page, small file, no error) ---
-    // A successful saveStepAndContinue doesn't redirect (it revalidates in place), so the
-    // stale ?error= from check 5 stays in the address bar — check the DB instead of the URL.
-    if (await certInput.count() > 0) {
+    // Uploads go to real Supabase Storage (src/lib/storage.ts) as of the Gap 2 document-
+    // storage work — this sandbox has no real SUPABASE_URL/SERVICE_ROLE_KEY, so this check
+    // only runs where those are actually configured rather than crashing on every run here.
+    if (await certInput.count() > 0 && process.env.SUPABASE_URL) {
       const smallBuffer = Buffer.alloc(20 * 1024, "a"); // 20KB, well under the 10MB cap
       await certInput.setInputFiles({ name: "small-cert.pdf", mimeType: "application/pdf", buffer: smallBuffer });
       await page.locator('button.btn-primary:has-text("Continue")').first().click();
@@ -195,13 +205,86 @@ async function main() {
       const savedApp = await db.application.findUniqueOrThrow({
         where: { studentId_programId: { studentId: uploadTestStudent.id, programId: ugo.id } },
       });
+      // certFileName now holds a storage path (app-{id}/cert/{timestamp}-{name}), not the
+      // raw original filename — see src/lib/storage.ts's uploadDocument.
       console.log(`[normal-upload] After 20KB cert upload: certFileName=${savedApp.certFileName}, formStep=${savedApp.formStep}`);
       console.log(
-        savedApp.certFileName === "small-cert.pdf" && savedApp.formStep === 3
+        !!savedApp.certFileName?.endsWith("-small-cert.pdf") && savedApp.formStep === 3
           ? "[normal-upload] PASS — saved and advanced to next step"
           : "[normal-upload] FAIL — did not save/advance as expected"
       );
+    } else if (await certInput.count() > 0) {
+      console.log("[normal-upload] SUPABASE_URL not configured in this environment — skipping (Gap 2 storage can't be live-tested without real Supabase Storage credentials)");
     }
+    await ctx.close();
+  }
+
+  // --- 7. Required-field validation is enforced server-side, not just via HTML5 `required`
+  // --- (Personal step — no file fields involved, so this runs regardless of Supabase config)
+  {
+    const email = `required-field-test-${Date.now()}@example.test`;
+    const ctx = await browser.newContext();
+    ctx.setDefaultTimeout(15000);
+    const page = await ctx.newPage();
+    await page.goto(`${BASE}/signup`);
+    await page.fill("#signup-name", "Required Field Test");
+    await page.fill("#signup-email", email);
+    const prevUrl = page.url();
+    await page.click('button[type="submit"]');
+    await waitForUrlChange(page, prevUrl);
+
+    await page.goto(`${BASE}/programs/ugo/application`);
+    await page.fill("#f-fullName", "Required Field Test");
+    await page.fill("#f-dob", "2007-05-14");
+    // Deliberately leave nationality/sex/yearLevel/institutionType unselected, then strip
+    // every `required` attribute so the browser's own HTML5 constraint validation can't
+    // block the submit either — the only thing left standing between this request and a
+    // saved application is saveStepAndContinue's own server-side check.
+    await page.evaluate(() => {
+      document.querySelectorAll("[required]").forEach((el) => el.removeAttribute("required"));
+    });
+    const prevUrl2 = page.url();
+    await page.click('button.btn-primary:has-text("Continue")');
+    await waitForUrlChange(page, prevUrl2);
+    const url = page.url();
+    console.log(`[required-field] After submitting Personal step with required dropdowns blank, URL: ${url}`);
+    console.log(url.includes("missing_required") ? "[required-field] PASS — blocked with missing_required" : "[required-field] FAIL — not blocked");
+
+    const reqTestStudent = await db.student.findFirstOrThrow({ where: { email } });
+    const reqTestApp = await db.application.findUniqueOrThrow({
+      where: { studentId_programId: { studentId: reqTestStudent.id, programId: ugo.id } },
+    });
+    console.log(`[required-field] DB state: formStep=${reqTestApp.formStep} status=${reqTestApp.status} personalDone=${reqTestApp.personalDone}`);
+    console.log(
+      reqTestApp.formStep === 0 && !reqTestApp.personalDone
+        ? "[required-field] PASS — did not advance past the incomplete step"
+        : "[required-field] FAIL — advanced despite missing required fields"
+    );
+
+    // --- 8. submitApplication independently refuses a bypassed/replayed request whose
+    // --- earlier steps were never actually completed (formStep forced to 4 via DB, but
+    // --- personalDone is still false from check 7 above) ---
+    await db.application.update({ where: { id: reqTestApp.id }, data: { formStep: 4 } });
+    await page.goto(`${BASE}/programs/ugo/application`);
+    const essayField = page.locator("#f-essay1");
+    if (await essayField.count() > 0) {
+      await essayField.fill("Bypassing earlier steps.");
+      const essay2 = page.locator("#f-essayText2");
+      if (await essay2.count() > 0) await essay2.fill("Bypassing earlier steps, part two.");
+      await page.click('button:has-text("Submit application")');
+      await page.click('div[role="dialog"] button:has-text("Submit application")');
+      await page.waitForTimeout(1000);
+      const finalApp = await db.application.findUniqueOrThrow({ where: { id: reqTestApp.id } });
+      console.log(`[incomplete-submit] After forcing formStep=4 with personalDone=false and submitting: status=${finalApp.status}`);
+      console.log(
+        finalApp.status !== "submitted"
+          ? "[incomplete-submit] PASS — refused to submit an application with incomplete earlier steps"
+          : "[incomplete-submit] FAIL — submitted despite incomplete earlier steps"
+      );
+    } else {
+      console.log("[incomplete-submit] Could not reach the statement step's essay field — skipping");
+    }
+
     await ctx.close();
   }
 

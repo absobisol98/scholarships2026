@@ -9,6 +9,7 @@ import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/f
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
 import { uploadDocument } from "@/lib/storage";
+import { findMissingRequiredFields } from "@/lib/validation";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -52,7 +53,12 @@ const STEP_DONE_FLAGS = ["personalDone", "familyDone", "academicsDone", "communi
 // and never blanks its already-saved column value on the next save. Known fieldKeys write
 // straight to their Application column; a null fieldKey (an admin-added custom field)
 // merges into customFieldsJson, keyed by the field's own id.
-async function buildStepData(programId: number, step: string, fd: FormData, application: { id: number; customFieldsJson: string }): Promise<Record<string, unknown>> {
+async function buildStepData(
+  programId: number,
+  step: string,
+  fd: FormData,
+  application: { id: number; customFieldsJson: string }
+): Promise<{ data: Record<string, unknown>; custom: Record<string, string>; fields: Awaited<ReturnType<typeof getEnabledFields>> }> {
   const fields = await getEnabledFields(programId, step);
   const data: Record<string, unknown> = {};
   const custom = parseCustomFields(application.customFieldsJson);
@@ -79,7 +85,7 @@ async function buildStepData(programId: number, step: string, fd: FormData, appl
   }
 
   if (customChanged) data.customFieldsJson = JSON.stringify(custom);
-  return data;
+  return { data, custom, fields };
 }
 
 async function saveFamilyMembers(applicationId: number, fd: FormData) {
@@ -175,8 +181,18 @@ export async function saveStepAndContinue(programKey: string, step: number, fd: 
     }
   }
 
-  const data = await buildStepData(program.id, stepName, fd, application);
+  const { data, custom, fields } = await buildStepData(program.id, stepName, fd, application);
   if (stepName === "family" && isGenerika) await saveFamilyMembers(application.id, fd);
+
+  const missing = findMissingRequiredFields(fields, data, custom, application);
+  if (missing.length > 0) {
+    // Persist whatever was actually typed rather than discarding it — consistent with how
+    // drafts already tolerate partial data — without bumping formStep or this step's
+    // *Done flag, since the step genuinely isn't complete.
+    await db.application.update({ where: { id: application.id }, data: { ...data, status: "in_progress" } });
+    redirect(`/programs/${programKey}/application?error=missing_required`);
+  }
+
   if (stepName === "personal") await checkDuplicateAndEligibility(program.id, programKey, application, data);
   if (stepName === "academic") await checkGwaEligibility(program.id, programKey, data);
   if (step < STEP_DONE_FLAGS.length) data[STEP_DONE_FLAGS[step]] = true;
@@ -203,7 +219,7 @@ export async function saveDraft(programKey: string, step: number, fd: FormData) 
   const isGenerika = program.formKind === "generika";
   const stepName = stepNameFor(program.formKind, step);
 
-  const data = await buildStepData(program.id, stepName, fd, application);
+  const { data } = await buildStepData(program.id, stepName, fd, application);
   if (stepName === "family" && isGenerika) await saveFamilyMembers(application.id, fd);
 
   await db.application.update({
@@ -216,7 +232,19 @@ export async function saveDraft(programKey: string, step: number, fd: FormData) 
 
 export async function submitApplication(programKey: string, fd: FormData) {
   const { program, application } = await getProgramAndApp(programKey);
-  const data = await buildStepData(program.id, "statement", fd, application);
+
+  // Catches a bypassed/replayed request before even looking at this step's fields — the
+  // browser only ever reaches this action once every prior step's *Done flag is set.
+  if (!(application.formStep === 4 && application.personalDone && application.familyDone && application.academicsDone && application.communityDone)) {
+    redirect(`/programs/${programKey}/application?error=incomplete_application`);
+  }
+
+  const { data, custom, fields } = await buildStepData(program.id, "statement", fd, application);
+  const missing = findMissingRequiredFields(fields, data, custom, application);
+  if (missing.length > 0) {
+    await db.application.update({ where: { id: application.id }, data: { ...data, status: "in_progress" } });
+    redirect(`/programs/${programKey}/application?error=missing_required`);
+  }
 
   await db.application.update({
     where: { id: application.id },
