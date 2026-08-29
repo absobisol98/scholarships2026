@@ -52,7 +52,7 @@ function generikaCriteria() {
 }
 
 const DEFAULT_FIELDS_BY_STEP: Record<string, string[]> = {
-  personal: ["Full name", "Date of birth", "Email", "Phone", "Mailing address", "Nationality", "Sex", "Year level", "Institution type"],
+  personal: ["Full name", "Date of birth", "Email", "Phone", "Mailing address", "Nationality", "Sex", "Year level", "Institution type", "Region", "Province", "City", "Municipality"],
   family: ["Parent / guardian name", "Parent / guardian occupation", "Household annual income", "Number of dependents"],
   academic: ["School name", "GPA", "Expected graduation", "Intended major", "Certificate of school registration", "Introduction video"],
   leadership: ["Leadership role / title", "Organization", "Duration", "People led / team size", "Description of leadership experience"],
@@ -73,7 +73,7 @@ const PARAGRAPH_FIELDS = new Set([
   "Personal statement essay",
   "Why this scholarship matters to your goals",
 ]);
-const DROPDOWN_FIELDS = new Set(["Nationality", "Sex", "Year level", "Institution type"]);
+const DROPDOWN_FIELDS = new Set(["Nationality", "Sex", "Year level", "Institution type", "Region", "Household annual income"]);
 
 function fieldTypeFor(label: string): string {
   if (NUMBER_FIELDS.has(label)) return "number";
@@ -81,6 +81,21 @@ function fieldTypeFor(label: string): string {
   if (DROPDOWN_FIELDS.has(label)) return "dropdown";
   return "text";
 }
+
+// Region isn't tied to any program's eligibility criteria (unlike Nationality/Sex/...), so
+// it gets one flat, program-independent option list rather than an
+// ELIGIBILITY_OPTIONS_BY_PROGRAM entry. Household income becomes a fixed bracket list so
+// it's reportable as a discrete dimension (see src/lib/reporting.ts) instead of free text.
+const PH_REGIONS = ["Luzon", "Visayas", "Mindanao", "NCR"];
+const INCOME_BRACKETS = [
+  "Below ₱10,000",
+  "₱10,000–₱20,000",
+  "₱20,000–₱40,000",
+  "₱40,000–₱60,000",
+  "₱60,000–₱100,000",
+  "₱100,000–₱250,000",
+  "Above ₱250,000",
+];
 
 // Nationality/Sex/Year level/Institution type feed straight into the eligibility check
 // (evaluateCriteria in src/lib/admin-data.ts), which does an exact string match against
@@ -222,12 +237,17 @@ async function main() {
           label,
           // The eligibility-check fields must be required — evaluateCriteria only flags a
           // *wrong* answer, not a *missing* one, so an optional field an applicant skips
-          // would silently bypass the check it exists to run.
-          required: DROPDOWN_FIELDS.has(label) ? true : i < 2,
+          // would silently bypass the check it exists to run. Household income is also a
+          // dropdown now (for reporting) but was never eligibility-required — excluded here
+          // so it keeps its original optional status instead of picking up "dropdown ⇒
+          // required" by accident.
+          required: label !== "Household annual income" && DROPDOWN_FIELDS.has(label) ? true : i < 2,
           enabled: true,
           order: i,
           fieldType: fieldTypeFor(label),
-          optionsJson: JSON.stringify(ELIGIBILITY_OPTIONS_BY_PROGRAM[key]?.[label] ?? []),
+          optionsJson: JSON.stringify(
+            label === "Region" ? PH_REGIONS : label === "Household annual income" ? INCOME_BRACKETS : (ELIGIBILITY_OPTIONS_BY_PROGRAM[key]?.[label] ?? [])
+          ),
           fieldKey: LABEL_TO_FIELD_KEY[step]?.[label] ?? null,
         })),
       });
@@ -297,8 +317,11 @@ async function main() {
       institutionType: UGO_INST_ELIGIBLE,
       guardianName: "Maria Chen",
       guardianOcc: "Nurse",
-      income: "₱150,000–₱250,000",
+      income: "₱100,000–₱250,000",
       dependents: "3",
+      region: "NCR",
+      province: "Metro Manila",
+      city: "Quezon City",
       school: "Lincoln High School",
       gpa: "90",
       graduation: "June 2027",
@@ -328,19 +351,19 @@ async function main() {
   // cosmetic 4.0-scale number — same reasoning as Amara's fix above.
   const applicationSeeds = [
     // Flagged: wrong sex, graduating this cycle (excluded), private institution, GWA below threshold.
-    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: 82, submitted: "Aug 11, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", phaseIndex: 3 },
+    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: 82, submitted: "Aug 11, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", phaseIndex: 3, region: "Luzon", province: "Batangas", city: "Batangas City", income: "₱60,000–₱100,000" },
     // Flagged: not a Filipino citizen, private institution — year and GWA otherwise pass.
-    { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: 96, submitted: "Aug 9, 2026", decision: null, nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", phaseIndex: 0 },
+    { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: 96, submitted: "Aug 9, 2026", decision: null, nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", phaseIndex: 0, region: "NCR", province: "Metro Manila", city: "Makati City", income: "Above ₱250,000" },
     // Flagged: wrong sex, graduating this cycle (excluded) — institution and GWA otherwise pass.
-    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: 88, submitted: "Aug 13, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3 },
+    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: 88, submitted: "Aug 13, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3, region: "Mindanao", province: "Davao del Sur", city: "Davao City", income: "₱20,000–₱40,000" },
     // Cleanly eligible, second example for the "randomly assign eligible applicants" demo.
-    { programId: ugo.id, name: "Grace Delacruz", school: "Cordillera State College", gpa: 89, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, phaseIndex: 0 },
+    { programId: ugo.id, name: "Grace Delacruz", school: "Cordillera State College", gpa: 89, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, phaseIndex: 0, region: "Luzon", province: "Benguet", city: "Baguio City", income: "Below ₱10,000" },
     // Cleanly eligible for Generika: right nationality, right year, GWA above its 85% threshold.
-    { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: 87, submitted: "Aug 12, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", phaseIndex: 1 },
+    { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: 87, submitted: "Aug 12, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", phaseIndex: 1, region: "Visayas", province: "Cebu", city: "Cebu City", income: "₱40,000–₱60,000" },
     // Flagged: GWA well below Generika's 85% threshold.
-    { programId: generika.id, name: "Jamal Reed", school: "Central High", gpa: 79, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Male", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", phaseIndex: 0 },
-    { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: 91, submitted: "Aug 8, 2026", decision: "awarded", nationality: "Japanese", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", phaseIndex: 3 },
-    { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: 87, submitted: "Aug 15, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", phaseIndex: 2 },
+    { programId: generika.id, name: "Jamal Reed", school: "Central High", gpa: 79, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Male", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", phaseIndex: 0, region: "Luzon", province: "Pampanga", city: "Angeles City", income: "₱10,000–₱20,000" },
+    { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: 91, submitted: "Aug 8, 2026", decision: "awarded", nationality: "Japanese", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", phaseIndex: 3, region: "NCR", province: "Metro Manila", city: "Pasig City", income: "₱100,000–₱250,000" },
+    { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: 87, submitted: "Aug 15, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", phaseIndex: 2, region: "Visayas", province: "Iloilo", city: "Iloilo City", income: "₱20,000–₱40,000" },
   ];
 
   const programByIdForCohort: Record<number, string> = cohortsByProgramId;
@@ -366,6 +389,10 @@ async function main() {
         sex: a.sex,
         yearLevel: a.yearLevel,
         institutionType: a.institutionType,
+        region: a.region,
+        province: a.province,
+        city: a.city,
+        income: a.income,
         phaseIndex: a.phaseIndex,
         personalDone: true,
         familyDone: true,

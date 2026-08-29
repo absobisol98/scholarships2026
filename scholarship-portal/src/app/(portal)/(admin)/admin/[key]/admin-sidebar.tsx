@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "dashboard", label: "Dashboard", icon: <><rect x="3" y="3" width="7" height="9" /><rect x="14" y="3" width="7" height="5" /><rect x="14" y="12" width="7" height="9" /><rect x="3" y="16" width="7" height="5" /></> },
   { href: "cohorts", label: "Cohort Management", icon: <><path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></> },
   { href: "queue", label: "Applications Overview", icon: <path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13" /> },
+  { href: "reports", label: "Reports", icon: <><path d="M3 3v18h18" /><path d="M18 17V9M13 17V5M8 17v-3" /></> },
   { href: "screener-groups", label: "Screener Groups", icon: <><circle cx="9" cy="7" r="3" /><circle cx="17" cy="8" r="2.5" /><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1" /><path d="M15.5 14.2A4.5 4.5 0 0 1 20 18.5V20" /></> },
   { href: "fields", label: "Manage fields", icon: <path d="M4 6h16M4 6a2 2 0 1 0 0-.01M9 12h11M9 12a2 2 0 1 0 0-.01M4 18h16M4 18a2 2 0 1 0 0-.01" /> },
   { href: "surveys", label: "Check-in surveys", icon: <><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></> },
