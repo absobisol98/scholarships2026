@@ -7,6 +7,20 @@ import { BulkActionBar } from "@/components/ui/bulk-action-bar";
 import { Table, TableScroll } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
 import { AvatarBadge } from "@/components/ui/avatar";
+import { RowMenu, RowMenuItem } from "@/components/ui/row-menu";
+
+const ICONS = {
+  edit: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  ),
+  power: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2v10" /><path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+    </svg>
+  ),
+};
 
 type BoundAction = (formData: FormData) => void | Promise<void>;
 
@@ -41,6 +55,8 @@ export function UsersTable({
   sortDir: "asc" | "desc";
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingRow = rows.find((r) => r.id === editingId) ?? null;
 
   const toggleOne = (id: string) => {
     setSelected((prev) => {
@@ -130,37 +146,42 @@ export function UsersTable({
                 <td className="text-muted" style={{ fontSize: 13 }}>{r.email}</td>
                 <td style={{ fontSize: 13 }}>{r.createdAtLabel}</td>
                 <td>
-                  <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-                    <EditUserModal
-                      userName={r.name}
-                      role={r.role}
-                      email={r.email}
-                      active={r.active}
-                      assignments={r.programAssignments}
-                      availablePrograms={r.availablePrograms}
-                      applicantsAssignedCount={r.applicantsAssignedCount}
-                      onToggleActive={r.onToggleActive}
-                      onAddAssignment={r.onAddAssignment}
-                      onRemoveAssignment={r.onRemoveAssignment}
-                      onEmailChange={r.onEmailChange}
-                    />
-                    <form action={r.onToggleActive}>
-                      <button type="submit" className={r.active ? "link-delete" : "link-edit"}>
-                        {r.active ? (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" /></svg>
-                        ) : (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-                        )}
-                        {r.active ? "Deactivate" : "Reactivate"}
-                      </button>
-                    </form>
-                  </div>
+                  <RowMenu label={`Actions for ${r.name}`}>
+                    <RowMenuItem icon={ICONS.edit} onClick={() => setEditingId(r.id)}>
+                      Edit
+                    </RowMenuItem>
+                    <RowMenuItem
+                      danger={r.active}
+                      icon={ICONS.power}
+                      onClick={() => r.onToggleActive(new FormData())}
+                    >
+                      {r.active ? "Deactivate" : "Reactivate"}
+                    </RowMenuItem>
+                  </RowMenu>
                 </td>
               </tr>
             ))}
           </tbody>
         </Table>
       </TableScroll>
+
+      {editingRow && (
+        <EditUserModal
+          open
+          onClose={() => setEditingId(null)}
+          userName={editingRow.name}
+          role={editingRow.role}
+          email={editingRow.email}
+          active={editingRow.active}
+          assignments={editingRow.programAssignments}
+          availablePrograms={editingRow.availablePrograms}
+          applicantsAssignedCount={editingRow.applicantsAssignedCount}
+          onToggleActive={editingRow.onToggleActive}
+          onAddAssignment={editingRow.onAddAssignment}
+          onRemoveAssignment={editingRow.onRemoveAssignment}
+          onEmailChange={editingRow.onEmailChange}
+        />
+      )}
     </div>
   );
 }

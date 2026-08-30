@@ -3,7 +3,7 @@ import { getProgramByKey, getFieldsConfig, parseOptions, STEP_LABELS_MAP, STEPS_
 import { updateFieldLabel, toggleFieldEnabled, toggleFieldRequired, removeField, addField, setFieldType, addFieldOption, removeFieldOption } from "@/lib/actions/admin";
 import { FIELD_TYPE_LABELS } from "@/components/field-type-select";
 import { FieldGroupSection } from "./field-group-section";
-import { EditFieldModal } from "./edit-field-modal";
+import { FieldRowActions } from "./field-row-actions";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FiltersPanel } from "@/components/ui/filters-panel";
 import { Field, Input } from "@/components/ui/field";
@@ -100,27 +100,20 @@ export default async function FieldsPage({
                             </div>
                           </td>
                           <td>
-                            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-                              <EditFieldModal
-                                label={f.label}
-                                fieldType={f.fieldType}
-                                enabled={f.enabled}
-                                required={f.required}
-                                options={parseOptions(f.optionsJson)}
-                                onLabelChange={async (value) => { "use server"; await updateFieldLabel(program.key, f.id, value); }}
-                                onTypeChange={async (fieldType) => { "use server"; await setFieldType(program.key, f.id, fieldType); }}
-                                onToggleEnabled={async () => { "use server"; await toggleFieldEnabled(program.key, f.id); }}
-                                onToggleRequired={async () => { "use server"; await toggleFieldRequired(program.key, f.id); }}
-                                onAddOption={async (option) => { "use server"; await addFieldOption(program.key, f.id, option); }}
-                                onRemoveOption={async (option) => { "use server"; await removeFieldOption(program.key, f.id, option); }}
-                              />
-                              <form action={onRemove}>
-                                <button type="submit" className="link-delete" aria-label={`Delete field: ${f.label}`}>
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" /></svg>
-                                  Delete
-                                </button>
-                              </form>
-                            </div>
+                            <FieldRowActions
+                              label={f.label}
+                              fieldType={f.fieldType}
+                              enabled={f.enabled}
+                              required={f.required}
+                              options={parseOptions(f.optionsJson)}
+                              onLabelChange={async (value) => { "use server"; await updateFieldLabel(program.key, f.id, value); }}
+                              onTypeChange={async (fieldType) => { "use server"; await setFieldType(program.key, f.id, fieldType); }}
+                              onToggleEnabled={async () => { "use server"; await toggleFieldEnabled(program.key, f.id); }}
+                              onToggleRequired={async () => { "use server"; await toggleFieldRequired(program.key, f.id); }}
+                              onAddOption={async (option) => { "use server"; await addFieldOption(program.key, f.id, option); }}
+                              onRemoveOption={async (option) => { "use server"; await removeFieldOption(program.key, f.id, option); }}
+                              onRemoveField={onRemove}
+                            />
                           </td>
                         </tr>
                       );
