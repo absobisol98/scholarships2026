@@ -1,11 +1,29 @@
 import { redirect } from "next/navigation";
-import { requireAdminLike } from "@/lib/auth";
+import { requireAdminLike, getSession } from "@/lib/auth";
+import { loginAsAdmin } from "@/app/login/actions";
+import { LoginShell } from "@/components/login-shell";
 import { listWorkspacePrograms, getAccessibleProgramIds } from "@/lib/admin-data";
 import { Card, CardKicker, CardTitle, CardBody } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { LinkButton } from "@/components/ui/button";
 
-export default async function WorkspacesPage() {
+export default async function WorkspacesPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  // This URL is the Program Admin door — logged out it's the sign-in form, logged in it's
+  // the workspace picker. Super Admins have their own entry point at /super_admin.
+  if (!(await getSession())) {
+    const { error } = await searchParams;
+    return (
+      <LoginShell
+        kicker="PROGRAM ADMIN"
+        heading="Admin sign-in"
+        blurb="For staff who manage a scholarship program's applicants and pipeline."
+        action={loginAsAdmin}
+        error={error}
+        otherDoors={[{ label: "Applicant sign-in", href: "/" }, { label: "Super Admin sign-in", href: "/super_admin" }]}
+      />
+    );
+  }
+
   const session = await requireAdminLike();
   const accessibleProgramIds = await getAccessibleProgramIds(session.role);
 
@@ -17,24 +35,18 @@ export default async function WorkspacesPage() {
   }
 
   const rows = await listWorkspacePrograms(accessibleProgramIds);
-  const isSuperAdmin = session.role === "super_admin";
 
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
           <div>
-            <h6 style={{ color: "var(--color-accent)" }}>{isSuperAdmin ? "Super Admin" : "Admin"}</h6>
+            {/* A Super Admin session is redirected to /super_admin before reaching this
+                page, so this picker is only ever rendered for a plain Program Admin. */}
+            <h6 style={{ color: "var(--color-accent)" }}>Admin</h6>
             <h2 style={{ marginBottom: 4 }}>Choose a workspace</h2>
-            <p className="text-muted" style={{ maxWidth: 560 }}>
-              {isSuperAdmin
-                ? "Each scholarship program has its own dashboard, applicants, and field configuration."
-                : "Programs you've been assigned to manage."}
-            </p>
+            <p className="text-muted" style={{ maxWidth: 560 }}>Programs you&apos;ve been assigned to manage.</p>
           </div>
-          {isSuperAdmin && (
-            <LinkButton href="/admin/users" variant="secondary" style={{ flex: "none", whiteSpace: "nowrap" }}>Manage Users →</LinkButton>
-          )}
         </div>
 
         {rows.length === 0 ? (

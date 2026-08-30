@@ -22,7 +22,7 @@ export function SetPasswordForm({ token }: { token: string }) {
         const result = await setScreenerPasswordViaToken(token, fd);
         setSubmitting(false);
         if (result.ok) {
-          router.push("/login?onboarded=1");
+          router.push("/screener?onboarded=1");
         } else {
           setError(result.error ?? "Something went wrong.");
         }

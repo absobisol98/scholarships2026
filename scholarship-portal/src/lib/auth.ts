@@ -18,6 +18,8 @@ export const getSession = cache(async (): Promise<SessionData | null> => {
 });
 
 // Where a logged-in session belongs when it lands somewhere it doesn't have access to.
+// Each role has its own entry point, and each of those doubles as that role's login page
+// when there's no session (see loginPathForRole below — same URLs, logged-out state).
 export function homeForRole(role: Role): string {
   switch (role) {
     case "student":
@@ -25,8 +27,25 @@ export function homeForRole(role: Role): string {
     case "screener":
       return "/screener";
     case "admin":
-    case "super_admin":
       return "/admin";
+    case "super_admin":
+      return "/super_admin";
+  }
+}
+
+// The four login entry points. Sending someone who lost their session back to the *right*
+// door matters now that they're separate: an admin bounced to the applicant login at "/"
+// would have no way to get back in.
+export function loginPathForRole(role: Role): string {
+  switch (role) {
+    case "student":
+      return "/";
+    case "screener":
+      return "/screener";
+    case "admin":
+      return "/admin";
+    case "super_admin":
+      return "/super_admin";
   }
 }
 
@@ -53,31 +72,32 @@ export async function loginAs(role: Role, studentId?: number, staffId?: string):
 
 export async function requireStudent() {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/");
   if (session.role !== "student") redirect(homeForRole(session.role));
   return session;
 }
 
 // Program Admin and Super Admin share the /admin/[key]/... program workspace screens —
 // Super Admin can enter any program's workspace, Admin only their assigned one(s)
-// (enforced separately, per-route, since it needs the program key).
+// (enforced separately, per-route, since it needs the program key). Their *entry points*
+// are separate (/admin vs /super_admin) even though this workspace is shared.
 export async function requireAdminLike() {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/admin");
   if (session.role !== "admin" && session.role !== "super_admin") redirect(homeForRole(session.role));
   return session as { role: "admin" | "super_admin" };
 }
 
 export async function requireSuperAdmin() {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/super_admin");
   if (session.role !== "super_admin") redirect(homeForRole(session.role));
   return session;
 }
 
 export async function requireScreener() {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/screener");
   if (session.role !== "screener") redirect(homeForRole(session.role));
   return session;
 }

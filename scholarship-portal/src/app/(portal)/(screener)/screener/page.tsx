@@ -1,4 +1,6 @@
-import { requireScreener, getCurrentStaff } from "@/lib/auth";
+import { requireScreener, getCurrentStaff, getSession } from "@/lib/auth";
+import { loginAsScreener } from "@/app/login/actions";
+import { LoginShell } from "@/components/login-shell";
 import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
@@ -12,11 +14,29 @@ import { Tag } from "@/components/ui/tag";
 export default async function ScreenerHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; filter?: string }>;
+  searchParams: Promise<{ q?: string; filter?: string; error?: string; onboarded?: string }>;
 }) {
+  const { q = "", filter = "all", error, onboarded } = await searchParams;
+
+  // This URL is the Paper Screener door: no session means show the sign-in form rather
+  // than the dashboard. Screeners onboarded via bulk import land here from their magic link.
+  if (!(await getSession())) {
+    return (
+      <LoginShell
+        kicker="PAPER SCREENER"
+        heading="Screener sign-in"
+        blurb="Use the email your program administrator imported you with."
+        action={loginAsScreener}
+        error={error}
+        notice={onboarded ? "Password set — you can now log in." : undefined}
+        showPassword
+        otherDoors={[{ label: "Applicant sign-in", href: "/" }, { label: "Program Admin sign-in", href: "/admin" }]}
+      />
+    );
+  }
+
   await requireScreener();
   const screener = await getCurrentStaff("screener");
-  const { q = "", filter = "all" } = await searchParams;
 
   const [assignments, recommendations] = await Promise.all([
     db.screenerAssignment.findMany({

@@ -45,7 +45,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
           </Button>
 
           <p className="text-muted" style={{ fontSize: 12, textAlign: "center", margin: "var(--space-2) 0 0" }}>
-            Already have an account? <Link href="/login" style={{ fontWeight: 600 }}>Log in</Link>
+            Already have an account? <Link href="/" style={{ fontWeight: 600 }}>Log in</Link>
           </p>
 
           <p className="text-muted" style={{ fontSize: 11, textAlign: "center", margin: "var(--space-2) 0 0" }}>

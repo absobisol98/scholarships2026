@@ -54,12 +54,12 @@ export default async function ManageUsersPage({
     };
   });
 
-  const createdAtSortHref = `/admin/users?sort=createdAt&dir=${sort === "createdAt" && sortDir === "asc" ? "desc" : "asc"}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const createdAtSortHref = `/super_admin/users?sort=createdAt&dir=${sort === "createdAt" && sortDir === "asc" ? "desc" : "asc"}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
-        <Breadcrumb items={[{ label: "Admin", href: "/admin" }, { label: "Manage Users" }]} />
+        <Breadcrumb items={[{ label: "Super Admin", href: "/super_admin" }, { label: "Manage Users" }]} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
           <div>
@@ -74,7 +74,7 @@ export default async function ManageUsersPage({
 
         <FiltersPanel
           method="GET"
-          resetHref="/admin/users"
+          resetHref="/super_admin/users"
           style={{ marginTop: "var(--space-6)" }}
           footer={<Button type="submit" variant="secondary" style={{ alignSelf: "flex-start" }}>Search</Button>}
         >

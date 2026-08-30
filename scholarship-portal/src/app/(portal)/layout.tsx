@@ -1,5 +1,4 @@
 import { getSession, getCurrentStudent, getCurrentStaff, initialsFor } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import { AvatarBadge } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,11 @@ import { WelcomePrivacyModal } from "@/components/welcome-privacy-modal";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  // /screener, /admin and /super_admin live under this layout but double as their role's
+  // login page when logged out, so render them bare rather than redirecting — the app
+  // chrome (header, user badge, log out) has nothing to show without a session anyway.
+  // Everything deeper is still gated by the middleware and each route's own require*() guard.
+  if (!session) return <>{children}</>;
 
   let userLabel = "";
   let userInitials = "";

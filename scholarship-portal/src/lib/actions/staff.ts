@@ -36,7 +36,7 @@ export async function createStaffAccount(fd: FormData) {
     },
   });
   await logAudit(`Created ${role === "admin" ? "Admin" : "Paper Screener"} account: ${name}`, role === "admin" && programId ? programId : undefined);
-  revalidatePath("/admin/users");
+  revalidatePath("/super_admin/users");
 }
 
 export async function bulkDeactivateStaff(ids: string[]) {
@@ -44,7 +44,7 @@ export async function bulkDeactivateStaff(ids: string[]) {
   const staff = await db.staffAccount.findMany({ where: { id: { in: ids } } });
   await db.staffAccount.updateMany({ where: { id: { in: ids } }, data: { active: false } });
   await logAudit(`Deactivated ${staff.length} account${staff.length === 1 ? "" : "s"}: ${staff.map((s) => s.name).join(", ")}`);
-  revalidatePath("/admin/users");
+  revalidatePath("/super_admin/users");
 }
 
 export async function updateStaffEmail(staffId: string, email: string) {
@@ -59,14 +59,14 @@ export async function updateStaffEmail(staffId: string, email: string) {
 
   const staff = await db.staffAccount.update({ where: { id: staffId }, data: { email: trimmed } });
   await logAudit(`Updated email for ${staff.name}`);
-  revalidatePath("/admin/users");
+  revalidatePath("/super_admin/users");
 }
 
 export async function toggleStaffActive(staffId: string) {
   const staff = await db.staffAccount.findUniqueOrThrow({ where: { id: staffId } });
   await db.staffAccount.update({ where: { id: staffId }, data: { active: !staff.active } });
   await logAudit(`${staff.active ? "Deactivated" : "Reactivated"} ${staff.role === "admin" ? "Admin" : "Paper Screener"} account: ${staff.name}`);
-  revalidatePath("/admin/users");
+  revalidatePath("/super_admin/users");
 }
 
 export async function addStaffProgramAssignment(staffId: string, fd: FormData) {
@@ -81,7 +81,7 @@ export async function addStaffProgramAssignment(staffId: string, fd: FormData) {
     create: { staffId, programId },
   });
   await logAudit(`Assigned ${staff.name} to ${program.name}`, programId);
-  revalidatePath("/admin/users");
+  revalidatePath("/super_admin/users");
 }
 
 export async function removeStaffProgramAssignment(staffId: string, fd: FormData) {
@@ -92,5 +92,5 @@ export async function removeStaffProgramAssignment(staffId: string, fd: FormData
   ]);
   await db.staffProgramAssignment.deleteMany({ where: { staffId, programId } });
   await logAudit(`Removed ${staff.name} from ${program.name}`, programId);
-  revalidatePath("/admin/users");
+  revalidatePath("/super_admin/users");
 }

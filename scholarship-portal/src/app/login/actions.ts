@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { SESSION_COOKIE, type Role } from "@/lib/session";
-import { loginAs, getDemoStudent, initialsFor } from "@/lib/auth";
+import { loginAs, getDemoStudent, initialsFor, loginPathForRole, getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -26,29 +26,58 @@ export async function loginAsStudent() {
 // who never got a password — is untouched, byte-for-byte the same email-only check as
 // before. Checked across both Student and StaffAccount since email is the one identifier
 // shared by every role.
-export async function loginWithEmail(fd: FormData) {
+//
+// Each role now has its own login page, so `expected` scopes a door to one role: signing in
+// with the wrong kind of account fails here rather than silently logging you in somewhere
+// you didn't mean to go. Errors come back to the same door you knocked on.
+async function loginForRole(expected: Role, fd: FormData): Promise<void> {
+  const door = loginPathForRole(expected);
+  const q = (error: string) => `${door}${door.includes("?") ? "&" : "?"}error=${error}`;
+
   const email = str(fd, "email").trim().toLowerCase();
   const password = str(fd, "password");
-  if (!email) redirect("/login?error=missing_email");
+  if (!email) redirect(q("missing_email"));
 
   const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
-  if (!allowed) redirect("/login?error=rate_limited");
+  if (!allowed) redirect(q("rate_limited"));
 
-  const student = await db.student.findFirst({ where: { email } });
-  if (student) await loginAs("student", student.id);
-
-  const staff = await db.staffAccount.findFirst({ where: { email } });
-  if (staff) {
-    if (!staff.active) redirect(`/login?error=${staff.role}_deactivated`);
-    if (staff.role === "screener" && staff.passwordHash) {
-      const bcrypt = await import("bcryptjs");
-      const matches = password ? await bcrypt.compare(password, staff.passwordHash) : false;
-      if (!matches) redirect("/login?error=wrong_password");
-    }
-    await loginAs(staff.role as Role, undefined, staff.id);
+  if (expected === "student") {
+    const student = await db.student.findFirst({ where: { email } });
+    if (student) await loginAs("student", student.id);
+    // An existing staff account typing their email into the applicant door gets told where
+    // to go rather than a flat "no account" — the address is real, the door is wrong.
+    const staff = await db.staffAccount.findFirst({ where: { email } });
+    redirect(q(staff ? "wrong_door" : "no_account"));
   }
 
-  redirect("/login?error=no_account");
+  const staff = await db.staffAccount.findFirst({ where: { email } });
+  if (!staff) {
+    const student = await db.student.findFirst({ where: { email } });
+    redirect(q(student ? "wrong_door" : "no_account"));
+  }
+  if (staff.role !== expected) redirect(q("wrong_door"));
+  if (!staff.active) redirect(q(`${staff.role}_deactivated`));
+
+  if (staff.role === "screener" && staff.passwordHash) {
+    const bcrypt = await import("bcryptjs");
+    const matches = password ? await bcrypt.compare(password, staff.passwordHash) : false;
+    if (!matches) redirect(q("wrong_password"));
+  }
+
+  await loginAs(staff.role as Role, undefined, staff.id);
+}
+
+export async function loginAsApplicant(fd: FormData) {
+  await loginForRole("student", fd);
+}
+export async function loginAsScreener(fd: FormData) {
+  await loginForRole("screener", fd);
+}
+export async function loginAsAdmin(fd: FormData) {
+  await loginForRole("admin", fd);
+}
+export async function loginAsSuperAdmin(fd: FormData) {
+  await loginForRole("super_admin", fd);
 }
 
 // Real applicant signup: creates an actual Student row (distinct from the demo persona)
@@ -82,9 +111,13 @@ export async function signUpAsStudent(fd: FormData) {
   await loginAs("student", created.id);
 }
 
+// Return people to the door they came in through — now that logins are per-role, dropping a
+// super admin on the applicant login would leave them with no visible way back in.
 export async function logout() {
+  const session = await getSession();
+  const door = session ? loginPathForRole(session.role) : "/";
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
   revalidatePath("/", "layout");
-  redirect("/login");
+  redirect(door);
 }

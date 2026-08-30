@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const err = request.nextUrl.searchParams.get("error");
 
   if (err || !code || !state || !storedState || state !== storedState) {
-    redirect("/login?error=google_auth_failed");
+    redirect("/?error=google_auth_failed");
   }
 
   let studentId: number;
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (e) {
     console.error("Google sign-in failed:", e);
-    redirect("/login?error=google_auth_failed");
+    redirect("/?error=google_auth_failed");
   }
 
   // Outside the try block above — loginAs() itself throws NEXT_REDIRECT, and a

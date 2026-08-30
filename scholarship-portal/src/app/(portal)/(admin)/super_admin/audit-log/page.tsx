@@ -30,7 +30,7 @@ export default async function AuditLogPage({
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
-        <Breadcrumb items={[{ label: "Admin", href: "/admin" }, { label: "Audit Log" }]} />
+        <Breadcrumb items={[{ label: "Super Admin", href: "/super_admin" }, { label: "Audit Log" }]} />
         <h6 style={{ color: "var(--color-accent)" }}>Super Admin</h6>
         <h2 style={{ marginBottom: 4 }}>Audit Log</h2>
         <p className="text-muted" style={{ maxWidth: 640 }}>
@@ -39,7 +39,7 @@ export default async function AuditLogPage({
 
         <FiltersPanel
           method="GET"
-          resetHref="/admin/audit-log"
+          resetHref="/super_admin/audit-log"
           style={{ marginTop: "var(--space-6)" }}
           footer={<Button type="submit" variant="secondary" style={{ alignSelf: "flex-start" }}>Search</Button>}
         >
