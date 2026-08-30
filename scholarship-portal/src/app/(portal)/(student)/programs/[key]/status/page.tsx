@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, resolveApplicationForDisplay } from "@/lib/student-data";
 import { uploadRecommendationForm } from "@/lib/actions/student";
-import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForApplication, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX } from "@/lib/steps";
+import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForApplication, SHORTLISTED_PHASE_INDEX } from "@/lib/steps";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
@@ -85,12 +85,16 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         </Card>
       )}
 
-      {/* Only once the applicant has actually reached For Interview — not shown while
-          merely Shortlisted. No real interview-scheduling feature exists in this app (no
-          date/time/location is ever set anywhere), so this is placeholder guidance rather
-          than a specific appointment; a future integration would also email this out (see
-          the "future function" note in the RFP) once real email infra exists. */}
-      {application && application.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX && (
+      {/* Shows as soon as the applicant has cleared the one remaining requirement to reach
+          Interview — a recommendation form on file — rather than waiting for the admin's
+          separate manual "Promote" click to actually bump phaseIndex to For Interview. The
+          stepper above already treats Shortlisted+recommendation-uploaded as "on the way to
+          Interview" (stageIndexForApplication), so this card's gate matches that, not the
+          stricter admin-side phaseIndex. No real interview-scheduling feature exists in this
+          app (no date/time/location is ever set anywhere), so this is placeholder guidance
+          rather than a specific appointment; a future integration would also email this out
+          (see the "future function" note in the RFP) once real email infra exists. */}
+      {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && !!application.recommendationFileName && (
         <Card style={{ marginTop: "var(--space-6)" }}>
           <CardKicker>Interview</CardKicker>
           <CardBody style={{ marginTop: -4 }}>
