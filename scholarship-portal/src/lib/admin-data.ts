@@ -45,13 +45,17 @@ export function toEligibilityShape(a: {
   };
 }
 
-export function evaluateCriteria(
+// Same evaluation as evaluateCriteria below, but keeping each failure tied to the
+// criterion `key` that produced it (not just its message) — the "By Flags" filter (queue
+// page) needs to isolate applicants failing one specific, cohort-defined criterion, which a
+// plain message string can't be filtered on.
+function evaluateCriteriaDetailed(
   applicant: { nationality: string; sex: string; yearLevel: string; institutionType: string; gwa: number },
   cohort: CriteriaFlagCohort | null | undefined,
   opts?: { skipGwa?: boolean; onlyGwa?: boolean }
-): string[] {
+): { key: string; message: string }[] {
   if (!cohort) return [];
-  const flags: string[] = [];
+  const results: { key: string; message: string }[] = [];
   const fieldByKey: Record<string, keyof typeof applicant> = {
     nat: "nationality",
     sex: "sex",
@@ -63,16 +67,24 @@ export function evaluateCriteria(
     if (c.type === "gte") {
       if (opts?.skipGwa) continue;
       const threshold = Number(c.value);
-      if (applicant.gwa < threshold) flags.push(`GWA ${applicant.gwa}% — below ${threshold}% threshold`);
+      if (applicant.gwa < threshold) results.push({ key: c.key, message: `GWA ${applicant.gwa}% — below ${threshold}% threshold` });
     } else if (c.type === "equals" && c.value !== "Any") {
       if (opts?.onlyGwa) continue;
       const field = fieldByKey[c.key];
       if (field && applicant[field] && applicant[field] !== c.value) {
-        flags.push(`${c.label}: ${applicant[field]} — requires ${c.value}`);
+        results.push({ key: c.key, message: `${c.label}: ${applicant[field]} — requires ${c.value}` });
       }
     }
   }
-  return flags;
+  return results;
+}
+
+export function evaluateCriteria(
+  applicant: { nationality: string; sex: string; yearLevel: string; institutionType: string; gwa: number },
+  cohort: CriteriaFlagCohort | null | undefined,
+  opts?: { skipGwa?: boolean; onlyGwa?: boolean }
+): string[] {
+  return evaluateCriteriaDetailed(applicant, cohort, opts).map((r) => r.message);
 }
 
 // Super Admin can enter any program's workspace; a plain Admin only the program(s) they're
@@ -144,6 +156,7 @@ const APPLICATION_LIST_SELECT = {
   school: true,
   status: true,
   submittedDate: true,
+  updatedAt: true,
   decision: true,
   phaseIndex: true,
   flagOverridden: true,
@@ -154,8 +167,13 @@ const APPLICATION_LIST_SELECT = {
   institutionType: true,
   gpa: true,
   ineligibleAttempts: true,
-  _count: { select: { screenerAssignments: true } },
+  _count: { select: { screenerAssignments: true, recommendations: true } },
 } as const;
+
+// Synthetic flag key for a locked-out (never-submitted) application, alongside whatever
+// real criterion keys evaluateCriteriaDetailed produces — lets the "By Flags" filter
+// isolate it the same way it isolates any other specific reason.
+const INELIGIBLE_FLAG_KEY = "ineligible";
 
 // "ineligible" applications (locked out at intake by the eligibility-attempt cap — see
 // MAX_INELIGIBLE_ATTEMPTS — and therefore never actually submitted) count as a red flag in
@@ -167,8 +185,10 @@ function mapApplicantRow(
   a: Prisma.ApplicationGetPayload<{ select: typeof APPLICATION_LIST_SELECT }>,
   activeCohort: CriteriaFlagCohort | null
 ) {
-  const criteriaFlags = evaluateCriteria(toEligibilityShape(a), activeCohort);
-  const flags = a.status === "ineligible" && criteriaFlags.length === 0 ? ["Locked out at intake after repeated failed eligibility attempts"] : criteriaFlags;
+  const detailed = evaluateCriteriaDetailed(toEligibilityShape(a), activeCohort);
+  const isIneligible = a.status === "ineligible";
+  const flags = isIneligible && detailed.length === 0 ? ["Locked out at intake after repeated failed eligibility attempts"] : detailed.map((d) => d.message);
+  const flagKeys = [...detailed.map((d) => d.key), ...(isIneligible ? [INELIGIBLE_FLAG_KEY] : [])];
   return {
     ...a,
     name: a.fullName,
@@ -176,8 +196,16 @@ function mapApplicantRow(
     appId: `APP-${String(a.id).padStart(4, "0")}`,
     phaseLabel: APPLICANT_PHASES[a.phaseIndex] ?? APPLICANT_PHASES[0],
     flags,
+    flagKeys,
     eligible: flags.length === 0 || a.flagOverridden,
     screenerCount: a._count.screenerAssignments,
+    // Whether ANY assigned Paper Screener has recorded a recommend/not-recommend verdict
+    // yet — matches the "By Scores" filter's real-world equivalent (no aggregate score
+    // exists in this app; assessed-or-not is what's actually tracked).
+    assessed: a._count.recommendations > 0,
+    // "Not submitted" = drafts (save-and-continue-later, status "in_progress") and
+    // ineligible-locked applications alike — neither ever completed a real submission.
+    notSubmitted: a.status === "in_progress" || isIneligible,
   };
 }
 
@@ -197,21 +225,10 @@ export async function getApplicantStatusCounts(programId: number) {
   return { all, review, decided };
 }
 
-// Red-flag status isn't a plain column (it's computed from a cohort's dynamic criteria),
-// so this can't be a DB-side count — but select-trimming to just the criteria-relevant
-// fields keeps it far cheaper than a full-column fetch. Includes "ineligible" rows (see
-// mapApplicantRow) so this "all" is intentionally larger than getApplicantStatusCounts'.
-export async function getApplicantFlagCounts(programId: number) {
-  const [rows, activeCohort] = await Promise.all([
-    db.application.findMany({ where: { programId, OR: [{ status: { in: SUBMITTED_STATUSES } }, { status: "ineligible" }] }, select: APPLICATION_LIST_SELECT }),
-    getActiveCohortWithCriteria(programId),
-  ]);
-  const flagged = rows.map((a) => mapApplicantRow(a, activeCohort)).filter((a) => a.flags.length > 0).length;
-  return { all: rows.length, flagged, clear: rows.length - flagged };
-}
-
-// Same reasoning as getApplicantFlagCounts — used by the Dashboard and Screener Groups
-// pages, which only need this one number, not a full applicant list.
+// Same reasoning as buildApplicantsWhere below — used by the Dashboard and Screener Groups
+// pages, which only need this one number, not a full applicant list. Deliberately still
+// scoped to genuinely-submitted applications only (screener assignment never makes sense
+// for a draft or a locked-out application).
 export async function getEligibleUnassignedCount(programId: number) {
   const [rows, activeCohort] = await Promise.all([
     db.application.findMany({ where: { programId, status: { in: SUBMITTED_STATUSES } }, select: APPLICATION_LIST_SELECT }),
@@ -224,46 +241,77 @@ export async function getEligibleUnassignedCount(programId: number) {
   }).length;
 }
 
-// The Applications Overview table's data source: pushes name search and status into the
-// query itself (was: fetch every row, filter in JS). Red-flag status still can't be
-// pushed into SQL (dynamic per-cohort criteria, not a plain column), so when the `flag`
-// filter is active, pagination happens after that JS computation, over the
-// already-q/status-narrowed set — not a perfectly exact DB-level page in that specific
-// combination, but bounded to that narrowed set rather than the whole table. Full
-// SQL-side criteria evaluation would need a dynamic per-cohort query builder — real
-// future work if this combination ever becomes an actual bottleneck, not implied by
-// today's usage.
+function statusesForSubmitted(submitted: string): string[] {
+  if (submitted === "submitted") return [...SUBMITTED_STATUSES];
+  // "Not submitted" covers both a draft still in progress (save-and-continue-later) and an
+  // application locked out at intake — neither ever completed a real submission.
+  if (submitted === "draft") return ["in_progress", "ineligible"];
+  return [...SUBMITTED_STATUSES, "in_progress", "ineligible"];
+}
+
+// The Applications Overview table's data source: pushes name search, exact phase, and
+// submitted/draft status into the query itself. Flags, assessed-status, and submit-time
+// still can't be pushed into SQL (flags are dynamic per-cohort criteria, not a plain
+// column; assessed/submit-time would need a second query either way) — see
+// applyClientFilters below, which runs against this narrowed set, not the whole table.
 // Shared by getApplicantsPage and getApplicantsForExport so the export always matches
 // exactly what the queue page's filters currently show — one place that decides what
-// "review"/"decided"/a search term mean, not two copies that could drift.
-function buildApplicantsWhere(programId: number, opts: { q?: string; status?: string; flag?: string }) {
-  const { q = "", status = "all", flag = "all" } = opts;
-  const search = q ? { fullName: { contains: q, mode: "insensitive" as const } } : {};
-
-  // "ineligible" applications (locked out at intake, never submitted — see
-  // MAX_INELIGIBLE_ATTEMPTS) count as a red flag, not a separate status — folded into the
-  // base view here so the plain "All" status view and the Red flag filter's "Flagged"
-  // naturally include them, and "Clear"/"Needs review"/"Decided" naturally don't (decision
-  // progress isn't a meaningful question for an application that was never submitted).
-  if (status === "all" && flag !== "clear") {
-    return { programId, ...search, OR: [{ status: { in: SUBMITTED_STATUSES } }, { status: "ineligible" as const }] };
-  }
+// "submitted"/"draft"/a search term mean, not two copies that could drift.
+function buildApplicantsWhere(programId: number, opts: { q?: string; phase?: string; submitted?: string }) {
+  const { q = "", phase = "all", submitted = "all" } = opts;
   return {
     programId,
-    status: { in: SUBMITTED_STATUSES },
-    ...(status === "review" ? { decision: null } : status === "decided" ? { decision: { not: null } } : {}),
-    ...search,
+    status: { in: statusesForSubmitted(submitted) },
+    ...(phase !== "all" ? { phaseIndex: Number(phase) } : {}),
+    ...(q ? { fullName: { contains: q, mode: "insensitive" as const } } : {}),
   };
+}
+
+function withinSubmitTimeBucket(date: Date, bucket: string): boolean {
+  if (bucket === "any") return true;
+  const now = new Date();
+  if (bucket === "today") {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return date >= startOfToday;
+  }
+  const days = bucket === "7d" ? 7 : bucket === "30d" ? 30 : null;
+  if (days == null) return true;
+  return date >= new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
+// Flags/assessed/submit-time filtering, shared between getApplicantsPage and
+// getApplicantsForExport so "export what I'm looking at" stays literally true. `flag` is
+// either "all"/"flagged"/"clear" or one specific criterion key (or INELIGIBLE_FLAG_KEY) —
+// see the By Flags filter on the queue page, populated from the active cohort's own
+// criteria plus that one synthetic option.
+function applyClientFilters<T extends { flags: string[]; flagKeys: string[]; assessed: boolean; updatedAt: Date }>(
+  rows: T[],
+  opts: { flag?: string; assessed?: string; submitTime?: string }
+): T[] {
+  const { flag = "all", assessed = "all", submitTime = "any" } = opts;
+  return rows.filter((a) => {
+    if (flag === "flagged" && a.flags.length === 0) return false;
+    if (flag === "clear" && a.flags.length > 0) return false;
+    if (flag !== "all" && flag !== "flagged" && flag !== "clear" && !a.flagKeys.includes(flag)) return false;
+    if (assessed === "assessed" && !a.assessed) return false;
+    if (assessed === "pending" && a.assessed) return false;
+    if (!withinSubmitTimeBucket(a.updatedAt, submitTime)) return false;
+    return true;
+  });
 }
 
 export async function getApplicantsPage(
   programId: number,
-  opts: { q?: string; status?: string; flag?: string; page?: number; pageSize?: number }
+  opts: {
+    q?: string; phase?: string; submitted?: string; flag?: string; assessed?: string; submitTime?: string;
+    page?: number; pageSize?: number;
+  }
 ) {
-  const { flag = "all", page = 1, pageSize = 50 } = opts;
+  const { flag = "all", assessed = "all", submitTime = "any", page = 1, pageSize = 50 } = opts;
   const where = buildApplicantsWhere(programId, opts);
+  const needsClientFilter = flag !== "all" || assessed !== "all" || submitTime !== "any";
 
-  if (flag === "all") {
+  if (!needsClientFilter) {
     const [total, rows, activeCohort] = await Promise.all([
       db.application.count({ where }),
       db.application.findMany({ where, orderBy: { id: "asc" }, skip: (page - 1) * pageSize, take: pageSize, select: APPLICATION_LIST_SELECT }),
@@ -276,9 +324,7 @@ export async function getApplicantsPage(
     db.application.findMany({ where, orderBy: { id: "asc" }, select: APPLICATION_LIST_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
-  const filtered = matching
-    .map((a) => mapApplicantRow(a, activeCohort))
-    .filter((a) => (flag === "flagged" ? a.flags.length > 0 : a.flags.length === 0));
+  const filtered = applyClientFilters(matching.map((a) => mapApplicantRow(a, activeCohort)), { flag, assessed, submitTime });
   const start = (page - 1) * pageSize;
   return { rows: filtered.slice(start, start + pageSize), total: filtered.length, page, pageSize };
 }
@@ -288,6 +334,7 @@ export async function getApplicantsPage(
 const EXPORT_SELECT = {
   id: true,
   status: true,
+  updatedAt: true,
   fullName: true,
   email: true,
   phone: true,
@@ -308,27 +355,31 @@ const EXPORT_SELECT = {
   awardResponse: true,
   phaseIndex: true,
   flagOverridden: true,
+  _count: { select: { recommendations: true } },
 } as const;
 
-// Same filters as the Applications Overview queue's own q/status/flag controls, so
-// "export what I'm looking at" is literally true — flag filtering happens in JS (same
-// reason getApplicantFlagCounts does) since it's computed from dynamic cohort criteria,
-// not a stored column.
-export async function getApplicantsForExport(programId: number, opts: { q?: string; status?: string; flag?: string }) {
-  const { flag = "all" } = opts;
+// Same filters as the Applications Overview queue's own controls, so "export what I'm
+// looking at" is literally true — reuses buildApplicantsWhere/applyClientFilters, the same
+// functions the queue page's own data source uses.
+export async function getApplicantsForExport(
+  programId: number,
+  opts: { q?: string; phase?: string; submitted?: string; flag?: string; assessed?: string; submitTime?: string }
+) {
   const where = buildApplicantsWhere(programId, opts);
   const [rows, activeCohort] = await Promise.all([
     db.application.findMany({ where, orderBy: { id: "asc" }, select: EXPORT_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
   const mapped = rows.map((a) => {
-    const criteriaFlags = evaluateCriteria(toEligibilityShape(a), activeCohort);
+    const detailed = evaluateCriteriaDetailed(toEligibilityShape(a), activeCohort);
+    const isIneligible = a.status === "ineligible";
     // Same "ineligible counts as flagged" rule as mapApplicantRow above, so an export never
     // disagrees with what the queue table itself shows as flagged.
-    const flags = a.status === "ineligible" && criteriaFlags.length === 0 ? ["Locked out at intake after repeated failed eligibility attempts"] : criteriaFlags;
-    return { ...a, flags };
+    const flags = isIneligible && detailed.length === 0 ? ["Locked out at intake after repeated failed eligibility attempts"] : detailed.map((d) => d.message);
+    const flagKeys = [...detailed.map((d) => d.key), ...(isIneligible ? [INELIGIBLE_FLAG_KEY] : [])];
+    return { ...a, flags, flagKeys, assessed: a._count.recommendations > 0 };
   });
-  return flag === "all" ? mapped : mapped.filter((a) => (flag === "flagged" ? a.flags.length > 0 : a.flags.length === 0));
+  return applyClientFilters(mapped, opts);
 }
 
 // Full, select-trimmed eligible+unassigned application list for

@@ -16,6 +16,7 @@ export type QueueRow = {
   name: string;
   phaseLabel: string;
   notEligible: boolean;
+  notSubmitted: boolean;
   flagged: boolean;
   flagOverridden: boolean;
   submitted: string | null;
@@ -155,17 +156,20 @@ export function QueueTable({
                 <td style={{ fontWeight: 700 }}>{r.name}</td>
                 <td><Tag variant="neutral">{r.phaseLabel}</Tag></td>
                 <td>
-                  {r.notEligible ? (
-                    <Tag variant="danger">Not eligible</Tag>
-                  ) : r.flagged && !r.flagOverridden ? (
-                    <Tag variant="danger">Red flagged</Tag>
-                  ) : r.flagged && r.flagOverridden ? (
-                    <Tag variant="warning">Flag overridden</Tag>
-                  ) : (
-                    <Tag variant="outline">Clear</Tag>
-                  )}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {r.notEligible ? (
+                      <Tag variant="danger">Not eligible</Tag>
+                    ) : r.flagged && !r.flagOverridden ? (
+                      <Tag variant="danger">Red flagged</Tag>
+                    ) : r.flagged && r.flagOverridden ? (
+                      <Tag variant="warning">Flag overridden</Tag>
+                    ) : (
+                      <Tag variant="outline">Clear</Tag>
+                    )}
+                    {r.notSubmitted && !r.notEligible && <Tag variant="neutral">Draft</Tag>}
+                  </div>
                 </td>
-                <td>{r.submitted}</td>
+                <td>{r.submitted ?? <span className="text-muted">—</span>}</td>
                 <td>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                     <div className="btn-group">

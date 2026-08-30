@@ -40,8 +40,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ programI
   const url = new URL(req.url);
   const rows = await getApplicantsForExport(programId, {
     q: url.searchParams.get("q") ?? undefined,
-    status: url.searchParams.get("status") ?? undefined,
+    phase: url.searchParams.get("phase") ?? undefined,
     flag: url.searchParams.get("flag") ?? undefined,
+    submitted: url.searchParams.get("submitted") ?? undefined,
+    assessed: url.searchParams.get("assessed") ?? undefined,
+    submitTime: url.searchParams.get("submitTime") ?? undefined,
   });
   const csv = toCsv(COLUMNS, rows);
   return new NextResponse(csv, {

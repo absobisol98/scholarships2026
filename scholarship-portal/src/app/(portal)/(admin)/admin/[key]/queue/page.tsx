@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { getProgramByKey, getApplicantsPage, getApplicantStatusCounts, getApplicantFlagCounts } from "@/lib/admin-data";
+import { getProgramByKey, getApplicantsPage, getActiveCohortWithCriteria } from "@/lib/admin-data";
 import { promoteApplicant, demoteApplicant } from "@/lib/actions/admin";
 import { assignSelectedToGroup } from "@/lib/actions/screenerGroups";
 import { db } from "@/lib/db";
-import { PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX, AWARDED_PHASE_INDEX } from "@/lib/steps";
+import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX, AWARDED_PHASE_INDEX } from "@/lib/steps";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
@@ -20,34 +20,35 @@ export default async function QueuePage({
   searchParams,
 }: {
   params: Promise<{ key: string }>;
-  searchParams: Promise<{ q?: string; status?: string; flag?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; phase?: string; flag?: string; submitted?: string; assessed?: string; submitTime?: string; page?: string }>;
 }) {
   const { key } = await params;
-  const { q = "", status = "all", flag = "all", page: pageParam = "1" } = await searchParams;
+  const {
+    q = "",
+    phase = "all",
+    flag = "all",
+    submitted = "all",
+    assessed = "all",
+    submitTime = "any",
+    page: pageParam = "1",
+  } = await searchParams;
   const page = Math.max(1, parseInt(pageParam, 10) || 1);
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [{ rows: filtered, total }, statusCounts, flagCounts, screenerGroups] = await Promise.all([
-    getApplicantsPage(program.id, { q, status, flag, page, pageSize: PAGE_SIZE }),
-    getApplicantStatusCounts(program.id),
-    getApplicantFlagCounts(program.id),
+  const [{ rows: filtered, total }, activeCohort, screenerGroups] = await Promise.all([
+    getApplicantsPage(program.id, { q, phase, flag, submitted, assessed, submitTime, page, pageSize: PAGE_SIZE }),
+    getActiveCohortWithCriteria(program.id),
     db.screenerGroup.findMany({ where: { programId: program.id }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
-  const countAll = statusCounts.all;
-  const countReview = statusCounts.review;
-  const countDecided = statusCounts.decided;
-  // Deliberately flagCounts.all here, not statusCounts.all — the Red flag filter's "All"
-  // also includes "ineligible" (locked-out, never-submitted) applications, which the plain
-  // Status filter's "All" doesn't (see buildApplicantsWhere/getApplicantFlagCounts in
-  // admin-data.ts), so the two "All" labels can legitimately show different numbers.
-  const countAllWithFlags = flagCounts.all;
-  const countFlagged = flagCounts.flagged;
-  const countClear = flagCounts.clear;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const pageHref = (p: number) =>
-    `/admin/${program.key}/queue?status=${status}&flag=${flag}&page=${p}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const queryString = (overrides: Record<string, string | number> = {}) => {
+    const params = new URLSearchParams({ phase, flag, submitted, assessed, submitTime, ...(q ? { q } : {}) });
+    for (const [k, v] of Object.entries(overrides)) params.set(k, String(v));
+    return params.toString();
+  };
+  const pageHref = (p: number) => `/admin/${program.key}/queue?${queryString({ page: p })}`;
 
   return (
     <div>
@@ -58,11 +59,7 @@ export default async function QueuePage({
           <h2 style={{ marginBottom: 4 }}>Applications Overview</h2>
           <p className="text-muted" style={{ marginBottom: 0 }}>Cycle closes {program.deadlineFull}</p>
         </div>
-        <LinkButton
-          href={`/api/export/${program.id}?status=${status}&flag=${flag}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-          variant="secondary"
-          style={{ flex: "none" }}
-        >
+        <LinkButton href={`/api/export/${program.id}?${queryString()}`} variant="secondary" style={{ flex: "none" }}>
           Export CSV
         </LinkButton>
       </div>
@@ -79,29 +76,69 @@ export default async function QueuePage({
         }
       >
         <Field label="Name" htmlFor="queue-search">
-          <Input id="queue-search" name="q" placeholder="Search applicants..." defaultValue={q} />
+          <Input id="queue-search" name="q" placeholder="Search candidate..." defaultValue={q} />
         </Field>
-        <Field label="Status" htmlFor="queue-status">
+        <Field label="By Phase" htmlFor="queue-phase">
           <AutoSubmitSelect
-            id="queue-status"
-            name="status"
-            defaultValue={status}
+            id="queue-phase"
+            name="phase"
+            defaultValue={phase}
             options={[
-              { value: "all", label: `All (${countAll})` },
-              { value: "review", label: `Needs review (${countReview})` },
-              { value: "decided", label: `Decided (${countDecided})` },
+              { value: "all", label: "All" },
+              ...APPLICANT_PHASES.map((label, i) => ({ value: String(i), label })),
             ]}
           />
         </Field>
-        <Field label="Red flag" htmlFor="queue-flag">
+        <Field label="By Flags" htmlFor="queue-flag">
           <AutoSubmitSelect
             id="queue-flag"
             name="flag"
             defaultValue={flag}
             options={[
-              { value: "all", label: `All (${countAllWithFlags})` },
-              { value: "flagged", label: `Red flagged (${countFlagged})` },
-              { value: "clear", label: `No flags (${countClear})` },
+              { value: "all", label: "All" },
+              { value: "flagged", label: "Flagged" },
+              { value: "clear", label: "Clear" },
+              // One option per the active cohort's own criteria — lets an admin isolate
+              // applicants failing one specific reason, not just "flagged in general".
+              ...(activeCohort?.criteria.filter((c) => c.enabled).map((c) => ({ value: c.key, label: c.label })) ?? []),
+              { value: "ineligible", label: "Locked at intake" },
+            ]}
+          />
+        </Field>
+        <Field label="Submitted?" htmlFor="queue-submitted">
+          <AutoSubmitSelect
+            id="queue-submitted"
+            name="submitted"
+            defaultValue={submitted}
+            options={[
+              { value: "all", label: "All" },
+              { value: "submitted", label: "Submitted" },
+              { value: "draft", label: "Not submitted" },
+            ]}
+          />
+        </Field>
+        <Field label="By Scores" htmlFor="queue-assessed">
+          <AutoSubmitSelect
+            id="queue-assessed"
+            name="assessed"
+            defaultValue={assessed}
+            options={[
+              { value: "all", label: "Any" },
+              { value: "assessed", label: "Assessed" },
+              { value: "pending", label: "Not yet assessed" },
+            ]}
+          />
+        </Field>
+        <Field label="By Submit Time" htmlFor="queue-submit-time">
+          <AutoSubmitSelect
+            id="queue-submit-time"
+            name="submitTime"
+            defaultValue={submitTime}
+            options={[
+              { value: "any", label: "Any" },
+              { value: "today", label: "Today" },
+              { value: "7d", label: "Last 7 days" },
+              { value: "30d", label: "Last 30 days" },
             ]}
           />
         </Field>
@@ -122,6 +159,7 @@ export default async function QueuePage({
           name: a.name,
           phaseLabel: a.phaseLabel,
           notEligible: a.status === "ineligible",
+          notSubmitted: a.notSubmitted,
           flagged: a.flags.length > 0,
           flagOverridden: a.flagOverridden,
           submitted: a.submitted,
@@ -135,13 +173,15 @@ export default async function QueuePage({
           // "Awarded" is only reached via the Award/Waitlist/Decline decision, never Promote
           // — so Promote is also disabled once at For Interview, the last phase it can reach.
           promoteDisabled:
-            a.status === "ineligible" ||
+            a.notSubmitted ||
             (a.flags.length > 0 && !a.flagOverridden) ||
             a.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX ||
             (a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName),
           promoteTitle:
-            a.status === "ineligible"
-              ? "This application was locked out at intake and was never submitted."
+            a.notSubmitted
+              ? a.status === "ineligible"
+                ? "This application was locked out at intake and was never submitted."
+                : "This application is still a draft — nothing to review until it's submitted."
               : a.flags.length > 0 && !a.flagOverridden
                 ? "This applicant has an unresolved red flag — a Super Admin must override it from their detail page before they can proceed."
                 : a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName
@@ -155,7 +195,7 @@ export default async function QueuePage({
           // assigned — unassign them first (on the applicant's detail page). "Awarded" can
           // only be reversed by changing the decision itself, not by demoting the phase.
           demoteDisabled:
-            a.status === "ineligible" ||
+            a.notSubmitted ||
             a.phaseIndex <= 0 ||
             a.phaseIndex === AWARDED_PHASE_INDEX ||
             (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && a.screenerCount > 0),
