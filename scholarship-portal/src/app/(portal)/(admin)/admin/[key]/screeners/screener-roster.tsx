@@ -18,6 +18,7 @@ type Row = {
   invitePending: boolean;
   acceptedPrivacy: boolean;
   assignedCount: number;
+  assessedCount: number;
   groups: string[];
 };
 
@@ -142,6 +143,9 @@ export function ScreenerRoster({
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>{s.assignedCount}</span>
                   <span className="text-muted" style={{ fontSize: 12 }}> / {MAX_PER_SCREENER}</span>
                   {s.assignedCount >= MAX_PER_SCREENER && <Tag variant="neutral" style={{ marginLeft: 6 }}>Full</Tag>}
+                  <div className="text-muted" style={{ fontSize: 12, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                    {s.assessedCount} assessed{s.assignedCount > s.assessedCount ? `, ${s.assignedCount - s.assessedCount} pending` : ""}
+                  </div>
                 </td>
                 <td>
                   {s.hasPassword ? (

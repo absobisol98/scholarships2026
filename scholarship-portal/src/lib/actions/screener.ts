@@ -18,7 +18,7 @@ export async function saveAssessment(applicationId: number, fd: FormData) {
 
   const assigned = await db.screenerAssignment.findFirst({
     where: { screenerId: screener.id, applicationId },
-    include: { application: true },
+    include: { application: { include: { program: true } } },
   });
   if (!assigned) return;
 
@@ -33,6 +33,12 @@ export async function saveAssessment(applicationId: number, fd: FormData) {
 
   revalidatePath(`/screener/${applicationId}`);
   revalidatePath("/screener");
+  // A "recommend" verdict here can auto-shortlist the applicant (see applyAssessment) —
+  // keep the admin-facing views from showing a stale phase/tag until an unrelated
+  // navigation happens to refetch them.
+  const programKey = assigned.application.program.key;
+  revalidatePath(`/admin/${programKey}/queue`);
+  revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
   redirect(`/screener/${applicationId}?saved=1`);
 }
 

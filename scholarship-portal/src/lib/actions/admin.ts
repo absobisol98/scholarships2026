@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
-import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX, SUBMITTED_STATUSES } from "@/lib/steps";
+import { PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX, AWARDED_PHASE_INDEX, SUBMITTED_STATUSES } from "@/lib/steps";
 import { parseRegionMap, parseOptions, requireProgramAccess } from "@/lib/admin-data";
 import { uploadProgramTemplate } from "@/lib/storage";
 
@@ -180,13 +180,15 @@ export async function promoteApplicant(programKey: string, applicationId: number
   // can see/reset them, not so they can be advanced through the pipeline.
   if (!SUBMITTED_STATUSES.includes(a.status)) return;
 
-  // Can't leave Paper Screening without a completed recommendation form on file — see
-  // APPLICANT_PHASE_DESCRIPTIONS in src/lib/steps.ts ("Shortlisted applicants with
-  // completed recommendation forms proceed to an online interview"). Anyone in Paper
-  // Screening already counts as "shortlisted" — no separate marker to check.
-  if (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && !a.recommendationFileName) return;
+  // Can't leave Shortlisted without a completed recommendation form on file — see
+  // APPLICANT_PHASE_DESCRIPTIONS in src/lib/steps.ts ("Shortlisted applicants submit a
+  // recommendation form... proceed to an online interview").
+  if (a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName) return;
 
-  const next = Math.min(a.phaseIndex + 1, APPLICANT_PHASES.length - 1);
+  // "Awarded" is decision-driven only (setApplicantDecision in decisions.ts) — Promote
+  // stops one phase short so a plain click can never skip the actual award/waitlist/decline
+  // call.
+  const next = Math.min(a.phaseIndex + 1, FOR_INTERVIEW_PHASE_INDEX);
   await db.application.update({ where: { id: applicationId }, data: { phaseIndex: next } });
   revalidatePath(`/admin/${programKey}/queue`);
 }
@@ -194,6 +196,12 @@ export async function promoteApplicant(programKey: string, applicationId: number
 export async function demoteApplicant(programKey: string, applicationId: number) {
   const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
   await requireProgramAccess(a.programId);
+
+  // "Awarded" is decision-driven (see promoteApplicant above) — walking it back means
+  // changing the decision itself (setApplicantDecision in decisions.ts), not demoting a
+  // phase that Demote never advanced them into in the first place.
+  if (a.phaseIndex === AWARDED_PHASE_INDEX) return;
+
   const next = Math.max(a.phaseIndex - 1, 0);
 
   // Can't drop below Paper Screening while a screener still has this applicant assigned —

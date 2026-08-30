@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, resolveApplicationForDisplay } from "@/lib/student-data";
 import { uploadRecommendationForm } from "@/lib/actions/student";
-import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus, SHORTLISTED_PHASE_INDEX } from "@/lib/steps";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
@@ -60,7 +60,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         </Card>
       )}
 
-      {application && application.phaseIndex >= PAPER_SCREENING_PHASE_INDEX && program.recommendationTemplatePath && (
+      {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && program.recommendationTemplatePath && (
         <Card style={{ marginTop: "var(--space-6)" }}>
           <CardKicker>Recommendation form</CardKicker>
           <CardBody style={{ marginTop: -4 }}>

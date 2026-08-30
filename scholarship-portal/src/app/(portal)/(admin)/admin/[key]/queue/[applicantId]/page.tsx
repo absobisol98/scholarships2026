@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
 import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 import { getFieldsConfig } from "@/lib/field-config";
-import { PAPER_SCREENING_PHASE_INDEX, MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
+import { SHORTLISTED_PHASE_INDEX, MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
 import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment, resetIneligibleAttempts } from "@/lib/actions/decisions";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
@@ -149,7 +149,7 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
         </div>
       </Card>
 
-      {application.phaseIndex >= PAPER_SCREENING_PHASE_INDEX && (
+      {application.phaseIndex >= SHORTLISTED_PHASE_INDEX && (
         <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
           <CardKicker>Recommendation form</CardKicker>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
@@ -165,49 +165,62 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                 No recommendation-form template has been uploaded for this program yet — the applicant has no way to submit one until you add one from the Dashboard.
               </span>
             ) : (
-              <span className="text-muted" style={{ fontSize: 13 }}>Not yet uploaded — required before this applicant can move to Interviews.</span>
+              <span className="text-muted" style={{ fontSize: 13 }}>Not yet uploaded — required before this applicant can move to For Interview.</span>
             )}
           </div>
         </Card>
       )}
 
-      {(recommendations.length > 0 || scoresByScreener.size > 0) && (
+      {application.screenerAssignments.length > 0 && (
         <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
           <CardKicker>Paper Screener assessments</CardKicker>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: 8 }}>
-            {Array.from(scoresByScreener.entries()).map(([screenerId, { name, scores }]) => {
+            {/* Iterates the actual assignments, not just scoresByScreener, so an assigned
+                screener who hasn't submitted anything yet still shows up — "not yet
+                assessed" is exactly the state this card used to hide entirely. */}
+            {application.screenerAssignments.map((sa) => {
+              const screenerId = sa.screenerId;
+              const name = sa.screener.name;
+              const scores = scoresByScreener.get(screenerId)?.scores ?? {};
               const rec = recommendations.find((r) => r.screenerId === screenerId);
+              const hasAssessed = scoresByScreener.has(screenerId) || !!rec;
 
               if (!isSuperAdmin) {
                 return (
                   <div key={screenerId} style={{ paddingBottom: 10, borderBottom: "1px solid var(--color-divider)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontWeight: 700, fontSize: 13 }}>{name}</span>
-                      {rec && (
+                      {rec ? (
                         <Tag variant={rec.decision === "recommend" ? "accent" : "neutral"}>
                           {rec.decision === "recommend" ? "Recommended" : "Not recommended"}
                         </Tag>
+                      ) : (
+                        <Tag variant="outline">Not yet assessed</Tag>
                       )}
                     </div>
-                    <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 6, fontSize: 12 }}>
-                      {RUBRIC_CRITERIA.map((c) => (
-                        <span key={c.key} className="text-muted">{c.label}: <b style={{ color: "var(--color-text)" }}>{scores[c.key] ?? "—"}</b></span>
-                      ))}
-                    </div>
+                    {hasAssessed && (
+                      <div style={{ display: "flex", gap: "var(--space-4)", marginTop: 6, fontSize: 12 }}>
+                        {RUBRIC_CRITERIA.map((c) => (
+                          <span key={c.key} className="text-muted">{c.label}: <b style={{ color: "var(--color-text)" }}>{scores[c.key] ?? "—"}</b></span>
+                        ))}
+                      </div>
+                    )}
                     {rec?.comment && <p style={{ fontSize: 13, marginTop: 6, marginBottom: 0, opacity: 0.85 }}>{rec.comment}</p>}
                   </div>
                 );
               }
 
-              // Super Admin can edit any screener's assessment on their behalf — the
-              // screener's own edit access locks once this applicant moves past Paper
+              // Super Admin can fill in or edit any screener's assessment on their behalf —
+              // the screener's own edit access locks once this applicant moves past Paper
               // Screening. Changes here are attributed to the original screener but
               // recorded in the Audit Log so there's a trail of who actually made them.
               const onOverrideAssessment = overrideAssessment.bind(null, program.key, application.id, screenerId);
               return (
                 <form key={screenerId} action={onOverrideAssessment} style={{ paddingBottom: 12, borderBottom: "1px solid var(--color-divider)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>{name} <span className="text-muted" style={{ fontWeight: 400 }}>(editing on their behalf)</span></span>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>
+                      {name} <span className="text-muted" style={{ fontWeight: 400 }}>{hasAssessed ? "(editing on their behalf)" : "(not yet assessed — filling in on their behalf)"}</span>
+                    </span>
                     <Button type="submit" variant="ghost" style={{ padding: "2px 10px", fontSize: 12 }}>Save</Button>
                   </div>
                   <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>

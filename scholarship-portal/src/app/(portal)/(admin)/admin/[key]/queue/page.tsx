@@ -3,7 +3,7 @@ import { getProgramByKey, getApplicantsPage, getApplicantStatusCounts, getApplic
 import { promoteApplicant, demoteApplicant } from "@/lib/actions/admin";
 import { assignSelectedToGroup } from "@/lib/actions/screenerGroups";
 import { db } from "@/lib/db";
-import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX, AWARDED_PHASE_INDEX } from "@/lib/steps";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { PhaseLegend } from "@/components/phase-legend";
 import { AutoSubmitSelect } from "@/components/auto-submit-select";
@@ -123,24 +123,38 @@ export default async function QueuePage({
           onDemote: demoteApplicant.bind(null, program.key, a.id),
           // A never-submitted, locked-out application has nothing to promote — it only shows
           // up here (via the "Not eligible" status filter) so an admin can find and reset it.
-          // Otherwise: can't leave Paper Screening without a completed recommendation form on
+          // Otherwise: can't leave Shortlisted without a completed recommendation form on
           // file — see promoteApplicant's own matching check in src/lib/actions/admin.ts.
+          // "Awarded" is only reached via the Award/Waitlist/Decline decision, never Promote
+          // — so Promote is also disabled once at For Interview, the last phase it can reach.
           promoteDisabled:
             a.status === "ineligible" ||
-            a.phaseIndex >= APPLICANT_PHASES.length - 1 ||
-            (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && !a.recommendationFileName),
+            a.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX ||
+            (a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName),
           promoteTitle:
             a.status === "ineligible"
               ? "This application was locked out at intake and was never submitted."
-              : a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && !a.recommendationFileName
+              : a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName
                 ? !program.recommendationTemplatePath
                   ? "This program has no recommendation-form template uploaded yet — add one from the Dashboard before applicants can submit one."
                   : "Waiting on this applicant's recommendation form — see their application detail page."
-                : undefined,
+                : a.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX
+                  ? "Award, waitlist, or decline this applicant from their detail page to move them further."
+                  : undefined,
           // Can't drop below Paper Screening while a screener still has this applicant
-          // assigned — unassign them first (on the applicant's detail page).
-          demoteDisabled: a.status === "ineligible" || a.phaseIndex <= 0 || (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && a.screenerCount > 0),
-          demoteTitle: a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && a.screenerCount > 0 ? "Unassign this applicant's screener(s) first — see their application detail page." : undefined,
+          // assigned — unassign them first (on the applicant's detail page). "Awarded" can
+          // only be reversed by changing the decision itself, not by demoting the phase.
+          demoteDisabled:
+            a.status === "ineligible" ||
+            a.phaseIndex <= 0 ||
+            a.phaseIndex === AWARDED_PHASE_INDEX ||
+            (a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && a.screenerCount > 0),
+          demoteTitle:
+            a.phaseIndex === AWARDED_PHASE_INDEX
+              ? "Change this applicant's decision from their detail page instead of demoting."
+              : a.phaseIndex === PAPER_SCREENING_PHASE_INDEX && a.screenerCount > 0
+                ? "Unassign this applicant's screener(s) first — see their application detail page."
+                : undefined,
         }))}
       />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
