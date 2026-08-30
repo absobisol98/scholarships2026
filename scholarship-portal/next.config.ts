@@ -1,6 +1,32 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Drops the "X-Powered-By: Next.js" response header — no reason to hand a probing
+  // attacker a free framework/version fingerprint.
+  poweredByHeader: false,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // Clickjacking: nothing in this app is meant to be framed by another origin.
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          // Force HTTPS on every future request, including subdomains, once a browser has
+          // seen this once — irrelevant in local dev (plain http://localhost never sends
+          // it since Next only applies response headers to actual responses it serves,
+          // and no browser acts on an HSTS header received over http:// anyway).
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          // Stops a browser from re-interpreting a response as a different MIME type than
+          // the one declared (e.g. sniffing an uploaded file into an executable script).
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Don't leak this app's full URLs (which can carry ids/tokens in the path) to a
+          // third-party site's server logs when a link out of the app is followed.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   experimental: {
     // Server Actions cap request bodies at 1MB by default — too small for the
     // application form's "PDF or image, up to 10MB" certificate upload plus the rest of

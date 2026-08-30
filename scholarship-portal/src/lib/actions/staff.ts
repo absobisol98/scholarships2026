@@ -9,9 +9,14 @@ function str(fd: FormData, name: string): string {
   return typeof v === "string" ? v : "";
 }
 
-export async function logAudit(action: string, programId?: number) {
-  const superAdmin = await getCurrentStaff("super_admin");
-  await db.auditLogEntry.create({ data: { actor: superAdmin.name, action, programId: programId ?? null } });
+// `actorName`: every existing call site here is Super-Admin-only, so it defaults to
+// resolving the current super admin exactly as before. Callers outside this file (the
+// screener-onboarding credential actions, reachable by a plain Admin or by no staff
+// session at all) pass their own actor explicitly instead — `getCurrentStaff("super_admin")`
+// would silently misattribute the entry to the seeded demo super admin for those.
+export async function logAudit(action: string, programId?: number, actorName?: string) {
+  const actor = actorName ?? (await getCurrentStaff("super_admin")).name;
+  await db.auditLogEntry.create({ data: { actor, action, programId: programId ?? null } });
 }
 
 // Every function below is only reachable from the Super-Admin-only /super_admin/users page.

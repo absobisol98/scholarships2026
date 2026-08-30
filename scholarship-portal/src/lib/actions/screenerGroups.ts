@@ -4,8 +4,9 @@ import Papa from "papaparse";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getEligibleUnassignedApplicants, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape, requireProgramAccess } from "@/lib/admin-data";
-import { requireAdminLike } from "@/lib/auth";
+import { requireAdminLike, getCurrentStaff } from "@/lib/auth";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { logAudit } from "@/lib/actions/staff";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -311,16 +312,24 @@ export async function bulkImportScreeners(
 }
 
 export async function setStaffPassword(programKey: string, staffId: string, fd: FormData): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminLike();
+  const session = await requireAdminLike();
   const password = String(fd.get("password") ?? "");
   if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
 
   const bcrypt = await import("bcryptjs");
   const passwordHash = await bcrypt.hash(password, 10);
-  await db.staffAccount.update({
-    where: { id: staffId },
-    data: { passwordHash, inviteToken: null, inviteTokenExpiresAt: null },
-  });
+  const [staff, actor] = await Promise.all([
+    db.staffAccount.update({
+      where: { id: staffId },
+      // Revokes any session already active on this account (see auth.ts) — an admin
+      // resetting a screener's password should also kick out whoever was using the old one.
+      data: { passwordHash, inviteToken: null, inviteTokenExpiresAt: null, sessionVersion: { increment: 1 } },
+    }),
+    getCurrentStaff(session.role),
+  ]);
+  // Credential-management is the most sensitive operation this app exposes — a password
+  // set here is exactly the kind of action the OWASP A09 finding flagged as unlogged.
+  await logAudit(`Set a password for Paper Screener account: ${staff.name}`, undefined, actor.name);
   revalidatePath(`/admin/${programKey}/screener-groups`);
   return { ok: true };
 }
@@ -328,13 +337,17 @@ export async function setStaffPassword(programKey: string, staffId: string, fd: 
 const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function generateScreenerMagicLink(programKey: string, staffId: string): Promise<{ token: string; expiresAt: Date }> {
-  await requireAdminLike();
+  const session = await requireAdminLike();
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS);
-  await db.staffAccount.update({
-    where: { id: staffId },
-    data: { inviteToken: token, inviteTokenExpiresAt: expiresAt },
-  });
+  const [staff, actor] = await Promise.all([
+    db.staffAccount.update({
+      where: { id: staffId },
+      data: { inviteToken: token, inviteTokenExpiresAt: expiresAt },
+    }),
+    getCurrentStaff(session.role),
+  ]);
+  await logAudit(`Generated a password-setup link for Paper Screener account: ${staff.name}`, undefined, actor.name);
   revalidatePath(`/admin/${programKey}/screener-groups`);
   return { token, expiresAt };
 }
@@ -358,7 +371,11 @@ export async function setScreenerPasswordViaToken(token: string, fd: FormData): 
   const passwordHash = await bcrypt.hash(password, 10);
   await db.staffAccount.update({
     where: { id: staff.id },
-    data: { passwordHash, inviteToken: null, inviteTokenExpiresAt: null },
+    data: { passwordHash, inviteToken: null, inviteTokenExpiresAt: null, sessionVersion: { increment: 1 } },
   });
+  // No staff session exists at this endpoint (it's the public magic-link landing page) — the
+  // account nominating its own password is the actor, logged by name for the same reason
+  // setStaffPassword is: this is a credential-management event.
+  await logAudit(`Nominated own password via magic link: ${staff.name}`, undefined, staff.name);
   return { ok: true };
 }

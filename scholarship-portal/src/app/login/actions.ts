@@ -7,11 +7,26 @@ import { SESSION_COOKIE, type Role } from "@/lib/session";
 import { loginAs, getDemoStudent, initialsFor, loginPathForRole, getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
   return typeof v === "string" ? v : "";
+}
+
+// Two limiters, not one, so a remote attacker who only knows a victim's email (public
+// signup, CSV rosters — trivially knowable) can't burn through the victim's own budget and
+// keep them permanently locked out from every IP. The tight per-(IP, email) limiter is what
+// actually stops password guessing from one source; the looser per-email limiter is a
+// backstop against sustained abuse spread across many source IPs, generous enough that a
+// legitimate user fumbling their password a few times from home and again from their phone
+// never trips it on its own.
+async function checkLoginRateLimit(ip: string, email: string): Promise<boolean> {
+  const [ipAllowed, emailAllowed] = await Promise.all([
+    checkRateLimit(`login-ip:${ip}:${email}`, { max: 5, windowSeconds: 60 }),
+    checkRateLimit(`login-email:${email}`, { max: 20, windowSeconds: 600 }),
+  ]);
+  return ipAllowed && emailAllowed;
 }
 
 export async function loginAsStudent() {
@@ -31,11 +46,13 @@ export async function loginAsStudent() {
 // with the wrong kind of account fails here rather than silently logging you in somewhere
 // you didn't mean to go. Errors come back to the same door you knocked on.
 //
-// The rate limit is checked only once we know this is genuinely the right door for this
-// email — resolving which door is "wrong" doesn't touch the limiter at all. It used to run
-// first, which meant someone who mistyped their way to the wrong sign-in page a few times
-// (an easy mistake now that there are four doors) could burn through their five attempts
-// without ever entering a password, then get locked out of the door they actually needed.
+// Account enumeration: every "this didn't work" path below redirects with the same generic
+// `no_match` error, whether the email doesn't exist at all, exists under a different role,
+// or exists but is the wrong kind of account for this door. Distinguishing those used to leak
+// real information to an anonymous prober ("that email has no account" vs. "that email is a
+// staff account" vs. "that email is a Program Admin, not a Screener"). The one exception is
+// a right-door, right-role account that's been deactivated — that message stays specific,
+// since it's meant for the account's own (legitimate) holder, not a stranger probing emails.
 async function loginForRole(expected: Role, fd: FormData): Promise<void> {
   const door = loginPathForRole(expected);
   const q = (error: string) => `${door}${door.includes("?") ? "&" : "?"}error=${error}`;
@@ -44,37 +61,40 @@ async function loginForRole(expected: Role, fd: FormData): Promise<void> {
   const password = str(fd, "password");
   if (!email) redirect(q("missing_email"));
 
+  const ip = await getClientIp();
+
   if (expected === "student") {
     const student = await db.student.findFirst({ where: { email } });
-    if (student) {
-      const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
-      if (!allowed) redirect(q("rate_limited"));
-      await loginAs("student", student.id);
+    if (!student) redirect(q("no_match"));
+    if (!(await checkLoginRateLimit(ip, email))) {
+      console.warn(`[auth] login rate-limited for ${email} from ${ip}`);
+      redirect(q("rate_limited"));
     }
-    // An existing staff account typing their email into the applicant door gets told where
-    // to go rather than a flat "no account" — the address is real, the door is wrong.
-    const staff = await db.staffAccount.findFirst({ where: { email } });
-    redirect(q(staff ? "wrong_door" : "no_account"));
+    await loginAs("student", student.id);
   }
 
   const staff = await db.staffAccount.findFirst({ where: { email } });
-  if (!staff) {
-    const student = await db.student.findFirst({ where: { email } });
-    redirect(q(student ? "wrong_door" : "no_account"));
-  }
-  if (staff.role !== expected) redirect(q("wrong_door"));
+  if (!staff || staff.role !== expected) redirect(q("no_match"));
   if (!staff.active) redirect(q(`${staff.role}_deactivated`));
 
   // From here on the door and the account genuinely match, so a real attempt — right or
   // wrong password — is about to be spent. This is the only path that should count toward
   // the limit: it's what guards a screener's password against repeated guessing.
-  const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
-  if (!allowed) redirect(q("rate_limited"));
+  if (!(await checkLoginRateLimit(ip, email))) {
+    console.warn(`[auth] login rate-limited for ${email} from ${ip}`);
+    redirect(q("rate_limited"));
+  }
 
   if (staff.role === "screener" && staff.passwordHash) {
     const bcrypt = await import("bcryptjs");
     const matches = password ? await bcrypt.compare(password, staff.passwordHash) : false;
-    if (!matches) redirect(q("wrong_password"));
+    if (!matches) {
+      // First-cut signal for the A04 rate-limiter-abuse pattern: nothing consumes this yet
+      // (no log aggregation/alerting exists in this app), but it's what a real monitor would
+      // watch for a spike in, per the audit's own "first step" framing.
+      console.warn(`[auth] wrong password for ${email} from ${ip}`);
+      redirect(q("wrong_password"));
+    }
   }
 
   await loginAs(staff.role as Role, undefined, staff.id);
@@ -100,8 +120,15 @@ export async function signUpAsStudent(fd: FormData) {
   const email = str(fd, "email").trim().toLowerCase();
   if (!name || !email) redirect("/signup?error=missing_fields");
 
-  const allowed = await checkRateLimit(`signup:${email}`, { max: 5, windowSeconds: 60 });
-  if (!allowed) redirect("/signup?error=rate_limited");
+  // Same dual-limiter reasoning as loginForRole above: a per-email-only limit would let a
+  // remote attacker who just knows someone's email address permanently block them from ever
+  // completing signup, from anywhere.
+  const ip = await getClientIp();
+  const [ipAllowed, emailAllowed] = await Promise.all([
+    checkRateLimit(`signup-ip:${ip}:${email}`, { max: 5, windowSeconds: 60 }),
+    checkRateLimit(`signup-email:${email}`, { max: 20, windowSeconds: 600 }),
+  ]);
+  if (!ipAllowed || !emailAllowed) redirect("/signup?error=rate_limited");
 
   const [existingStudent, existingStaff] = await Promise.all([
     db.student.findFirst({ where: { email } }),
@@ -129,6 +156,14 @@ export async function signUpAsStudent(fd: FormData) {
 export async function logout() {
   const session = await getSession();
   const door = session ? loginPathForRole(session.role) : "/";
+  // Bumping sessionVersion is what actually revokes this session (see session.ts) — not the
+  // cookie deletion below, which only removes it from *this* browser. Any other copy of the
+  // cookie (another device, a browser-synced tab) stops verifying the moment this runs.
+  if (session?.studentId != null) {
+    await db.student.update({ where: { id: session.studentId }, data: { sessionVersion: { increment: 1 } } });
+  } else if (session?.staffId) {
+    await db.staffAccount.update({ where: { id: session.staffId }, data: { sessionVersion: { increment: 1 } } });
+  }
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
   revalidatePath("/", "layout");

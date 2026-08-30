@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
-import { exchangeCodeForTokens, decodeGoogleIdToken, OAUTH_STATE_COOKIE } from "@/lib/google-oauth";
+import { exchangeCodeForTokens, verifyGoogleIdToken, OAUTH_STATE_COOKIE } from "@/lib/google-oauth";
 import { loginAs, initialsFor } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     const redirectUri = new URL("/api/auth/google/callback", request.nextUrl.origin).toString();
     const tokens = await exchangeCodeForTokens(code, redirectUri);
-    const identity = decodeGoogleIdToken(tokens.id_token);
+    const identity = await verifyGoogleIdToken(tokens.id_token);
     if (!identity) throw new Error("could not resolve Google identity");
 
     const email = identity.email.trim().toLowerCase();

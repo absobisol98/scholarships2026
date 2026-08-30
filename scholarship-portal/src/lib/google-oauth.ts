@@ -1,13 +1,19 @@
 import "server-only";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // Real Google OAuth (Authorization Code flow) for the "Continue with Google" button —
-// applicants only. No new dependency: the id_token is decoded directly (see
-// decodeGoogleIdToken below) rather than verified against Google's JWKS, matching this
-// app's existing "no real credentials in this demo" posture (see session.ts).
+// applicants only.
 
 export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+export const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 export const OAUTH_STATE_COOKIE = "sp_oauth_state";
+
+// createRemoteJWKSet caches Google's published signing keys (and respects their HTTP
+// cache headers for refetching), so this doesn't do a network round trip on every login —
+// only the first time a given key id is seen. Module-level so the cache is shared across
+// requests in the same server process.
+const googleJwks = createRemoteJWKSet(new URL(GOOGLE_JWKS_URL));
 
 function getGoogleOAuthEnv(): { clientId: string; clientSecret: string } {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -49,25 +55,27 @@ export async function exchangeCodeForTokens(code: string, redirectUri: string): 
 export type GoogleIdentity = { email: string; name?: string };
 
 // The id_token arrives via a direct server-to-server HTTPS call authenticated with our
-// client_secret — it never passes through the browser, so it carries the same trust as
-// any other response on that connection. We still sanity-check the claims (issuer,
-// audience, expiry, verified email) but skip JWKS signature verification, which would add
-// a dependency and a round-trip this internal/demo-tier app doesn't need.
-export function decodeGoogleIdToken(idToken: string): GoogleIdentity | null {
-  const parts = idToken.split(".");
-  if (parts.length !== 3) return null;
-
+// client_secret, so the practical exploit path for a forged token already required
+// compromising Google's TLS or token endpoint — but verifying the signature against
+// Google's published JWKS (rather than only decoding and trusting the claims) is the
+// standard defense-in-depth here and costs one cached lookup, so there's no reason not to.
+// jwtVerify itself checks the signature, `exp`, and (via the options below) `iss`/`aud` —
+// the two claims underneath still need a manual check since they're app-specific meaning,
+// not something a generic JWT verifier enforces on its own.
+export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdentity | null> {
+  const { clientId } = getGoogleOAuthEnv();
   let claims: Record<string, unknown>;
   try {
-    claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    const result = await jwtVerify(idToken, googleJwks, {
+      issuer: ["accounts.google.com", "https://accounts.google.com"],
+      audience: clientId,
+    });
+    claims = result.payload;
   } catch {
+    // Bad signature, expired, wrong issuer/audience, or malformed — all the same outcome.
     return null;
   }
 
-  const { clientId } = getGoogleOAuthEnv();
-  if (claims.iss !== "accounts.google.com" && claims.iss !== "https://accounts.google.com") return null;
-  if (claims.aud !== clientId) return null;
-  if (typeof claims.exp !== "number" || claims.exp * 1000 < Date.now()) return null;
   if (claims.email_verified !== true) return null;
   if (typeof claims.email !== "string") return null;
 
