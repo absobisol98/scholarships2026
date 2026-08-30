@@ -29,3 +29,15 @@ export async function checkRateLimit(key: string, opts: { max: number; windowSec
   db.rateLimitAttempt.deleteMany({ where: { key, createdAt: { lt: windowStart } } }).catch(() => {});
   return true;
 }
+
+// signup-ip/login-ip above are keyed on (ip, email) — deliberately, so a shared IP (a school
+// lab, an office NAT) never gets one member's retries counted against another's. But that
+// means nothing anywhere limits raw account-creation *volume* from a single source: an IP
+// cycling through many distinct emails sails through both existing limiters untouched. This
+// is the coarser backstop for that gap — one shared ceiling, high enough not to punish a
+// real shared-IP classroom signing up together, low enough to slow a scripted flood. Shared
+// by both real signup entry points (email/password and Google) so they can't be played
+// against each other to double the effective ceiling.
+export async function checkSignupVolumeLimit(ip: string): Promise<boolean> {
+  return checkRateLimit(`signup-ip-volume:${ip}`, { max: 30, windowSeconds: 600 });
+}

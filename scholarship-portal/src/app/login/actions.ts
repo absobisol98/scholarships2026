@@ -7,7 +7,7 @@ import { SESSION_COOKIE, type Role } from "@/lib/session";
 import { loginAs, getDemoStudent, initialsFor, loginPathForRole, getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, checkSignupVolumeLimit, getClientIp } from "@/lib/rate-limit";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -116,19 +116,28 @@ export async function loginAsSuperAdmin(fd: FormData) {
 // Real applicant signup: creates an actual Student row (distinct from the demo persona)
 // and logs the new account in immediately.
 export async function signUpAsStudent(fd: FormData) {
+  // Honeypot — a hidden input a real applicant never sees or fills, but a naive auto-filling
+  // bot will. Deliberately indistinguishable from a normal validation failure: no signal is
+  // given away about why the redirect happened, and nothing is created.
+  if (str(fd, "website").trim()) redirect("/signup?error=missing_fields");
+
   const name = str(fd, "name").trim();
   const email = str(fd, "email").trim().toLowerCase();
   if (!name || !email) redirect("/signup?error=missing_fields");
 
-  // Same dual-limiter reasoning as loginForRole above: a per-email-only limit would let a
-  // remote attacker who just knows someone's email address permanently block them from ever
-  // completing signup, from anywhere.
+  // Three limiters. The first two are the original dual-limiter reasoning: a per-email-only
+  // limit would let a remote attacker who just knows someone's email address permanently
+  // block them from ever completing signup, from anywhere. Neither one, though, limits raw
+  // account-creation *volume* from a single source — an IP cycling through many distinct
+  // emails sails through both untouched — so the third, coarser volumetric limiter closes
+  // that gap (see checkSignupVolumeLimit's own comment for why it's a separate, shared check).
   const ip = await getClientIp();
-  const [ipAllowed, emailAllowed] = await Promise.all([
+  const [ipAllowed, emailAllowed, volumeAllowed] = await Promise.all([
     checkRateLimit(`signup-ip:${ip}:${email}`, { max: 5, windowSeconds: 60 }),
     checkRateLimit(`signup-email:${email}`, { max: 20, windowSeconds: 600 }),
+    checkSignupVolumeLimit(ip),
   ]);
-  if (!ipAllowed || !emailAllowed) redirect("/signup?error=rate_limited");
+  if (!ipAllowed || !emailAllowed || !volumeAllowed) redirect("/signup?error=rate_limited");
 
   const [existingStudent, existingStaff] = await Promise.all([
     db.student.findFirst({ where: { email } }),

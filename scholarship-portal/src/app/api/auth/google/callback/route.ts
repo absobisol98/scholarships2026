@@ -4,6 +4,8 @@ import type { NextRequest } from "next/server";
 import { exchangeCodeForTokens, verifyGoogleIdToken, OAUTH_STATE_COOKIE } from "@/lib/google-oauth";
 import { loginAs, initialsFor } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Prisma } from "@/generated/prisma";
+import { checkSignupVolumeLimit, getClientIp } from "@/lib/rate-limit";
 
 // Applicants only — this resolves solely against Student, never StaffAccount, even if a
 // matched email happens to belong to staff. First-time sign-in doubles as signup: no
@@ -21,6 +23,12 @@ export async function GET(request: NextRequest) {
     redirect("/?error=google_auth_failed");
   }
 
+  // This route had no rate limiting at all — signup by email/password does, so this was the
+  // weaker of the two front doors. Same shared volumetric ceiling as email/password signup
+  // (see checkSignupVolumeLimit) so the two paths can't be played against each other.
+  const ip = await getClientIp();
+  if (!(await checkSignupVolumeLimit(ip))) redirect("/?error=rate_limited");
+
   let studentId: number;
   try {
     const redirectUri = new URL("/api/auth/google/callback", request.nextUrl.origin).toString();
@@ -34,8 +42,22 @@ export async function GET(request: NextRequest) {
       studentId = existing.id;
     } else {
       const name = identity.name?.trim() || email.split("@")[0];
-      const created = await db.student.create({ data: { name, email, initials: initialsFor(name) } });
-      studentId = created.id;
+      try {
+        const created = await db.student.create({ data: { name, email, initials: initialsFor(name) } });
+        studentId = created.id;
+      } catch (error) {
+        // Two near-simultaneous callbacks for the same brand-new email (double-click,
+        // duplicate tab) can both pass the findFirst above — Student.email's @unique is what
+        // actually decides the race. The loser doesn't need to fail: re-fetch and log into
+        // the account that won, same outcome as if this request had arrived a moment later.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          const winner = await db.student.findFirst({ where: { email } });
+          if (!winner) throw error;
+          studentId = winner.id;
+        } else {
+          throw error;
+        }
+      }
     }
   } catch (e) {
     console.error("Google sign-in failed:", e);

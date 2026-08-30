@@ -30,6 +30,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         )}
 
         <form action={signUpAsStudent} className="card elev-md" style={{ padding: "var(--space-6)", gap: "var(--space-3)" }}>
+          {/* Honeypot — invisible to a real applicant, filled in by naive auto-filling bots.
+              Positioned off-screen rather than display:none (some bots skip hidden fields
+              outright), excluded from tab order and screen readers, autocomplete off so a
+              browser's own form-fill never populates it for a real user. */}
+          <div style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }} aria-hidden="true">
+            <label htmlFor="signup-website">Website</label>
+            <input id="signup-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+          </div>
           <Field label="Full name" htmlFor="signup-name" required>
             <Input id="signup-name" name="name" placeholder="Juan Dela Cruz" required aria-required="true" />
           </Field>

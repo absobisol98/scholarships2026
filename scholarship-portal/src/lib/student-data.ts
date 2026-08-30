@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { Prisma } from "@/generated/prisma";
 import { statusMeta } from "@/lib/steps";
 
 function hrefFor(programKey: string, status: string): string {
@@ -139,9 +140,23 @@ export async function resolveApplicationForAward(studentId: number, programId: n
 export async function ensureApplication(student: { id: number; name: string; email: string }, programId: number, cohortId: string | null) {
   const existing = await getApplication(student.id, programId, cohortId);
   if (existing) return existing;
-  const created = await db.application.create({
-    data: { studentId: student.id, programId, cohortId, status: "in_progress", fullName: student.name, email: student.email },
-  });
+  // Two concurrent "Start application" calls (a double-tap, two open tabs) can both pass the
+  // check above — the @@unique([studentId, programId, cohortId]) constraint is what actually
+  // decides the race, so catch its P2002 here and hand the loser the row that won instead of
+  // an unhandled error. Same reasoning/pattern as signUpAsStudent's email race in
+  // src/app/login/actions.ts.
+  let created;
+  try {
+    created = await db.application.create({
+      data: { studentId: student.id, programId, cohortId, status: "in_progress", fullName: student.name, email: student.email },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const winner = await getApplication(student.id, programId, cohortId);
+      if (winner) return winner;
+    }
+    throw error;
+  }
   return db.application.findUniqueOrThrow({
     where: { id: created.id },
     include: { familyMembers: { orderBy: { order: "asc" } } },
