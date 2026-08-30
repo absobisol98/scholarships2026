@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, resolveApplicationForDisplay } from "@/lib/student-data";
 import { uploadRecommendationForm } from "@/lib/actions/student";
-import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus, SHORTLISTED_PHASE_INDEX } from "@/lib/steps";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { displayFileName } from "@/lib/storage";
+import { SubmissionSuccessModal } from "@/components/submission-success-modal";
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_file: "Please choose a file to upload.",
@@ -16,9 +17,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_shortlisted: "Your application hasn't been shortlisted for this yet.",
 };
 
-export default async function StatusPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ error?: string }> }) {
+export default async function StatusPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ error?: string; submitted?: string }> }) {
   const { key } = await params;
-  const { error } = await searchParams;
+  const { error, submitted } = await searchParams;
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
@@ -32,6 +33,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
 
   return (
     <>
+      <SubmissionSuccessModal submitted={submitted === "1"} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
         <span className="text-muted" style={{ fontSize: 13 }}>
           {application?.submittedDate ? `Submitted ${application.submittedDate}` : "Not yet submitted"}
@@ -58,7 +60,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         </Card>
       )}
 
-      {application && application.phaseIndex >= PAPER_SCREENING_PHASE_INDEX && program.recommendationTemplatePath && (
+      {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && program.recommendationTemplatePath && (
         <Card style={{ marginTop: "var(--space-6)" }}>
           <CardKicker>Recommendation form</CardKicker>
           <CardBody style={{ marginTop: -4 }}>

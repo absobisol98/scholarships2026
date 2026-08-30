@@ -142,6 +142,7 @@ const APPLICATION_LIST_SELECT = {
   id: true,
   fullName: true,
   school: true,
+  status: true,
   submittedDate: true,
   decision: true,
   phaseIndex: true,
@@ -177,12 +178,13 @@ function mapApplicantRow(
 // stat tiles — no row fetch at all, unlike the old getApplicantsForProgram.
 export async function getApplicantStatusCounts(programId: number) {
   const base = { programId, status: { in: SUBMITTED_STATUSES } };
-  const [all, review, decided] = await Promise.all([
+  const [all, review, decided, ineligible] = await Promise.all([
     db.application.count({ where: base }),
     db.application.count({ where: { ...base, decision: null } }),
     db.application.count({ where: { ...base, decision: { not: null } } }),
+    db.application.count({ where: { programId, status: "ineligible" } }),
   ]);
-  return { all, review, decided };
+  return { all, review, decided, ineligible };
 }
 
 // Red-flag status isn't a plain column (it's computed from a cohort's dynamic criteria),
@@ -227,7 +229,11 @@ function buildApplicantsWhere(programId: number, opts: { q?: string; status?: st
   const { q = "", status = "all" } = opts;
   return {
     programId,
-    status: { in: SUBMITTED_STATUSES },
+    // "ineligible" applications never got submitted (locked out by the eligibility-attempt
+    // cap — see MAX_INELIGIBLE_ATTEMPTS) — kept out of the default SUBMITTED_STATUSES set
+    // used everywhere else (pipeline stats, screener-eligibility, CSV export by default) but
+    // still reachable here so an admin can find and reset them.
+    ...(status === "ineligible" ? { status: "ineligible" as const } : { status: { in: SUBMITTED_STATUSES } }),
     ...(status === "review" ? { decision: null } : status === "decided" ? { decision: { not: null } } : {}),
     ...(q ? { fullName: { contains: q, mode: "insensitive" as const } } : {}),
   };

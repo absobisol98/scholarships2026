@@ -6,6 +6,7 @@ import { getCurrentStaff, requireSuperAdmin } from "@/lib/auth";
 import { requireProgramAccess } from "@/lib/admin-data";
 import { logAudit } from "@/lib/actions/staff";
 import { applyAssessment } from "@/lib/assessment";
+import { AWARDED_PHASE_INDEX } from "@/lib/steps";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -52,10 +53,13 @@ export async function resetIneligibleAttempts(programKey: string, applicationId:
   await requireProgramAccess(existing.programId); // Admin-or-Super-Admin + scoped to their own program(s)
   const application = await db.application.update({
     where: { id: applicationId },
-    data: { ineligibleAttempts: 0 },
+    // Un-lock: a reset application must be reachable again through the normal application
+    // form, not stuck showing the lockout view with a status the student can never clear.
+    data: { ineligibleAttempts: 0, ...(existing.status === "ineligible" ? { status: "in_progress" } : {}) },
   });
   await logAudit(`Reset ineligible-attempt count for ${application.fullName}`, application.programId);
   revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
+  revalidatePath(`/admin/${programKey}/queue`);
 }
 
 const DECISION_LABELS: Record<string, string> = {
@@ -77,6 +81,8 @@ export async function overrideAssessment(programKey: string, applicationId: numb
   const application = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
   await logAudit(`Edited ${screener.name}'s Paper Screener assessment for ${application.fullName} on their behalf`, application.programId);
   revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
+  // A "recommend" verdict here can auto-shortlist the applicant too (see applyAssessment).
+  revalidatePath(`/admin/${programKey}/queue`);
 }
 
 // Setting a decision here also updates the applicant-facing Application.status for
@@ -89,7 +95,14 @@ export async function setApplicantDecision(programKey: string, applicationId: nu
   await requireSuperAdmin();
   const application = await db.application.update({
     where: { id: applicationId },
-    data: { decision, ...(decision === "awarded" || decision === "declined" ? { status: decision } : {}) },
+    data: {
+      decision,
+      ...(decision === "awarded" || decision === "declined" ? { status: decision } : {}),
+      // "Awarded" is now also the terminal phase (see APPLICANT_PHASES in steps.ts) — this
+      // is the only place that phase is ever reached. Waitlisted/declined applications
+      // aren't bumped into it; they just stay wherever their phaseIndex already was.
+      ...(decision === "awarded" ? { phaseIndex: AWARDED_PHASE_INDEX } : {}),
+    },
   });
   await logAudit(`Marked ${application.fullName} as ${DECISION_LABELS[decision]}`, application.programId);
   revalidatePath(`/admin/${programKey}/queue/${applicationId}`);

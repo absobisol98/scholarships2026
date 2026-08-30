@@ -21,7 +21,7 @@ export default async function ScreenersPage({ params }: { params: Promise<{ key:
         id: true, name: true, email: true, company: true, active: true,
         passwordHash: true, inviteToken: true, inviteTokenExpiresAt: true, privacyAcceptedAt: true,
         groupMemberships: { select: { group: { select: { id: true, name: true, programId: true } } } },
-        _count: { select: { screenerAssignments: true } },
+        _count: { select: { screenerAssignments: true, recommendations: true } },
       },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
@@ -39,6 +39,7 @@ export default async function ScreenersPage({ params }: { params: Promise<{ key:
     invitePending: !!s.inviteToken && !!s.inviteTokenExpiresAt && s.inviteTokenExpiresAt > new Date(),
     acceptedPrivacy: !!s.privacyAcceptedAt,
     assignedCount: s._count.screenerAssignments,
+    assessedCount: s._count.recommendations,
     groups: s.groupMemberships.filter((m) => m.group.programId === program.id).map((m) => m.group.name),
   }));
 

@@ -73,7 +73,16 @@ export default async function ScreenerApplicantPage({
             <h2 style={{ marginBottom: 2 }}>{application.fullName}</h2>
             <span className="text-muted" style={{ fontSize: 13 }}>{application.school}</span>
           </div>
-          <Tag variant="outline" style={{ whiteSpace: "nowrap", flex: "none" }}>Submitted&nbsp;{application.submittedDate}</Tag>
+          <div style={{ display: "flex", gap: 6, flex: "none", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Tag variant="outline" style={{ whiteSpace: "nowrap" }}>Submitted&nbsp;{application.submittedDate}</Tag>
+            {recommendation ? (
+              <Tag variant={recommendation.decision === "recommend" ? "success" : "neutral"} style={{ whiteSpace: "nowrap" }}>
+                {recommendation.decision === "recommend" ? "You recommended" : "You did not recommend"}
+              </Tag>
+            ) : (
+              <Tag variant="warning" style={{ whiteSpace: "nowrap" }}>Not yet assessed</Tag>
+            )}
+          </div>
         </div>
 
         <div className="hr" />

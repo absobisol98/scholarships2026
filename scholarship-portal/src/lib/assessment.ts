@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
+import { PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX } from "@/lib/steps";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -29,5 +30,17 @@ export async function applyAssessment(applicationId: number, screenerId: string,
       update: { decision, comment },
       create: { applicationId, screenerId, decision, comment },
     });
+
+    // A Paper Screener's "recommend" verdict IS the pass signal for this phase — the
+    // applicant is shortlisted the moment it's recorded, no separate admin click needed.
+    // The conditional `phaseIndex` guard makes this a no-op once the applicant has already
+    // moved on (so a later screener's recommendation, or a Super Admin edit via
+    // overrideAssessment, never drags someone already at For Interview/Awarded backwards).
+    if (decision === "recommend") {
+      await db.application.updateMany({
+        where: { id: applicationId, phaseIndex: PAPER_SCREENING_PHASE_INDEX },
+        data: { phaseIndex: SHORTLISTED_PHASE_INDEX },
+      });
+    }
   }
 }

@@ -2,9 +2,16 @@ export const FORM_STEP_LABELS = ["Personal Info", "Family Info", "Academic Info"
 export const GENERIKA_STEP_LABELS = ["Personal Info", "Family Info", "Leadership", "Community", "Statement"];
 export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision"];
 // The admin-side review pipeline for the Applications Overview queue (distinct from the
-// applicant-facing Application.status tracker in STAGE_LABELS/statusMeta below).
-export const APPLICANT_PHASES = ["Application Proper", "Paper Screening", "Interviews", "Final Scoring & Deliberations"];
+// applicant-facing Application.status tracker in STAGE_LABELS/statusMeta below). "Awarded"
+// is reached only through setApplicantDecision (src/lib/actions/decisions.ts) — the plain
+// Promote button stops one phase short at For Interview, so a click can never skip the real
+// award/waitlist/decline call. Waitlisted/declined applications simply never get bumped
+// into this last slot; they stay wherever their phaseIndex already was.
+export const APPLICANT_PHASES = ["Application", "Paper Screening", "Shortlisted", "For Interview", "Awarded"];
 export const PAPER_SCREENING_PHASE_INDEX = APPLICANT_PHASES.indexOf("Paper Screening");
+export const SHORTLISTED_PHASE_INDEX = APPLICANT_PHASES.indexOf("Shortlisted");
+export const FOR_INTERVIEW_PHASE_INDEX = APPLICANT_PHASES.indexOf("For Interview");
+export const AWARDED_PHASE_INDEX = APPLICANT_PHASES.indexOf("Awarded");
 
 // Shared between the admin surveys page and the student-facing check-in page — keep in
 // sync with SurveyWave.wave's actual values ("midYear" | "yearEnd").
@@ -26,7 +33,8 @@ export const MAX_INELIGIBLE_ATTEMPTS = 3;
 // Same order/length as APPLICANT_PHASES — what actually happens at each stage.
 export const APPLICANT_PHASE_DESCRIPTIONS = [
   "Applicants who meet the eligibility requirements submit the full scholarship application, along with all required supporting documents.",
-  "Complete applications are reviewed and evaluated based on the program's selection criteria. Shortlisted applicants submit a recommendation form.",
+  "Complete applications are reviewed and evaluated by assigned Paper Screeners based on the program's selection criteria.",
+  "Shortlisted applicants submit a recommendation form.",
   "Shortlisted applicants with completed recommendation forms proceed to an online interview and are assessed using the program's selection criteria.",
   "Strong, well-qualified applicants are chosen as scholars.",
 ];
@@ -69,6 +77,8 @@ export function statusMeta(appStatus: string) {
   switch (appStatus) {
     case "in_progress":
       return { label: "In progress", tagClass: "tag-accent", buttonLabel: "Continue application", buttonClass: "btn-primary" };
+    case "ineligible":
+      return { label: "Not eligible", tagClass: "tag-danger", buttonLabel: "View details", buttonClass: "btn-secondary" };
     case "submitted":
       return { label: "Submitted", tagClass: "tag-accent", buttonLabel: "View status", buttonClass: "btn-secondary" };
     case "awarded":
