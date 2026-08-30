@@ -8,7 +8,6 @@ import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { displayFileName } from "@/lib/storage";
 import { SubmissionSuccessModal } from "@/components/submission-success-modal";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -61,38 +60,27 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         </Card>
       )}
 
-      {/* Once the form is on file, this becomes a plain view — the task is done, so there's
-          nothing left to act on here (matching the stepper's own Shortlisted-checked state).
-          Only while still missing does it show as an actionable upload task. */}
-      {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && program.recommendationTemplatePath && (
-        application.recommendationFileName ? (
-          <Card style={{ marginTop: "var(--space-6)" }}>
-            <CardKicker>Recommendation form</CardKicker>
-            <CardBody style={{ marginTop: -4 }}>
-              Your completed recommendation form is on file.
-            </CardBody>
-            <a href={`/api/documents/${application.id}/recommendation`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
-              {displayFileName(application.recommendationFileName)} ↗
-            </a>
-          </Card>
-        ) : (
-          <Card style={{ marginTop: "var(--space-6)" }}>
-            <CardKicker>Recommendation form</CardKicker>
-            <CardBody style={{ marginTop: -4 }}>
-              Your application has been reviewed and shortlisted — you&apos;ll need a completed
-              recommendation form on file before moving on to an interview.
-            </CardBody>
-            <a href={`/api/documents/program/${program.id}/template`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
-              Download template ↗
-            </a>
-            <form action={onUploadRecommendation} style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
-              <Field label="Upload completed form" htmlFor="recommendation-upload" style={{ flex: 1, marginBottom: 0 }}>
-                <Input id="recommendation-upload" name="recommendation" type="file" accept=".pdf,.doc,.docx,.jpg,.png" required aria-required="true" />
-              </Field>
-              <Button type="submit" variant="secondary">Upload</Button>
-            </form>
-          </Card>
-        )
+      {/* Same treatment as the Application step above: once it's done, it's done — no
+          lingering card, just the checkmark on the stepper. This card only appears while
+          the form is still an open task; once uploaded it disappears entirely rather than
+          switching to a "view" state, and the Interview card below becomes the only content. */}
+      {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && program.recommendationTemplatePath && !application.recommendationFileName && (
+        <Card style={{ marginTop: "var(--space-6)" }}>
+          <CardKicker>Recommendation form</CardKicker>
+          <CardBody style={{ marginTop: -4 }}>
+            Your application has been reviewed and shortlisted — you&apos;ll need a completed
+            recommendation form on file before moving on to an interview.
+          </CardBody>
+          <a href={`/api/documents/program/${program.id}/template`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
+            Download template ↗
+          </a>
+          <form action={onUploadRecommendation} style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
+            <Field label="Upload completed form" htmlFor="recommendation-upload" style={{ flex: 1, marginBottom: 0 }}>
+              <Input id="recommendation-upload" name="recommendation" type="file" accept=".pdf,.doc,.docx,.jpg,.png" required aria-required="true" />
+            </Field>
+            <Button type="submit" variant="secondary">Upload</Button>
+          </form>
+        </Card>
       )}
 
       {/* Shows as soon as the applicant has cleared the one remaining requirement to reach
