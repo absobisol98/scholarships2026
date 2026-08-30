@@ -37,6 +37,11 @@ export default async function QueuePage({
   const countAll = statusCounts.all;
   const countReview = statusCounts.review;
   const countDecided = statusCounts.decided;
+  // Deliberately flagCounts.all here, not statusCounts.all — the Red flag filter's "All"
+  // also includes "ineligible" (locked-out, never-submitted) applications, which the plain
+  // Status filter's "All" doesn't (see buildApplicantsWhere/getApplicantFlagCounts in
+  // admin-data.ts), so the two "All" labels can legitimately show different numbers.
+  const countAllWithFlags = flagCounts.all;
   const countFlagged = flagCounts.flagged;
   const countClear = flagCounts.clear;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -85,7 +90,6 @@ export default async function QueuePage({
               { value: "all", label: `All (${countAll})` },
               { value: "review", label: `Needs review (${countReview})` },
               { value: "decided", label: `Decided (${countDecided})` },
-              { value: "ineligible", label: `Not eligible — locked (${statusCounts.ineligible})` },
             ]}
           />
         </Field>
@@ -95,7 +99,7 @@ export default async function QueuePage({
             name="flag"
             defaultValue={flag}
             options={[
-              { value: "all", label: `All (${countAll})` },
+              { value: "all", label: `All (${countAllWithFlags})` },
               { value: "flagged", label: `Red flagged (${countFlagged})` },
               { value: "clear", label: `No flags (${countClear})` },
             ]}
@@ -118,29 +122,35 @@ export default async function QueuePage({
           name: a.name,
           phaseLabel: a.phaseLabel,
           notEligible: a.status === "ineligible",
+          flagged: a.flags.length > 0,
+          flagOverridden: a.flagOverridden,
           submitted: a.submitted,
           onPromote: promoteApplicant.bind(null, program.key, a.id),
           onDemote: demoteApplicant.bind(null, program.key, a.id),
           // A never-submitted, locked-out application has nothing to promote — it only shows
-          // up here (via the "Not eligible" status filter) so an admin can find and reset it.
-          // Otherwise: can't leave Shortlisted without a completed recommendation form on
-          // file — see promoteApplicant's own matching check in src/lib/actions/admin.ts.
+          // up here (via the Red flag filter) so an admin can find and reset it. A live red
+          // flag blocks any further promotion until a Super Admin overrides it — matches
+          // promoteApplicant's own matching check in src/lib/actions/admin.ts. Otherwise:
+          // can't leave Shortlisted without a completed recommendation form on file.
           // "Awarded" is only reached via the Award/Waitlist/Decline decision, never Promote
           // — so Promote is also disabled once at For Interview, the last phase it can reach.
           promoteDisabled:
             a.status === "ineligible" ||
+            (a.flags.length > 0 && !a.flagOverridden) ||
             a.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX ||
             (a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName),
           promoteTitle:
             a.status === "ineligible"
               ? "This application was locked out at intake and was never submitted."
-              : a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName
-                ? !program.recommendationTemplatePath
-                  ? "This program has no recommendation-form template uploaded yet — add one from the Dashboard before applicants can submit one."
-                  : "Waiting on this applicant's recommendation form — see their application detail page."
-                : a.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX
-                  ? "Award, waitlist, or decline this applicant from their detail page to move them further."
-                  : undefined,
+              : a.flags.length > 0 && !a.flagOverridden
+                ? "This applicant has an unresolved red flag — a Super Admin must override it from their detail page before they can proceed."
+                : a.phaseIndex === SHORTLISTED_PHASE_INDEX && !a.recommendationFileName
+                  ? !program.recommendationTemplatePath
+                    ? "This program has no recommendation-form template uploaded yet — add one from the Dashboard before applicants can submit one."
+                    : "Waiting on this applicant's recommendation form — see their application detail page."
+                  : a.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX
+                    ? "Award, waitlist, or decline this applicant from their detail page to move them further."
+                    : undefined,
           // Can't drop below Paper Screening while a screener still has this applicant
           // assigned — unassign them first (on the applicant's detail page). "Awarded" can
           // only be reversed by changing the decision itself, not by demoting the phase.

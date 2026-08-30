@@ -157,11 +157,18 @@ const APPLICATION_LIST_SELECT = {
   _count: { select: { screenerAssignments: true } },
 } as const;
 
+// "ineligible" applications (locked out at intake by the eligibility-attempt cap — see
+// MAX_INELIGIBLE_ATTEMPTS — and therefore never actually submitted) count as a red flag in
+// their own right rather than a separate status dimension: the whole reason one exists is
+// that something is wrong with it and an admin needs to look. Folding it into the same
+// "flagged" bucket evaluateCriteria already produces means "Red flagged" alone is enough
+// for an admin to find it — no separate "Not eligible" filter to know about.
 function mapApplicantRow(
   a: Prisma.ApplicationGetPayload<{ select: typeof APPLICATION_LIST_SELECT }>,
   activeCohort: CriteriaFlagCohort | null
 ) {
-  const flags = evaluateCriteria(toEligibilityShape(a), activeCohort);
+  const criteriaFlags = evaluateCriteria(toEligibilityShape(a), activeCohort);
+  const flags = a.status === "ineligible" && criteriaFlags.length === 0 ? ["Locked out at intake after repeated failed eligibility attempts"] : criteriaFlags;
   return {
     ...a,
     name: a.fullName,
@@ -175,27 +182,31 @@ function mapApplicantRow(
 }
 
 // Cheap, index-backed counts for the status filter's option labels and the Dashboard's
-// stat tiles — no row fetch at all, unlike the old getApplicantsForProgram.
+// stat tiles — no row fetch at all, unlike the old getApplicantsForProgram. Scoped to
+// genuinely-submitted applications only — decision progress ("Needs review"/"Decided")
+// isn't a meaningful question for an application that was locked out before it was ever
+// submitted, so those don't belong in this count (see getApplicantFlagCounts for where
+// they do show up: the Red flag filter).
 export async function getApplicantStatusCounts(programId: number) {
   const base = { programId, status: { in: SUBMITTED_STATUSES } };
-  const [all, review, decided, ineligible] = await Promise.all([
+  const [all, review, decided] = await Promise.all([
     db.application.count({ where: base }),
     db.application.count({ where: { ...base, decision: null } }),
     db.application.count({ where: { ...base, decision: { not: null } } }),
-    db.application.count({ where: { programId, status: "ineligible" } }),
   ]);
-  return { all, review, decided, ineligible };
+  return { all, review, decided };
 }
 
 // Red-flag status isn't a plain column (it's computed from a cohort's dynamic criteria),
 // so this can't be a DB-side count — but select-trimming to just the criteria-relevant
-// fields keeps it far cheaper than a full-column fetch.
+// fields keeps it far cheaper than a full-column fetch. Includes "ineligible" rows (see
+// mapApplicantRow) so this "all" is intentionally larger than getApplicantStatusCounts'.
 export async function getApplicantFlagCounts(programId: number) {
   const [rows, activeCohort] = await Promise.all([
-    db.application.findMany({ where: { programId, status: { in: SUBMITTED_STATUSES } }, select: APPLICATION_LIST_SELECT }),
+    db.application.findMany({ where: { programId, OR: [{ status: { in: SUBMITTED_STATUSES } }, { status: "ineligible" }] }, select: APPLICATION_LIST_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
-  const flagged = rows.filter((a) => evaluateCriteria(toEligibilityShape(a), activeCohort).length > 0).length;
+  const flagged = rows.map((a) => mapApplicantRow(a, activeCohort)).filter((a) => a.flags.length > 0).length;
   return { all: rows.length, flagged, clear: rows.length - flagged };
 }
 
@@ -225,17 +236,23 @@ export async function getEligibleUnassignedCount(programId: number) {
 // Shared by getApplicantsPage and getApplicantsForExport so the export always matches
 // exactly what the queue page's filters currently show — one place that decides what
 // "review"/"decided"/a search term mean, not two copies that could drift.
-function buildApplicantsWhere(programId: number, opts: { q?: string; status?: string }) {
-  const { q = "", status = "all" } = opts;
+function buildApplicantsWhere(programId: number, opts: { q?: string; status?: string; flag?: string }) {
+  const { q = "", status = "all", flag = "all" } = opts;
+  const search = q ? { fullName: { contains: q, mode: "insensitive" as const } } : {};
+
+  // "ineligible" applications (locked out at intake, never submitted — see
+  // MAX_INELIGIBLE_ATTEMPTS) count as a red flag, not a separate status — folded into the
+  // base view here so the plain "All" status view and the Red flag filter's "Flagged"
+  // naturally include them, and "Clear"/"Needs review"/"Decided" naturally don't (decision
+  // progress isn't a meaningful question for an application that was never submitted).
+  if (status === "all" && flag !== "clear") {
+    return { programId, ...search, OR: [{ status: { in: SUBMITTED_STATUSES } }, { status: "ineligible" as const }] };
+  }
   return {
     programId,
-    // "ineligible" applications never got submitted (locked out by the eligibility-attempt
-    // cap — see MAX_INELIGIBLE_ATTEMPTS) — kept out of the default SUBMITTED_STATUSES set
-    // used everywhere else (pipeline stats, screener-eligibility, CSV export by default) but
-    // still reachable here so an admin can find and reset them.
-    ...(status === "ineligible" ? { status: "ineligible" as const } : { status: { in: SUBMITTED_STATUSES } }),
+    status: { in: SUBMITTED_STATUSES },
     ...(status === "review" ? { decision: null } : status === "decided" ? { decision: { not: null } } : {}),
-    ...(q ? { fullName: { contains: q, mode: "insensitive" as const } } : {}),
+    ...search,
   };
 }
 
@@ -270,6 +287,7 @@ export async function getApplicantsPage(
 // doesn't render) — the CSV export needs contact info and demographics the table doesn't.
 const EXPORT_SELECT = {
   id: true,
+  status: true,
   fullName: true,
   email: true,
   phone: true,
@@ -303,7 +321,13 @@ export async function getApplicantsForExport(programId: number, opts: { q?: stri
     db.application.findMany({ where, orderBy: { id: "asc" }, select: EXPORT_SELECT }),
     getActiveCohortWithCriteria(programId),
   ]);
-  const mapped = rows.map((a) => ({ ...a, flags: evaluateCriteria(toEligibilityShape(a), activeCohort) }));
+  const mapped = rows.map((a) => {
+    const criteriaFlags = evaluateCriteria(toEligibilityShape(a), activeCohort);
+    // Same "ineligible counts as flagged" rule as mapApplicantRow above, so an export never
+    // disagrees with what the queue table itself shows as flagged.
+    const flags = a.status === "ineligible" && criteriaFlags.length === 0 ? ["Locked out at intake after repeated failed eligibility attempts"] : criteriaFlags;
+    return { ...a, flags };
+  });
   return flag === "all" ? mapped : mapped.filter((a) => (flag === "flagged" ? a.flags.length > 0 : a.flags.length === 0));
 }
 

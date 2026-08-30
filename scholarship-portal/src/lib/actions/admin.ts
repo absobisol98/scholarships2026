@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
 import { PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX, AWARDED_PHASE_INDEX, SUBMITTED_STATUSES } from "@/lib/steps";
-import { parseRegionMap, parseOptions, requireProgramAccess } from "@/lib/admin-data";
+import { parseRegionMap, parseOptions, requireProgramAccess, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 import { uploadProgramTemplate } from "@/lib/storage";
 
 function str(fd: FormData, name: string): string {
@@ -179,6 +179,16 @@ export async function promoteApplicant(programKey: string, applicationId: number
   // "ineligible") have nothing to review — they only ever show up in the queue so an admin
   // can see/reset them, not so they can be advanced through the pipeline.
   if (!SUBMITTED_STATUSES.includes(a.status)) return;
+
+  // A live red flag (evaluated against the program's active cohort criteria) blocks any
+  // further promotion until a Super Admin overrides it — matches the queue table's own
+  // "eligible = flags.length === 0 || flagOverridden" definition (admin-data.ts) so the
+  // gate here is never stricter or looser than what the UI already shows as flagged.
+  if (!a.flagOverridden) {
+    const activeCohort = await getActiveCohortWithCriteria(a.programId);
+    const flags = evaluateCriteria(toEligibilityShape(a), activeCohort);
+    if (flags.length > 0) return;
+  }
 
   // Can't leave Shortlisted without a completed recommendation form on file — see
   // APPLICANT_PHASE_DESCRIPTIONS in src/lib/steps.ts ("Shortlisted applicants submit a

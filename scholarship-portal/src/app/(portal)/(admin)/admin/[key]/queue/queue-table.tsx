@@ -16,6 +16,8 @@ export type QueueRow = {
   name: string;
   phaseLabel: string;
   notEligible: boolean;
+  flagged: boolean;
+  flagOverridden: boolean;
   submitted: string | null;
   onPromote: BoundAction;
   onDemote: BoundAction;
@@ -129,6 +131,7 @@ export function QueueTable({
               <th scope="col">Application ID</th>
               <th scope="col">Name</th>
               <th scope="col">Phase</th>
+              <th scope="col">Status</th>
               <th scope="col">Submitted Date</th>
               <th scope="col">Action</th>
               <th scope="col">View</th>
@@ -136,7 +139,7 @@ export function QueueTable({
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={7} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No matching applicants.</td></tr>
+              <tr><td colSpan={8} className="text-muted" style={{ padding: "var(--space-3) 0" }}>No matching applicants.</td></tr>
             )}
             {rows.map((r) => (
               <tr key={r.id}>
@@ -150,11 +153,17 @@ export function QueueTable({
                 </td>
                 <td>{r.appId}</td>
                 <td style={{ fontWeight: 700 }}>{r.name}</td>
+                <td><Tag variant="neutral">{r.phaseLabel}</Tag></td>
                 <td>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <Tag variant="neutral">{r.phaseLabel}</Tag>
-                    {r.notEligible && <Tag variant="danger">Not eligible</Tag>}
-                  </div>
+                  {r.notEligible ? (
+                    <Tag variant="danger">Not eligible</Tag>
+                  ) : r.flagged && !r.flagOverridden ? (
+                    <Tag variant="danger">Red flagged</Tag>
+                  ) : r.flagged && r.flagOverridden ? (
+                    <Tag variant="warning">Flag overridden</Tag>
+                  ) : (
+                    <Tag variant="outline">Clear</Tag>
+                  )}
                 </td>
                 <td>{r.submitted}</td>
                 <td>
