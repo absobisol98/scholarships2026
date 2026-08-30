@@ -43,7 +43,7 @@ export default async function ManageProgramsPage({
   return (
     <div id="main-content" className="content-area" role="main" tabIndex={-1} style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "var(--space-8)" }}>
       <div className="page-wrap">
-        <Breadcrumb items={[{ label: "Admin", href: "/admin" }, { label: "Manage Programs" }]} />
+        <Breadcrumb items={[{ label: "Super Admin", href: "/super_admin" }, { label: "Manage Programs" }]} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
           <div>
@@ -67,7 +67,7 @@ export default async function ManageProgramsPage({
 
         <FiltersPanel
           method="GET"
-          resetHref="/admin/programs"
+          resetHref="/super_admin/programs"
           style={{ margin: "var(--space-6) 0 var(--space-4)" }}
           footer={
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

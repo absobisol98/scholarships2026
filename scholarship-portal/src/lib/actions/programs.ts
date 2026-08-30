@@ -26,7 +26,7 @@ export async function toggleProgramActive(programId: number) {
   const active = !program.active;
   await db.program.update({ where: { id: programId }, data: { active } });
   await logAudit(`${active ? "Activated" : "Deactivated"} program: ${program.name}`, programId);
-  revalidatePath("/admin/programs");
+  revalidatePath("/super_admin/programs");
   revalidatePath("/browse");
 }
 
@@ -39,12 +39,12 @@ export async function createProgram(fd: FormData) {
   const blurb = str(fd, "blurb").trim();
   const formKind = str(fd, "formKind") === "generika" ? "generika" : "standard";
   const tags = str(fd, "tags").split(",").map((t) => t.trim()).filter(Boolean);
-  if (!name) redirect("/admin/programs?error=missing_name");
+  if (!name) redirect("/super_admin/programs?error=missing_name");
 
   let key = slugify(str(fd, "key").trim() || name);
-  if (!key) redirect("/admin/programs?error=missing_name");
+  if (!key) redirect("/super_admin/programs?error=missing_name");
   const existing = await db.program.findUnique({ where: { key } });
-  if (existing) redirect("/admin/programs?error=key_taken");
+  if (existing) redirect("/super_admin/programs?error=key_taken");
 
   const maxOrder = await db.program.aggregate({ _max: { order: true } });
   const program = await db.program.create({
@@ -64,7 +64,7 @@ export async function createProgram(fd: FormData) {
 
   await db.fieldConfig.createMany({ data: buildDefaultFieldConfigRows(program.id, formKind) });
   await logAudit(`Created program: ${program.name}`, program.id);
-  revalidatePath("/admin/programs");
+  revalidatePath("/super_admin/programs");
 }
 
 export async function updateProgram(programId: number, fd: FormData) {
@@ -75,14 +75,14 @@ export async function updateProgram(programId: number, fd: FormData) {
   const deadlineFull = str(fd, "deadlineFull").trim();
   const blurb = str(fd, "blurb").trim();
   const tags = str(fd, "tags").split(",").map((t) => t.trim()).filter(Boolean);
-  if (!name) redirect("/admin/programs?error=missing_name");
+  if (!name) redirect("/super_admin/programs?error=missing_name");
 
   const program = await db.program.update({
     where: { id: programId },
     data: { name, amount, deadlineLabel, deadlineFull, blurb, tagsJson: JSON.stringify(tags) },
   });
   await logAudit(`Updated program details: ${program.name}`, programId);
-  revalidatePath("/admin/programs");
+  revalidatePath("/super_admin/programs");
   revalidatePath("/browse");
 }
 
@@ -91,7 +91,7 @@ export async function deleteProgram(programId: number) {
   const program = await db.program.findUniqueOrThrow({ where: { id: programId } });
 
   const applicantCount = await db.application.count({ where: { programId } });
-  if (applicantCount > 0) redirect("/admin/programs?error=has_applicants");
+  if (applicantCount > 0) redirect("/super_admin/programs?error=has_applicants");
 
   // Cohort→Criterion/CriteriaHistoryEntry and ScreenerGroup→ScreenerGroupMember cascade
   // automatically (see prisma/schema.prisma). AuditLogEntry.programId is nullable — keep
@@ -106,6 +106,6 @@ export async function deleteProgram(programId: number) {
     db.program.delete({ where: { id: programId } }),
   ]);
   await logAudit(`Deleted program: ${program.name}`);
-  revalidatePath("/admin/programs");
+  revalidatePath("/super_admin/programs");
   revalidatePath("/browse");
 }

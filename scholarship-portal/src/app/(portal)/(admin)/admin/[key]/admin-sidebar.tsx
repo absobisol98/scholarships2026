@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { href: "cohorts", label: "Cohort Management", icon: <><path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></> },
   { href: "queue", label: "Applications Overview", icon: <path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13" /> },
   { href: "reports", label: "Reports", icon: <><path d="M3 3v18h18" /><path d="M18 17V9M13 17V5M8 17v-3" /></> },
-  { href: "screener-groups", label: "Screener Groups", icon: <><circle cx="9" cy="7" r="3" /><circle cx="17" cy="8" r="2.5" /><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1" /><path d="M15.5 14.2A4.5 4.5 0 0 1 20 18.5V20" /></> },
+  { href: "screeners", label: "Paper Screeners", icon: <><circle cx="9" cy="7" r="3" /><circle cx="17" cy="8" r="2.5" /><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1" /><path d="M15.5 14.2A4.5 4.5 0 0 1 20 18.5V20" /></> },
   { href: "fields", label: "Manage fields", icon: <path d="M4 6h16M4 6a2 2 0 1 0 0-.01M9 12h11M9 12a2 2 0 1 0 0-.01M4 18h16M4 18a2 2 0 1 0 0-.01" /> },
   { href: "surveys", label: "Check-in surveys", icon: <><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></> },
 ];
@@ -31,7 +31,9 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
           <path d="M15 6l-6 6 6 6" />
         </svg>
       </button>
-      <Link href="/admin" style={{ background: "none", border: "none", textAlign: "left", font: "inherit", cursor: "pointer", padding: "0 14px 12px", fontSize: 12, fontWeight: 600, color: "var(--color-accent)", textDecoration: "none" }}>
+      {/* Each role goes back to its own home — a Super Admin's is /super_admin, which also
+          carries the Manage Users / Programs / Audit Log entries. */}
+      <Link href={isSuperAdmin ? "/super_admin" : "/admin"} style={{ background: "none", border: "none", textAlign: "left", font: "inherit", cursor: "pointer", padding: "0 14px 12px", fontSize: 12, fontWeight: 600, color: "var(--color-accent)", textDecoration: "none" }}>
         <span className="sidebar-text">← All workspaces</span>
       </Link>
       <div className="sidebar-text" style={{ padding: "0 14px 10px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
@@ -39,7 +41,11 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
       </div>
       {NAV_ITEMS.map((item) => {
         const href = `/admin/${programKey}/${item.href}`;
-        const active = pathname.startsWith(href);
+        // Paper Screeners and Screener Groups are two tabs of one section, so the single
+        // sidebar entry stays lit on either.
+        const active = item.href === "screeners"
+          ? pathname.startsWith(href) || pathname.startsWith(`/admin/${programKey}/screener-groups`)
+          : pathname.startsWith(href);
         return (
           <SideItem key={item.href} href={href} active={active} icon={item.icon}>
             {item.label}
@@ -49,22 +55,22 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
       {isSuperAdmin && (
         <>
           <SideItem
-            href="/admin/users"
-            active={pathname.startsWith("/admin/users")}
+            href="/super_admin/users"
+            active={pathname.startsWith("/super_admin/users")}
             icon={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>}
           >
             Manage Users
           </SideItem>
           <SideItem
-            href="/admin/audit-log"
-            active={pathname.startsWith("/admin/audit-log")}
+            href="/super_admin/audit-log"
+            active={pathname.startsWith("/super_admin/audit-log")}
             icon={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 15h6" /><path d="M9 11h1" /></>}
           >
             Audit Log
           </SideItem>
           <SideItem
-            href="/admin/programs"
-            active={pathname.startsWith("/admin/programs")}
+            href="/super_admin/programs"
+            active={pathname.startsWith("/super_admin/programs")}
             icon={<><path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></>}
           >
             Manage Programs

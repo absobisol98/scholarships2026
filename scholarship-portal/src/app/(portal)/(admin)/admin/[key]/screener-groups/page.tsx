@@ -2,13 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
 import { db } from "@/lib/db";
-import { createScreenerGroup, deleteScreenerGroup, bulkImportScreeners, setStaffPassword, generateScreenerMagicLink } from "@/lib/actions/screenerGroups";
+import { createScreenerGroup, deleteScreenerGroup } from "@/lib/actions/screenerGroups";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { Card, CardKicker } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Table, TableScroll } from "@/components/ui/table";
-import { ScreenerOnboardingPanel } from "./screener-onboarding-panel";
+import { ScreenerTabs } from "../screener-tabs";
 
 export default async function ScreenerGroupsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -21,28 +21,23 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
   ]);
 
   const onCreateGroup = createScreenerGroup.bind(null, program.key, program.id);
-  const onImportScreeners = bulkImportScreeners.bind(null, program.key);
-  const onSetPassword = setStaffPassword.bind(null, program.key);
-  const onGenerateMagicLink = generateScreenerMagicLink.bind(null, program.key);
 
-  const [candidateCounts, pendingScreeners] = await Promise.all([
-    Promise.all(groups.map((g) => db.screenerAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))),
-    db.staffAccount.findMany({
-      where: { role: "screener", passwordHash: null },
-      select: { id: true, name: true, email: true, company: true },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+  const candidateCounts = await Promise.all(
+    groups.map((g) => db.screenerAssignment.count({ where: { screenerId: { in: g.members.map((m) => m.staffId) } } }))
+  );
 
   return (
     <div className="page-wrap">
-      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Paper Screener Groups" }]} />
+      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Screener Groups" }]} />
       <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
-      <h2 style={{ marginBottom: 4 }}>Paper Screener Groups</h2>
-      <p className="text-muted" style={{ maxWidth: 640 }}>
-        Group your Paper Screeners into panels, then randomly distribute applicants who&apos;ve cleared the hard-filter criteria
-        and aren&apos;t yet assigned to anyone. Assigning an applicant moves their phase to Paper Screening.
+      <h2 style={{ marginBottom: 4 }}>Screener Groups</h2>
+      <p className="text-muted" style={{ maxWidth: 640, marginBottom: 0 }}>
+        Panels of Paper Screeners. Assign applicants to a group and they&apos;re distributed across
+        its members — which moves those applicants into the Paper Screening phase.
       </p>
+
+      <ScreenerTabs programKey={program.key} />
+
       <p className="text-muted" style={{ fontSize: 13 }}>
         <b style={{ color: "var(--color-text)" }}>{eligibleUnassignedCount}</b> eligible applicant{eligibleUnassignedCount === 1 ? "" : "s"} currently unassigned in this program.
       </p>
@@ -96,14 +91,6 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
           <Button type="submit" variant="primary">Create group</Button>
         </form>
       </Card>
-
-      <ScreenerOnboardingPanel
-        groups={groups.map((g) => ({ id: g.id, name: g.name }))}
-        pendingScreeners={pendingScreeners}
-        onImport={onImportScreeners}
-        onSetPassword={onSetPassword}
-        onGenerateMagicLink={onGenerateMagicLink}
-      />
     </div>
   );
 }

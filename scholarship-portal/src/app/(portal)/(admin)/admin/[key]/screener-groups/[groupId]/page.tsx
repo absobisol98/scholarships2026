@@ -55,7 +55,7 @@ export default async function ScreenerGroupDetailPage({ params }: { params: Prom
     <div className="page-wrap">
       <Breadcrumb items={[
         { label: program.name, href: `/admin/${program.key}/dashboard` },
-        { label: "Paper Screener Groups", href: `/admin/${program.key}/screener-groups` },
+        { label: "Screener Groups", href: `/admin/${program.key}/screener-groups` },
         { label: group.name },
       ]} />
       <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
