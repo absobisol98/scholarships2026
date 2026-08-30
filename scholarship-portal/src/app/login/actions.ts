@@ -30,6 +30,12 @@ export async function loginAsStudent() {
 // Each role now has its own login page, so `expected` scopes a door to one role: signing in
 // with the wrong kind of account fails here rather than silently logging you in somewhere
 // you didn't mean to go. Errors come back to the same door you knocked on.
+//
+// The rate limit is checked only once we know this is genuinely the right door for this
+// email — resolving which door is "wrong" doesn't touch the limiter at all. It used to run
+// first, which meant someone who mistyped their way to the wrong sign-in page a few times
+// (an easy mistake now that there are four doors) could burn through their five attempts
+// without ever entering a password, then get locked out of the door they actually needed.
 async function loginForRole(expected: Role, fd: FormData): Promise<void> {
   const door = loginPathForRole(expected);
   const q = (error: string) => `${door}${door.includes("?") ? "&" : "?"}error=${error}`;
@@ -38,12 +44,13 @@ async function loginForRole(expected: Role, fd: FormData): Promise<void> {
   const password = str(fd, "password");
   if (!email) redirect(q("missing_email"));
 
-  const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
-  if (!allowed) redirect(q("rate_limited"));
-
   if (expected === "student") {
     const student = await db.student.findFirst({ where: { email } });
-    if (student) await loginAs("student", student.id);
+    if (student) {
+      const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
+      if (!allowed) redirect(q("rate_limited"));
+      await loginAs("student", student.id);
+    }
     // An existing staff account typing their email into the applicant door gets told where
     // to go rather than a flat "no account" — the address is real, the door is wrong.
     const staff = await db.staffAccount.findFirst({ where: { email } });
@@ -57,6 +64,12 @@ async function loginForRole(expected: Role, fd: FormData): Promise<void> {
   }
   if (staff.role !== expected) redirect(q("wrong_door"));
   if (!staff.active) redirect(q(`${staff.role}_deactivated`));
+
+  // From here on the door and the account genuinely match, so a real attempt — right or
+  // wrong password — is about to be spent. This is the only path that should count toward
+  // the limit: it's what guards a screener's password against repeated guessing.
+  const allowed = await checkRateLimit(`login:${email}`, { max: 5, windowSeconds: 60 });
+  if (!allowed) redirect(q("rate_limited"));
 
   if (staff.role === "screener" && staff.passwordHash) {
     const bcrypt = await import("bcryptjs");
