@@ -5,12 +5,48 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
 import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
-import { parseRegionMap, parseOptions } from "@/lib/admin-data";
+import { parseRegionMap, parseOptions, requireProgramAccess } from "@/lib/admin-data";
 import { uploadProgramTemplate } from "@/lib/storage";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
   return typeof v === "string" ? v : "";
+}
+
+// Small resolve-then-authorize helpers shared by the functions below — each takes a
+// client-supplied id, looks up the *actual* owning program from the database (never trusted
+// from a parameter), and redirects if the caller's session can't access that program. Every
+// mutation in this file derives its authorization from one of these, not from the programKey/
+// programId arguments alone, so a valid Program A session can't act on a Program B record by
+// substituting an id.
+async function requireCohortAccess(cohortId: string) {
+  const cohort = await db.cohort.findUniqueOrThrow({ where: { id: cohortId } });
+  await requireProgramAccess(cohort.programId);
+  return cohort;
+}
+
+async function requireCriterionAccess(criterionId: string) {
+  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId }, include: { cohort: true } });
+  await requireProgramAccess(criterion.cohort.programId);
+  return criterion;
+}
+
+async function requireFieldAccess(fieldId: string) {
+  const field = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  await requireProgramAccess(field.programId);
+  return field;
+}
+
+async function requireSurveyWaveAccess(surveyWaveId: string) {
+  const wave = await db.surveyWave.findUniqueOrThrow({ where: { id: surveyWaveId } });
+  await requireProgramAccess(wave.programId);
+  return wave;
+}
+
+async function requireSurveyQuestionAccess(questionId: string) {
+  const question = await db.surveyQuestion.findUniqueOrThrow({ where: { id: questionId }, include: { surveyWave: true } });
+  await requireProgramAccess(question.surveyWave.programId);
+  return question;
 }
 
 function defaultCriteria(gwaMin: number) {
@@ -26,6 +62,7 @@ function defaultCriteria(gwaMin: number) {
 // — Cohorts —
 
 export async function createCohort(programKey: string, programId: number, fd: FormData) {
+  await requireProgramAccess(programId);
   const name = str(fd, "name").trim();
   if (name) {
     await db.cohort.create({
@@ -42,6 +79,9 @@ export async function createCohort(programKey: string, programId: number, fd: Fo
 }
 
 export async function activateCohort(programKey: string, programId: number, cohortId: string) {
+  const cohort = await db.cohort.findUniqueOrThrow({ where: { id: cohortId } });
+  await requireProgramAccess(cohort.programId);
+  if (cohort.programId !== programId) return;
   await db.$transaction([
     db.cohort.updateMany({ where: { programId, status: "active" }, data: { status: "inactive" } }),
     db.cohort.update({ where: { id: cohortId }, data: { status: "active" } }),
@@ -56,12 +96,13 @@ export async function setActiveBatch(programKey: string, programId: number, fd: 
 }
 
 export async function updateCriterionValue(programKey: string, cohortId: string, criterionId: string, value: string) {
+  await requireCriterionAccess(criterionId);
   await db.criterion.update({ where: { id: criterionId }, data: { value } });
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
 }
 
 export async function toggleCriterionEnabled(programKey: string, cohortId: string, criterionId: string) {
-  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const criterion = await requireCriterionAccess(criterionId);
   await db.criterion.update({ where: { id: criterionId }, data: { enabled: !criterion.enabled } });
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
 }
@@ -70,7 +111,7 @@ export async function addRegionProvince(programKey: string, cohortId: string, cr
   const r = region.trim();
   const p = province.trim();
   if (!r || !p) return;
-  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const criterion = await requireCriterionAccess(criterionId);
   const map = parseRegionMap(criterion.value);
   const list = map[r] ?? [];
   if (!list.includes(p)) map[r] = [...list, p];
@@ -79,7 +120,7 @@ export async function addRegionProvince(programKey: string, cohortId: string, cr
 }
 
 export async function removeRegionProvince(programKey: string, cohortId: string, criterionId: string, region: string, province: string) {
-  const criterion = await db.criterion.findUniqueOrThrow({ where: { id: criterionId } });
+  const criterion = await requireCriterionAccess(criterionId);
   const map = parseRegionMap(criterion.value);
   if (map[region]) {
     map[region] = map[region].filter((p) => p !== province);
@@ -90,6 +131,7 @@ export async function removeRegionProvince(programKey: string, cohortId: string,
 }
 
 export async function saveCriteriaChanges(programKey: string, cohortId: string) {
+  await requireCohortAccess(cohortId);
   await db.criteriaHistoryEntry.create({
     data: { cohortId, date: `${formatDateLong()}, just now`, summary: "Criteria updated by Dr. R. Okafor." },
   });
@@ -97,19 +139,21 @@ export async function saveCriteriaChanges(programKey: string, cohortId: string) 
 }
 
 export async function setAutoSubmitPolicy(programKey: string, cohortId: string, policy: string) {
+  await requireCohortAccess(cohortId);
   await db.cohort.update({ where: { id: cohortId }, data: { autoSubmitPolicy: policy } });
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
   revalidatePath(`/admin/${programKey}/dashboard`);
 }
 
 export async function updateCohortWindow(programKey: string, cohortId: string, field: "openDate" | "cutoffDate", value: string) {
+  await requireCohortAccess(cohortId);
   await db.cohort.update({ where: { id: cohortId }, data: { [field]: value } });
   revalidatePath(`/admin/${programKey}/cohorts/${cohortId}/criteria`);
   revalidatePath(`/admin/${programKey}/dashboard`);
 }
 
 export async function toggleCohortFlag(programKey: string, cohortId: string, field: "signupsOpen" | "loginsOpen" | "oldAccountsCanLogin") {
-  const cohort = await db.cohort.findUniqueOrThrow({ where: { id: cohortId } });
+  const cohort = await requireCohortAccess(cohortId);
   await db.cohort.update({ where: { id: cohortId }, data: { [field]: !cohort[field] } });
   revalidatePath(`/admin/${programKey}/dashboard`);
 }
@@ -117,6 +161,7 @@ export async function toggleCohortFlag(programKey: string, cohortId: string, fie
 // The blank recommendation-form template applicants download during Paper Screening (see
 // promoteApplicant below) and re-upload completed — one per program, admin-uploaded.
 export async function uploadRecommendationTemplate(programKey: string, programId: number, fd: FormData) {
+  await requireProgramAccess(programId);
   const file = fd.get("template");
   if (!(file instanceof File) || file.size === 0) return;
   const path = await uploadProgramTemplate(programId, file);
@@ -128,6 +173,7 @@ export async function uploadRecommendationTemplate(programKey: string, programId
 
 export async function promoteApplicant(programKey: string, applicationId: number) {
   const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+  await requireProgramAccess(a.programId);
 
   // Can't leave Paper Screening without a completed recommendation form on file — see
   // APPLICANT_PHASE_DESCRIPTIONS in src/lib/steps.ts ("Shortlisted applicants with
@@ -142,6 +188,7 @@ export async function promoteApplicant(programKey: string, applicationId: number
 
 export async function demoteApplicant(programKey: string, applicationId: number) {
   const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+  await requireProgramAccess(a.programId);
   const next = Math.max(a.phaseIndex - 1, 0);
 
   // Can't drop below Paper Screening while a screener still has this applicant assigned —
@@ -159,34 +206,38 @@ export async function demoteApplicant(programKey: string, applicationId: number)
 // — Manage fields —
 
 export async function updateFieldLabel(programKey: string, fieldId: string, label: string) {
+  await requireFieldAccess(fieldId);
   await db.fieldConfig.update({ where: { id: fieldId }, data: { label } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
 
 export async function toggleFieldEnabled(programKey: string, fieldId: string) {
-  const f = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  const f = await requireFieldAccess(fieldId);
   await db.fieldConfig.update({ where: { id: fieldId }, data: { enabled: !f.enabled } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
 
 export async function toggleFieldRequired(programKey: string, fieldId: string) {
-  const f = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  const f = await requireFieldAccess(fieldId);
   await db.fieldConfig.update({ where: { id: fieldId }, data: { required: !f.required } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
 
 export async function removeField(programKey: string, fieldId: string) {
+  await requireFieldAccess(fieldId);
   await db.fieldConfig.delete({ where: { id: fieldId } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
 
 export async function addField(programKey: string, programId: number, step: string) {
+  await requireProgramAccess(programId);
   const count = await db.fieldConfig.count({ where: { programId, step } });
   await db.fieldConfig.create({ data: { programId, step, label: "New field", required: false, enabled: true, order: count } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
 
 export async function setFieldType(programKey: string, fieldId: string, fieldType: string) {
+  await requireFieldAccess(fieldId);
   await db.fieldConfig.update({ where: { id: fieldId }, data: { fieldType } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
@@ -194,7 +245,7 @@ export async function setFieldType(programKey: string, fieldId: string, fieldTyp
 export async function addFieldOption(programKey: string, fieldId: string, option: string) {
   const opt = option.trim();
   if (!opt) return;
-  const field = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  const field = await requireFieldAccess(fieldId);
   const options = parseOptions(field.optionsJson);
   if (!options.includes(opt)) options.push(opt);
   await db.fieldConfig.update({ where: { id: fieldId }, data: { optionsJson: JSON.stringify(options) } });
@@ -202,7 +253,7 @@ export async function addFieldOption(programKey: string, fieldId: string, option
 }
 
 export async function removeFieldOption(programKey: string, fieldId: string, option: string) {
-  const field = await db.fieldConfig.findUniqueOrThrow({ where: { id: fieldId } });
+  const field = await requireFieldAccess(fieldId);
   const options = parseOptions(field.optionsJson).filter((o) => o !== option);
   await db.fieldConfig.update({ where: { id: fieldId }, data: { optionsJson: JSON.stringify(options) } });
   revalidatePath(`/admin/${programKey}/fields`);
@@ -211,23 +262,26 @@ export async function removeFieldOption(programKey: string, fieldId: string, opt
 // — Surveys —
 
 export async function updateSurveyQuestion(programKey: string, questionId: string, label: string) {
+  await requireSurveyQuestionAccess(questionId);
   await db.surveyQuestion.update({ where: { id: questionId }, data: { label } });
   revalidatePath(`/admin/${programKey}/surveys`);
 }
 
 export async function addSurveyQuestion(programKey: string, surveyWaveId: string) {
+  await requireSurveyWaveAccess(surveyWaveId);
   const count = await db.surveyQuestion.count({ where: { surveyWaveId } });
   await db.surveyQuestion.create({ data: { surveyWaveId, label: "New question", order: count } });
   revalidatePath(`/admin/${programKey}/surveys`);
 }
 
 export async function removeSurveyQuestion(programKey: string, questionId: string) {
+  await requireSurveyQuestionAccess(questionId);
   await db.surveyQuestion.delete({ where: { id: questionId } });
   revalidatePath(`/admin/${programKey}/surveys`);
 }
 
 export async function toggleSurveyDeployed(programKey: string, surveyWaveId: string) {
-  const wave = await db.surveyWave.findUniqueOrThrow({ where: { id: surveyWaveId } });
+  const wave = await requireSurveyWaveAccess(surveyWaveId);
   await db.surveyWave.update({ where: { id: surveyWaveId }, data: { status: wave.status === "deployed" ? "draft" : "deployed" } });
   revalidatePath(`/admin/${programKey}/surveys`);
 }
@@ -238,6 +292,12 @@ export async function toggleSurveyDeployed(programKey: string, surveyWaveId: str
 // date on all of them, new and pre-existing alike.
 export async function sendSurveyToGroup(programKey: string, wave: string, applicationIds: number[]) {
   if (applicationIds.length === 0) return;
+  // No programId is passed in for this one — derive it from the applications themselves and
+  // refuse a mixed/empty set rather than trust the caller's program scope implicitly.
+  const apps = await db.application.findMany({ where: { id: { in: applicationIds } }, select: { programId: true } });
+  const programIds = new Set(apps.map((a) => a.programId));
+  if (programIds.size !== 1) return;
+  await requireProgramAccess([...programIds][0]);
   const sentDate = formatDateLong();
   await db.surveySend.createMany({
     data: applicationIds.map((applicationId) => ({ applicationId, wave, sentDate })),

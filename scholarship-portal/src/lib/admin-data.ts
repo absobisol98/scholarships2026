@@ -1,8 +1,9 @@
 import "server-only";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
 import { APPLICANT_PHASES, SUBMITTED_STATUSES } from "@/lib/steps";
-import { getCurrentStaff } from "@/lib/auth";
+import { getCurrentStaff, requireAdminLike, homeForRole } from "@/lib/auth";
 
 // Re-exported for existing admin call sites — these now live in field-config.ts, shared
 // with the student-facing application form.
@@ -86,6 +87,18 @@ export async function getAccessibleProgramIds(role: "admin" | "super_admin"): Pr
 export async function canAccessProgram(role: "admin" | "super_admin", programId: number): Promise<boolean> {
   const ids = await getAccessibleProgramIds(role);
   return ids === "all" || ids.includes(programId);
+}
+
+// The shared guard every program-scoped Server Action needs: a real session (Admin or
+// Super Admin — requireAdminLike() redirects otherwise, it doesn't just fall back to a demo
+// persona like getCurrentStaff does), AND that session's actual access to *this* program.
+// Callers must pass the programId derived from the record actually being read/written, not
+// a client-supplied parameter taken on faith — otherwise an Admin scoped to Program A could
+// pass their own valid programId while acting on a record that actually belongs to Program B.
+export async function requireProgramAccess(programId: number) {
+  const session = await requireAdminLike();
+  if (!(await canAccessProgram(session.role, programId))) redirect(homeForRole(session.role));
+  return session;
 }
 
 export async function listWorkspacePrograms(accessibleProgramIds: number[] | "all" = "all") {

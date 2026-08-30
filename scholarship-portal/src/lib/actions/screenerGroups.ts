@@ -3,12 +3,21 @@
 import Papa from "papaparse";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getEligibleUnassignedApplicants, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
+import { getEligibleUnassignedApplicants, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape, requireProgramAccess } from "@/lib/admin-data";
+import { requireAdminLike } from "@/lib/auth";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
   return typeof v === "string" ? v : "";
+}
+
+// groupId alone doesn't say which program it belongs to — look it up and authorize against
+// the real owner, the same reasoning as admin.ts's resolve-then-authorize helpers.
+async function requireGroupAccess(groupId: string) {
+  const group = await db.screenerGroup.findUniqueOrThrow({ where: { id: groupId } });
+  await requireProgramAccess(group.programId);
+  return group;
 }
 
 // A business number, not an engineering one — easy to tune later, same precedent as
@@ -58,6 +67,7 @@ function distributeWithCapacity(
 }
 
 export async function createScreenerGroup(programKey: string, programId: number, fd: FormData) {
+  await requireProgramAccess(programId);
   const name = str(fd, "name").trim();
   if (!name) return;
   await db.screenerGroup.create({ data: { programId, name } });
@@ -65,11 +75,13 @@ export async function createScreenerGroup(programKey: string, programId: number,
 }
 
 export async function deleteScreenerGroup(programKey: string, groupId: string) {
+  await requireGroupAccess(groupId);
   await db.screenerGroup.delete({ where: { id: groupId } });
   revalidatePath(`/admin/${programKey}/screener-groups`);
 }
 
 export async function addGroupMember(programKey: string, groupId: string, fd: FormData) {
+  await requireGroupAccess(groupId);
   const staffId = str(fd, "staffId");
   if (!staffId) return;
   await db.screenerGroupMember.upsert({
@@ -85,6 +97,7 @@ export async function addGroupMember(programKey: string, groupId: string, fd: Fo
 // counterpart to what the old per-applicant "unassign" control used to do. The applicant
 // reappears in "eligible unassigned" pickers immediately afterward.
 export async function removeFromGroup(programKey: string, groupId: string, applicationId: number, screenerId: string) {
+  await requireGroupAccess(groupId);
   await db.screenerAssignment.deleteMany({ where: { applicationId, screenerId } });
   revalidatePath(`/admin/${programKey}/screener-groups/${groupId}`);
   revalidatePath(`/admin/${programKey}/screener-groups`);
@@ -93,6 +106,7 @@ export async function removeFromGroup(programKey: string, groupId: string, appli
 }
 
 export async function removeGroupMember(programKey: string, groupId: string, staffId: string) {
+  await requireGroupAccess(groupId);
   await db.screenerGroupMember.deleteMany({ where: { groupId, staffId } });
   revalidatePath(`/admin/${programKey}/screener-groups`);
   revalidatePath(`/admin/${programKey}/screener-groups/${groupId}`);
@@ -103,8 +117,9 @@ export async function removeGroupMember(programKey: string, groupId: string, sta
 // Batched rather than one create+update per applicant — at a few thousand eligible
 // applicants, a per-row loop would mean thousands of sequential round trips for one click.
 export async function randomlyAssignEligibleApplicants(programKey: string, programId: number, groupId: string) {
+  await requireProgramAccess(programId);
   const group = await db.screenerGroup.findUnique({ where: { id: groupId }, include: { members: { include: { staff: true } } } });
-  if (!group) return;
+  if (!group || group.programId !== programId) return;
   const memberIds = group.members.filter((m) => m.staff.active).map((m) => m.staffId);
   if (memberIds.length === 0) return;
 
@@ -146,9 +161,10 @@ export async function assignSelectedToGroup(
   applicationIds: number[]
 ): Promise<{ assigned: number; skipped: { id: number; reason: string }[] }> {
   if (applicationIds.length === 0) return { assigned: 0, skipped: [] };
+  await requireProgramAccess(programId);
 
   const group = await db.screenerGroup.findUnique({ where: { id: groupId }, include: { members: { include: { staff: true } } } });
-  if (!group) return { assigned: 0, skipped: applicationIds.map((id) => ({ id, reason: "screener group not found" })) };
+  if (!group || group.programId !== programId) return { assigned: 0, skipped: applicationIds.map((id) => ({ id, reason: "screener group not found" })) };
   const memberIds = group.members.filter((m) => m.staff.active).map((m) => m.staffId);
   if (memberIds.length === 0) return { assigned: 0, skipped: applicationIds.map((id) => ({ id, reason: "screener group has no active members" })) };
 
@@ -225,6 +241,13 @@ export async function bulkImportScreeners(
   groupId: string | null,
   fd: FormData
 ): Promise<{ created: number; skipped: { row: number; reason: string }[] }> {
+  // Staff accounts aren't program-scoped (any admin can onboard any screener, matching the
+  // roster page which already lists every screener to every admin) — but if this import is
+  // also adding the new screeners straight into a group, that group's program must still be
+  // one this admin can access.
+  await requireAdminLike();
+  if (groupId) await requireGroupAccess(groupId);
+
   const file = fd.get("csv");
   if (!(file instanceof File) || file.size === 0) {
     return { created: 0, skipped: [{ row: 0, reason: "no CSV file uploaded" }] };
@@ -288,6 +311,7 @@ export async function bulkImportScreeners(
 }
 
 export async function setStaffPassword(programKey: string, staffId: string, fd: FormData): Promise<{ ok: boolean; error?: string }> {
+  await requireAdminLike();
   const password = String(fd.get("password") ?? "");
   if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
 
@@ -304,6 +328,7 @@ export async function setStaffPassword(programKey: string, staffId: string, fd: 
 const MAGIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function generateScreenerMagicLink(programKey: string, staffId: string): Promise<{ token: string; expiresAt: Date }> {
+  await requireAdminLike();
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS);
   await db.staffAccount.update({

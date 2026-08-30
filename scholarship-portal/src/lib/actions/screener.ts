@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { getCurrentStaff } from "@/lib/auth";
+import { getCurrentStaff, requireScreener } from "@/lib/auth";
 import { applyAssessment } from "@/lib/assessment";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 
 export async function saveAssessment(applicationId: number, fd: FormData) {
+  // getCurrentStaff("screener") alone doesn't block an absent/mismatched session — it falls
+  // back to the demo screener persona — so without this, an anonymous caller could write an
+  // assessment for anything currently assigned to that demo account. requireScreener() is
+  // the real guard; the ScreenerAssignment check right below is what then keeps a genuine
+  // screener from writing to an application that isn't theirs.
+  await requireScreener();
   const screener = await getCurrentStaff("screener");
 
   const assigned = await db.screenerAssignment.findFirst({
@@ -33,6 +39,7 @@ export async function saveAssessment(applicationId: number, fd: FormData) {
 // The "Proceed" action on the first-login PH Data Privacy Act welcome modal — a one-time
 // gate, not re-shown once accepted.
 export async function acceptPrivacyNotice() {
+  await requireScreener();
   const screener = await getCurrentStaff("screener");
   await db.staffAccount.update({ where: { id: screener.id }, data: { privacyAcceptedAt: new Date() } });
   revalidatePath("/", "layout");

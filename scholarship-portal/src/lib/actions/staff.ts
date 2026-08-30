@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getCurrentStaff } from "@/lib/auth";
+import { getCurrentStaff, requireSuperAdmin } from "@/lib/auth";
 
 function str(fd: FormData, name: string): string {
   const v = fd.get(name);
@@ -14,7 +14,9 @@ export async function logAudit(action: string, programId?: number) {
   await db.auditLogEntry.create({ data: { actor: superAdmin.name, action, programId: programId ?? null } });
 }
 
+// Every function below is only reachable from the Super-Admin-only /super_admin/users page.
 export async function createStaffAccount(fd: FormData) {
+  await requireSuperAdmin();
   const name = str(fd, "name").trim();
   const email = str(fd, "email").trim().toLowerCase();
   const role = str(fd, "role");
@@ -40,6 +42,7 @@ export async function createStaffAccount(fd: FormData) {
 }
 
 export async function bulkDeactivateStaff(ids: string[]) {
+  await requireSuperAdmin();
   if (ids.length === 0) return;
   const staff = await db.staffAccount.findMany({ where: { id: { in: ids } } });
   await db.staffAccount.updateMany({ where: { id: { in: ids } }, data: { active: false } });
@@ -48,6 +51,7 @@ export async function bulkDeactivateStaff(ids: string[]) {
 }
 
 export async function updateStaffEmail(staffId: string, email: string) {
+  await requireSuperAdmin();
   const trimmed = email.trim().toLowerCase();
   if (!trimmed) return;
 
@@ -63,6 +67,7 @@ export async function updateStaffEmail(staffId: string, email: string) {
 }
 
 export async function toggleStaffActive(staffId: string) {
+  await requireSuperAdmin();
   const staff = await db.staffAccount.findUniqueOrThrow({ where: { id: staffId } });
   await db.staffAccount.update({ where: { id: staffId }, data: { active: !staff.active } });
   await logAudit(`${staff.active ? "Deactivated" : "Reactivated"} ${staff.role === "admin" ? "Admin" : "Paper Screener"} account: ${staff.name}`);
@@ -70,6 +75,7 @@ export async function toggleStaffActive(staffId: string) {
 }
 
 export async function addStaffProgramAssignment(staffId: string, fd: FormData) {
+  await requireSuperAdmin();
   const programId = Number(str(fd, "programId"));
   const [staff, program] = await Promise.all([
     db.staffAccount.findUniqueOrThrow({ where: { id: staffId } }),
@@ -85,6 +91,7 @@ export async function addStaffProgramAssignment(staffId: string, fd: FormData) {
 }
 
 export async function removeStaffProgramAssignment(staffId: string, fd: FormData) {
+  await requireSuperAdmin();
   const programId = Number(str(fd, "programId"));
   const [staff, program] = await Promise.all([
     db.staffAccount.findUniqueOrThrow({ where: { id: staffId } }),
