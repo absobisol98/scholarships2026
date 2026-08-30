@@ -8,6 +8,7 @@ import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { displayFileName } from "@/lib/storage";
 import { SubmissionSuccessModal } from "@/components/submission-success-modal";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -81,6 +82,20 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
             <Button type="submit" variant="secondary">Upload</Button>
           </form>
         </Card>
+      )}
+
+      {/* The recommendation-form card above disappears entirely once uploaded (no lingering
+          "view" state), so this is the one remaining trace of it — a small, permanent link
+          back to the file itself, since Submission History never links to any uploaded
+          document and nothing else in the student-facing UI can reach a recommendation form
+          after the fact (unlike cert/video, which stay reachable via the Application form tab). */}
+      {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && application.recommendationFileName && (
+        <p className="text-muted" style={{ fontSize: 13, marginTop: "var(--space-4)" }}>
+          Recommendation form on file:{" "}
+          <a href={`/api/documents/${application.id}/recommendation`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
+            {displayFileName(application.recommendationFileName)} ↗
+          </a>
+        </p>
       )}
 
       {/* Shows as soon as the applicant has cleared the one remaining requirement to reach
