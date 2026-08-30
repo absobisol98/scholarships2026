@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { getCurrentStaff } from "@/lib/auth";
+import { getCurrentStaff, requireSuperAdmin } from "@/lib/auth";
+import { requireProgramAccess } from "@/lib/admin-data";
 import { logAudit } from "@/lib/actions/staff";
 import { applyAssessment } from "@/lib/assessment";
 
@@ -11,9 +12,17 @@ function str(fd: FormData, name: string): string {
   return typeof v === "string" ? v : "";
 }
 
+// Every function below is only ever rendered for Super Admin (or Admin, where noted) on the
+// applicant detail page — see admin/[key]/queue/[applicantId]/page.tsx's isSuperAdmin
+// branches — so the guard here just brings the action up to what the page already implies,
+// re-derived from the application's actual programId rather than trusted from a parameter.
 export async function overrideFlag(programKey: string, applicationId: number, fd: FormData) {
   const reason = str(fd, "reason").trim();
   if (!reason) return;
+  // Super Admin already has unrestricted program access (canAccessProgram is always true
+  // for that role), so requireSuperAdmin() alone is the complete check here — no separate
+  // requireProgramAccess call needed, unlike the Admin-or-Super-Admin functions below.
+  await requireSuperAdmin();
   const superAdmin = await getCurrentStaff("super_admin");
   const application = await db.application.update({
     where: { id: applicationId },
@@ -25,6 +34,7 @@ export async function overrideFlag(programKey: string, applicationId: number, fd
 }
 
 export async function clearFlagOverride(programKey: string, applicationId: number) {
+  await requireSuperAdmin();
   const application = await db.application.update({
     where: { id: applicationId },
     data: { flagOverridden: false, flagOverrideReason: null, flagOverriddenBy: null, flagOverriddenAt: null },
@@ -38,6 +48,8 @@ export async function clearFlagOverride(programKey: string, applicationId: numbe
 // src/lib/actions/student.ts) so a genuine mistake — a typo, not someone probing for a
 // combination of answers that passes — isn't locked out permanently.
 export async function resetIneligibleAttempts(programKey: string, applicationId: number) {
+  const existing = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+  await requireProgramAccess(existing.programId); // Admin-or-Super-Admin + scoped to their own program(s)
   const application = await db.application.update({
     where: { id: applicationId },
     data: { ineligibleAttempts: 0 },
@@ -58,6 +70,7 @@ const DECISION_LABELS: Record<string, string> = {
 // to the original screener (same rows, same screenerId) but logged here so there's a
 // visible trail of who actually made the change.
 export async function overrideAssessment(programKey: string, applicationId: number, screenerId: string, fd: FormData) {
+  await requireSuperAdmin();
   const screener = await db.staffAccount.findUniqueOrThrow({ where: { id: screenerId } });
   await applyAssessment(applicationId, screenerId, fd);
 
@@ -73,6 +86,7 @@ export async function overrideAssessment(programKey: string, applicationId: numb
 export async function setApplicantDecision(programKey: string, applicationId: number, fd: FormData) {
   const decision = str(fd, "decision");
   if (!DECISION_LABELS[decision]) return;
+  await requireSuperAdmin();
   const application = await db.application.update({
     where: { id: applicationId },
     data: { decision, ...(decision === "awarded" || decision === "declined" ? { status: decision } : {}) },
