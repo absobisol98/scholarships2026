@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { SideItem } from "@/components/ui/sidebar-item";
+import { AvatarBadge } from "@/components/ui/avatar";
 
 const NAV_ITEMS = [
   { href: "dashboard", label: "Dashboard", icon: <><rect x="3" y="3" width="7" height="9" /><rect x="14" y="3" width="7" height="5" /><rect x="14" y="12" width="7" height="9" /><rect x="3" y="16" width="7" height="5" /></> },
@@ -15,7 +16,21 @@ const NAV_ITEMS = [
   { href: "surveys", label: "Check-in surveys", icon: <><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></> },
 ];
 
-export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { programKey: string; workspaceName: string; isSuperAdmin?: boolean }) {
+export function AdminSidebar({
+  programKey,
+  workspaceName,
+  isSuperAdmin,
+  profileName,
+  profileInitials,
+  profileRole,
+}: {
+  programKey: string;
+  workspaceName: string;
+  isSuperAdmin?: boolean;
+  profileName: string;
+  profileInitials: string;
+  profileRole: string;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -39,6 +54,7 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
       <div className="sidebar-text" style={{ padding: "0 14px 10px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
         {workspaceName}
       </div>
+      <div className="sidebar-group-label sidebar-text">Content</div>
       {NAV_ITEMS.map((item) => {
         const href = `/admin/${programKey}/${item.href}`;
         // Paper Screeners and Screener Groups are two tabs of one section, so the single
@@ -54,6 +70,7 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
       })}
       {isSuperAdmin && (
         <>
+          <div className="sidebar-group-label sidebar-text">System</div>
           <SideItem
             href="/super_admin/users"
             active={pathname.startsWith("/super_admin/users")}
@@ -77,6 +94,14 @@ export function AdminSidebar({ programKey, workspaceName, isSuperAdmin }: { prog
           </SideItem>
         </>
       )}
+
+      <div className="sidebar-profile">
+        <AvatarBadge aria-hidden="true">{profileInitials}</AvatarBadge>
+        <div className="sidebar-profile-text sidebar-text">
+          <div className="sidebar-profile-name">{profileName}</div>
+          <div className="sidebar-profile-role">{profileRole}</div>
+        </div>
+      </div>
     </nav>
   );
 }
