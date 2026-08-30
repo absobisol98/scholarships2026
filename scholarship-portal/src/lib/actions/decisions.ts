@@ -52,10 +52,13 @@ export async function resetIneligibleAttempts(programKey: string, applicationId:
   await requireProgramAccess(existing.programId); // Admin-or-Super-Admin + scoped to their own program(s)
   const application = await db.application.update({
     where: { id: applicationId },
-    data: { ineligibleAttempts: 0 },
+    // Un-lock: a reset application must be reachable again through the normal application
+    // form, not stuck showing the lockout view with a status the student can never clear.
+    data: { ineligibleAttempts: 0, ...(existing.status === "ineligible" ? { status: "in_progress" } : {}) },
   });
   await logAudit(`Reset ineligible-attempt count for ${application.fullName}`, application.programId);
   revalidatePath(`/admin/${programKey}/queue/${applicationId}`);
+  revalidatePath(`/admin/${programKey}/queue`);
 }
 
 const DECISION_LABELS: Record<string, string> = {

@@ -15,6 +15,7 @@ export type QueueRow = {
   appId: string;
   name: string;
   phaseLabel: string;
+  notEligible: boolean;
   submitted: string | null;
   onPromote: BoundAction;
   onDemote: BoundAction;
@@ -149,7 +150,12 @@ export function QueueTable({
                 </td>
                 <td>{r.appId}</td>
                 <td style={{ fontWeight: 700 }}>{r.name}</td>
-                <td><Tag variant="neutral">{r.phaseLabel}</Tag></td>
+                <td>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <Tag variant="neutral">{r.phaseLabel}</Tag>
+                    {r.notEligible && <Tag variant="danger">Not eligible</Tag>}
+                  </div>
+                </td>
                 <td>{r.submitted}</td>
                 <td>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

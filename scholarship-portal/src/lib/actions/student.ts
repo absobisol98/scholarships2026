@@ -165,7 +165,11 @@ async function checkDuplicateAndEligibility(
     { skipGwa: true }
   );
   if (flags.length > 0) {
-    await db.application.update({ where: { id: application.id }, data: { ineligibleAttempts: { increment: 1 } } });
+    const newAttempts = application.ineligibleAttempts + 1;
+    await db.application.update({
+      where: { id: application.id },
+      data: { ineligibleAttempts: { increment: 1 }, ...(newAttempts >= MAX_INELIGIBLE_ATTEMPTS ? { status: "ineligible" } : {}) },
+    });
     await db.auditLogEntry.create({ data: { actor: "System", action: `Blocked ineligible application: ${flags.join("; ")}`, programId } });
     redirect(`/programs/${programKey}/application?error=ineligible`);
   }
@@ -190,7 +194,11 @@ async function checkGwaEligibility(
   const activeCohort = await getActiveCohortWithCriteria(programId);
   const flags = evaluateCriteria({ nationality: "", sex: "", yearLevel: "", institutionType: "", gwa }, activeCohort, { onlyGwa: true });
   if (flags.length > 0) {
-    await db.application.update({ where: { id: application.id }, data: { ineligibleAttempts: { increment: 1 } } });
+    const newAttempts = application.ineligibleAttempts + 1;
+    await db.application.update({
+      where: { id: application.id },
+      data: { ineligibleAttempts: { increment: 1 }, ...(newAttempts >= MAX_INELIGIBLE_ATTEMPTS ? { status: "ineligible" } : {}) },
+    });
     await db.auditLogEntry.create({ data: { actor: "System", action: `Blocked ineligible application: ${flags.join("; ")}`, programId } });
     redirect(`/programs/${programKey}/application?error=ineligible`);
   }
@@ -277,7 +285,7 @@ export async function submitApplication(programKey: string, fd: FormData) {
     data: { ...data, essaysDone: true, status: "submitted", submittedDate: formatDateLong() },
   });
 
-  redirect(`/programs/${programKey}/status`);
+  redirect(`/programs/${programKey}/status?submitted=1`);
 }
 
 // Deliberately not getProgramAndApp: that resolves the CURRENT active cohort's
@@ -345,4 +353,9 @@ export async function uploadRecommendationForm(programKey: string, fd: FormData)
   const path = await uploadDocument(application.id, "recommendation", file);
   await db.application.update({ where: { id: application.id }, data: { recommendationFileName: path } });
   revalidatePath(`/programs/${programKey}/status`);
+  // Without these, the admin queue's Promote button and the applicant detail page's
+  // Recommendation form card keep showing the pre-upload state until some unrelated
+  // navigation happens to refetch them.
+  revalidatePath(`/admin/${programKey}/queue`);
+  revalidatePath(`/admin/${programKey}/queue/${application.id}`);
 }

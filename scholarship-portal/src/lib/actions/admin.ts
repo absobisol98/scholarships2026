@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDateLong } from "@/lib/date";
-import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX, SUBMITTED_STATUSES } from "@/lib/steps";
 import { parseRegionMap, parseOptions, requireProgramAccess } from "@/lib/admin-data";
 import { uploadProgramTemplate } from "@/lib/storage";
 
@@ -174,6 +174,11 @@ export async function uploadRecommendationTemplate(programKey: string, programId
 export async function promoteApplicant(programKey: string, applicationId: number) {
   const a = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
   await requireProgramAccess(a.programId);
+
+  // Never-submitted applications (e.g. locked out by the eligibility-attempt cap, status
+  // "ineligible") have nothing to review — they only ever show up in the queue so an admin
+  // can see/reset them, not so they can be advanced through the pipeline.
+  if (!SUBMITTED_STATUSES.includes(a.status)) return;
 
   // Can't leave Paper Screening without a completed recommendation form on file — see
   // APPLICANT_PHASE_DESCRIPTIONS in src/lib/steps.ts ("Shortlisted applicants with

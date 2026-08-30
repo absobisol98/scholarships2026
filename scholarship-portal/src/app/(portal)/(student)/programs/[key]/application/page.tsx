@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, ensureApplication, checklistFor, getActiveCohort, getApplication, resolveApplicationForDisplay } from "@/lib/student-data";
 import { buildSteps, FORM_STEP_LABELS, GENERIKA_STEP_LABELS } from "@/lib/steps";
@@ -147,6 +148,12 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
   // fully open to retry indefinitely, only to bounce off the same ?error=too_many_attempts
   // redirect every time.
   if (application.ineligibleAttempts >= MAX_INELIGIBLE_ATTEMPTS) {
+    // Self-heals rows locked out before status="ineligible" started being set at the point
+    // of lockout (see checkDuplicateAndEligibility/checkGwaEligibility in student.ts) — this
+    // read-only branch is otherwise the only place left that would ever notice.
+    if (application.status !== "ineligible") {
+      await db.application.update({ where: { id: application.id }, data: { status: "ineligible" } });
+    }
     return (
       <>
         <Card role="alert" style={{ background: "var(--color-accent-2-100)" }}>

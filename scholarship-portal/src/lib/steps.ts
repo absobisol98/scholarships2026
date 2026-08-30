@@ -69,6 +69,8 @@ export function statusMeta(appStatus: string) {
   switch (appStatus) {
     case "in_progress":
       return { label: "In progress", tagClass: "tag-accent", buttonLabel: "Continue application", buttonClass: "btn-primary" };
+    case "ineligible":
+      return { label: "Not eligible", tagClass: "tag-danger", buttonLabel: "View details", buttonClass: "btn-secondary" };
     case "submitted":
       return { label: "Submitted", tagClass: "tag-accent", buttonLabel: "View status", buttonClass: "btn-secondary" };
     case "awarded":

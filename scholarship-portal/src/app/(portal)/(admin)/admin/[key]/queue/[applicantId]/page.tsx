@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
 import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 import { getFieldsConfig } from "@/lib/field-config";
-import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { PAPER_SCREENING_PHASE_INDEX, MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
 import { db } from "@/lib/db";
 import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessment, resetIneligibleAttempts } from "@/lib/actions/decisions";
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
@@ -62,7 +62,6 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const onClearOverride = clearFlagOverride.bind(null, program.key, application.id);
   const onSetDecision = setApplicantDecision.bind(null, program.key, application.id);
   const onResetAttempts = resetIneligibleAttempts.bind(null, program.key, application.id);
-  const MAX_INELIGIBLE_ATTEMPTS = 3; // must match src/lib/actions/student.ts
 
   return (
     <div className="page-wrap">
@@ -161,6 +160,10 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                   Open ↗
                 </a>
               </>
+            ) : !program.recommendationTemplatePath ? (
+              <span className="text-muted" style={{ fontSize: 13 }}>
+                No recommendation-form template has been uploaded for this program yet — the applicant has no way to submit one until you add one from the Dashboard.
+              </span>
             ) : (
               <span className="text-muted" style={{ fontSize: 13 }}>Not yet uploaded — required before this applicant can move to Interviews.</span>
             )}
