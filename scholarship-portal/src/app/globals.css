@@ -389,9 +389,16 @@ a.pagination-item-active:hover { background: var(--color-accent); color: #ffffff
 .table-toolbar .input { max-width: 320px; }
 
 /* — filters panel — */
-.filters-panel-header { display: flex; justify-content: space-between; align-items: center; }
-.filters-row { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-3); }
-.filters-row .field { margin-bottom: 0; min-width: 160px; }
+/* — compact filter toolbar (search + dropdown filters + Search + Reset, one line) — */
+.filters-panel {
+  padding: 10px var(--space-4); border-radius: var(--radius-md);
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+}
+.filters-row { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.filters-row .field { flex-direction: row; align-items: center; gap: 8px; margin-bottom: 0; }
+.filters-row .field > label { margin-bottom: 0; white-space: nowrap; }
+.filters-row .input { min-height: 36px; width: auto; min-width: 140px; padding: 6px 10px; font-size: 13px; }
+.filters-reset { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--color-accent); white-space: nowrap; }
 
 @media (max-width: 860px) {
   .app-body { flex-direction: column; }
