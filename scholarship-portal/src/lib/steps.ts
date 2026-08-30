@@ -15,6 +15,14 @@ export const WAVE_TITLES: Record<string, string> = { midYear: "Mid-Year Check-in
 // operates on rows in this set, so a draft ("not_started"/"in_progress") never surfaces there.
 export const SUBMITTED_STATUSES: string[] = ["submitted", "awarded", "declined"];
 
+// How many failed eligibility attempts (Personal step's nationality/sex/yearLevel/
+// institutionType, or the Academic step's GWA) a single application gets before it's locked
+// out — checked in src/lib/actions/student.ts, rendered in the application page. Lives here
+// rather than in student.ts itself because that file has "use server" at the top, and
+// Next.js requires every export from a "use server" module to be an async function — a
+// plain exported constant there silently breaks the whole module's compilation.
+export const MAX_INELIGIBLE_ATTEMPTS = 3;
+
 // Same order/length as APPLICANT_PHASES — what actually happens at each stage.
 export const APPLICANT_PHASE_DESCRIPTIONS = [
   "Applicants who meet the eligibility requirements submit the full scholarship application, along with all required supporting documents.",

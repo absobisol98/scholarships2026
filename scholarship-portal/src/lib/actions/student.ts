@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentStudent } from "@/lib/auth";
 import { formatDateLong } from "@/lib/date";
 import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
-import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
+import { PAPER_SCREENING_PHASE_INDEX, MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
 import { resolveApplicationForAward } from "@/lib/student-data";
 import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
@@ -28,13 +28,6 @@ async function uploadIfPresent(fd: FormData, name: "cert" | "video", application
 
 const MAX_CERT_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
-
-// How many failed eligibility attempts (Personal step's nationality/sex/yearLevel/
-// institutionType, or the Academic step's GWA) a single application gets before it's
-// locked out — the hard eligibility block itself is deliberate (it's how applicant volume
-// gets kept manageable at intake, not just a data-quality check), but nothing previously
-// stopped someone from freely retrying different answers until one combination passed.
-const MAX_INELIGIBLE_ATTEMPTS = 3;
 
 function isOversized(fd: FormData, name: string, maxBytes: number): boolean {
   const v = fd.get(name);

@@ -4,6 +4,7 @@ import { getProgramByKey, ensureApplication, checklistFor, getActiveCohort, getA
 import { buildSteps, FORM_STEP_LABELS, GENERIKA_STEP_LABELS } from "@/lib/steps";
 import { saveStepAndContinue, goPrevStep, saveDraft, submitApplication } from "@/lib/actions/student";
 import { getFieldsConfig, STEPS_BY_FORM_KIND, valueForField, parseCustomFields } from "@/lib/field-config";
+import { MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
 import { Card, CardKicker, CardTitle, CardBody } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper";
@@ -134,6 +135,23 @@ export default async function ApplicationFormPage({ params, searchParams }: { pa
         <Card>
           <CardBody>
             This application was already submitted{application.submittedDate ? ` on ${application.submittedDate}` : ""}. You can no longer make changes — check the Status tab for updates.
+          </CardBody>
+        </Card>
+        <ReadOnlyApplicationView application={application} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
+      </>
+    );
+  }
+
+  // checkDuplicateAndEligibility/checkGwaEligibility (student.ts) already hard-block a
+  // submit past this cap — this just makes that block visible instead of leaving the form
+  // fully open to retry indefinitely, only to bounce off the same ?error=too_many_attempts
+  // redirect every time.
+  if (application.ineligibleAttempts >= MAX_INELIGIBLE_ATTEMPTS) {
+    return (
+      <>
+        <Card role="alert" style={{ background: "var(--color-accent-2-100)" }}>
+          <CardBody style={{ color: "var(--color-accent-2-800)" }}>
+            You&apos;ve reached the maximum number of attempts for this program. Contact the program administrator if you believe this is an error.
           </CardBody>
         </Card>
         <ReadOnlyApplicationView application={application} fieldsByStep={fieldsByStep} isGenerika={isGenerika} />
