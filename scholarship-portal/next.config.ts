@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Bundles the app + only the node_modules it actually needs into .next/standalone —
+  // an ECS/Fargate container built from that output is a fraction of the size (and starts
+  // faster) than one carrying the full node_modules tree, which matters directly for
+  // autoscaling fast enough to meet a real gate-opening traffic spike.
+  output: "standalone",
   // Drops the "X-Powered-By: Next.js" response header — no reason to hand a probing
   // attacker a free framework/version fingerprint.
   poweredByHeader: false,
