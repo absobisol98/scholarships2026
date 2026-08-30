@@ -101,8 +101,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ key:
       <Card elevation="md" style={{ marginTop: "var(--space-4)", maxWidth: 480 }}>
         <CardKicker>Recommendation form template</CardKicker>
         <CardBody style={{ marginTop: -4 }}>
-          Shortlisted applicants (anyone in Paper Screening) download this template, get it
-          completed, and re-upload it before they can be moved on to Interviews.
+          Once an applicant is Shortlisted, they download this template, get it completed,
+          and re-upload it before they can be moved on to For Interview.
         </CardBody>
         {program.recommendationTemplatePath && (
           <a

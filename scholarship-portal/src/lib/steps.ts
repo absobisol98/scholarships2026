@@ -39,12 +39,17 @@ export const APPLICANT_PHASE_DESCRIPTIONS = [
   "Strong, well-qualified applicants are chosen as scholars.",
 ];
 
+// The last four keys mirror APPLICANT_PHASES (Paper Screening/Shortlisted/For Interview/
+// Awarded) in that order — see getPipelineStats in admin-data.ts, which groups by the same
+// phaseIndex values.
 export const PIPELINE_STAGES = [
   { key: "signedUpCount", label: "Signed up", hint: "Not yet started", icon: "M8 5v14l11-7z" },
   { key: "applicationCount", label: "Application", hint: "Started, in progress", icon: "M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" },
   { key: "submittedCount", label: "Submitted", hint: "Application complete", icon: "M20 6 9 17l-5-5" },
   { key: "paperScreeningCount", label: "Paper screening", hint: "", icon: "M9 2h6v4H9z M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" },
-  { key: "panelInterviewCount", label: "Panel interview", hint: "", icon: "M20 7h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" },
+  { key: "shortlistedCount", label: "Shortlisted", hint: "", icon: "M12 2 15 8.5 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 8.5Z" },
+  { key: "forInterviewCount", label: "For interview", hint: "", icon: "M20 7h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" },
+  { key: "awardedCount", label: "Awarded", hint: "", icon: "M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z M8.5 13.5 7 22l5-3 5 3-1.5-8.5" },
 ] as const;
 
 export type StepDot = {

@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
-import { APPLICANT_PHASES, SUBMITTED_STATUSES } from "@/lib/steps";
+import { APPLICANT_PHASES, PAPER_SCREENING_PHASE_INDEX, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX, AWARDED_PHASE_INDEX, SUBMITTED_STATUSES } from "@/lib/steps";
 import { getCurrentStaff, requireAdminLike, homeForRole } from "@/lib/auth";
 
 // Re-exported for existing admin call sites — these now live in field-config.ts, shared
@@ -331,14 +331,19 @@ export async function getApplicationForReview(applicationId: number) {
 // Real funnel counts for the Dashboard's "Applicants" card, drawn entirely from the real
 // Student/Application signup flow now that the admin/screener roster (formerly a separate
 // Applicant model) has been unified into Application — see git history "unify Applicant
-// into Application" for why this used to be two disconnected datasets. There's no
-// interview-scheduling feature anywhere in the app, so Panel interview stays at 0.
+// into Application" for why this used to be two disconnected datasets. The last four counts
+// mirror the actual admin review pipeline (APPLICANT_PHASES in steps.ts) via a real
+// groupBy — previously "Paper screening" was an assignment-based approximation that didn't
+// distinguish Shortlisted/For Interview from Paper Screening once those became real,
+// separate phases, and "Panel interview" was permanently hardcoded to 0.
 export async function getPipelineStats(programId: number) {
-  const [totalStudents, applications, paperScreeningCount] = await Promise.all([
+  const [totalStudents, applications, phaseGroups] = await Promise.all([
     db.student.count(),
     db.application.findMany({ where: { programId }, select: { status: true, studentId: true } }),
-    db.application.count({
-      where: { programId, status: { in: SUBMITTED_STATUSES }, decision: null, screenerAssignments: { some: {} } },
+    db.application.groupBy({
+      by: ["phaseIndex"],
+      where: { programId, status: { in: SUBMITTED_STATUSES } },
+      _count: { id: true },
     }),
   ]);
 
@@ -348,13 +353,16 @@ export async function getPipelineStats(programId: number) {
   const startedStudentIds = new Set(applications.map((a) => a.studentId));
   const applicationCount = applications.filter((a) => a.status === "in_progress").length;
   const submittedCount = applications.filter((a) => SUBMITTED_STATUSES.includes(a.status)).length;
+  const countForPhase = (idx: number) => phaseGroups.find((g) => g.phaseIndex === idx)?._count.id ?? 0;
 
   return {
     signedUpCount: Math.max(totalStudents - startedStudentIds.size, 0),
     applicationCount,
     submittedCount,
-    paperScreeningCount,
-    panelInterviewCount: 0,
+    paperScreeningCount: countForPhase(PAPER_SCREENING_PHASE_INDEX),
+    shortlistedCount: countForPhase(SHORTLISTED_PHASE_INDEX),
+    forInterviewCount: countForPhase(FOR_INTERVIEW_PHASE_INDEX),
+    awardedCount: countForPhase(AWARDED_PHASE_INDEX),
   };
 }
 
