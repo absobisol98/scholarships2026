@@ -3,12 +3,10 @@ import { notFound } from "next/navigation";
 import { getProgramByKey, getEligibleUnassignedCount } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { createScreenerGroup, deleteScreenerGroup } from "@/lib/actions/screenerGroups";
-import { Breadcrumb } from "@/components/breadcrumb";
-import { Card, CardKicker } from "@/components/ui/card";
-import { Field, Input } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
 import { Table, TableScroll } from "@/components/ui/table";
 import { ScreenerTabs } from "../screener-tabs";
+import { NewGroupModal } from "./new-group-modal";
+import { GroupRowActions } from "./group-row-actions";
 
 export default async function ScreenerGroupsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
@@ -28,13 +26,17 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
 
   return (
     <div className="page-wrap">
-      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Screener Groups" }]} />
-      <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
-      <h2 style={{ marginBottom: 4 }}>Screener Groups</h2>
-      <p className="text-muted" style={{ maxWidth: 640, marginBottom: 0 }}>
-        Panels of Paper Screeners. Assign applicants to a group and they&apos;re distributed across
-        its members — which moves those applicants into the Paper Screening phase.
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
+        <div>
+          <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
+          <h2 style={{ marginBottom: 4 }}>Screener Groups</h2>
+          <p className="text-muted" style={{ maxWidth: 640, marginBottom: 0 }}>
+            Panels of Paper Screeners. Assign applicants to a group and they&apos;re distributed across
+            its members — which moves those applicants into the Paper Screening phase.
+          </p>
+        </div>
+        <NewGroupModal onCreate={onCreateGroup} />
+      </div>
 
       <ScreenerTabs programKey={program.key} />
 
@@ -68,12 +70,7 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
                   <td>{group.members.length}</td>
                   <td>{candidateCounts[i]}</td>
                   <td>
-                    <form action={onDeleteGroup}>
-                      <button type="submit" className="link-delete">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
-                        Delete group
-                      </button>
-                    </form>
+                    <GroupRowActions groupName={group.name} onDeleteGroup={onDeleteGroup} />
                   </td>
                 </tr>
               );
@@ -81,16 +78,6 @@ export default async function ScreenerGroupsPage({ params }: { params: Promise<{
           </tbody>
         </Table>
       </TableScroll>
-
-      <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
-        <CardKicker>+ New group</CardKicker>
-        <form action={onCreateGroup} style={{ display: "flex", gap: "var(--space-2)", marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <Field label="Group name" htmlFor="new-group-name" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
-            <Input id="new-group-name" name="name" placeholder="e.g. U-GO Screening Panel" />
-          </Field>
-          <Button type="submit" variant="primary">Create group</Button>
-        </form>
-      </Card>
     </div>
   );
 }

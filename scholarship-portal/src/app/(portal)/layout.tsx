@@ -31,13 +31,6 @@ export default async function PortalLayout({ children }: { children: React.React
 
       <div className="nav" role="banner" style={{ borderBottom: "none" }}>
         <span className="nav-brand">Scholarship Management &amp; Application</span>
-        <div className="nav-search" role="search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input type="search" placeholder="Search…" aria-label="Search" />
-        </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 18 }}>
           <button type="button" aria-label="Notifications, 2 unread" style={{ position: "relative", display: "flex", cursor: "pointer", background: "none", border: "none", padding: 0, color: "inherit" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

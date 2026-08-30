@@ -2,21 +2,34 @@ import { notFound } from "next/navigation";
 import { getProgramByKey } from "@/lib/admin-data";
 import { db } from "@/lib/db";
 import { bulkImportScreeners, setStaffPassword, generateScreenerMagicLink } from "@/lib/actions/screenerGroups";
-import { Breadcrumb } from "@/components/breadcrumb";
 import { ScreenerTabs } from "../screener-tabs";
 import { ScreenerRoster } from "./screener-roster";
+import { ImportScreenersModal } from "./import-screeners-modal";
+import { FiltersPanel } from "@/components/ui/filters-panel";
+import { Field, Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 
 // The "manage individual screeners" half of paper-screener administration: who exists, how
 // they're onboarded, and which panels they sit on. Group composition lives on the sibling
 // Screener Groups tab.
-export default async function ScreenersPage({ params }: { params: Promise<{ key: string }> }) {
+export default async function ScreenersPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ key: string }>;
+  searchParams: Promise<{ q?: string }>;
+}) {
   const { key } = await params;
+  const { q = "" } = await searchParams;
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
   const [screeners, groups] = await Promise.all([
     db.staffAccount.findMany({
-      where: { role: "screener" },
+      where: {
+        role: "screener",
+        ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {}),
+      },
       select: {
         id: true, name: true, email: true, company: true, active: true,
         passwordHash: true, inviteToken: true, inviteTokenExpiresAt: true, privacyAcceptedAt: true,
@@ -45,20 +58,33 @@ export default async function ScreenersPage({ params }: { params: Promise<{ key:
 
   return (
     <div className="page-wrap">
-      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Paper Screeners" }]} />
-      <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
-      <h2 style={{ marginBottom: 4 }}>Paper Screeners</h2>
-      <p className="text-muted" style={{ maxWidth: 640, marginBottom: 0 }}>
-        The people who review applications. Import your roster, set up their sign-in, and see
-        what each one is carrying.
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
+        <div>
+          <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
+          <h2 style={{ marginBottom: 4 }}>Paper Screeners</h2>
+          <p className="text-muted" style={{ maxWidth: 640, marginBottom: 0 }}>
+            The people who review applications. Import your roster, set up their sign-in, and see
+            what each one is carrying.
+          </p>
+        </div>
+        <ImportScreenersModal groups={groups} onImport={bulkImportScreeners.bind(null, program.key)} />
+      </div>
 
       <ScreenerTabs programKey={program.key} />
 
+      <FiltersPanel
+        method="GET"
+        resetHref={`/admin/${program.key}/screeners`}
+        style={{ margin: "var(--space-4) 0" }}
+        footer={<Button type="submit" variant="secondary" style={{ alignSelf: "flex-start" }}>Search</Button>}
+      >
+        <Field label="Name or email" htmlFor="screeners-search">
+          <Input id="screeners-search" name="q" placeholder="Search screeners..." defaultValue={q} />
+        </Field>
+      </FiltersPanel>
+
       <ScreenerRoster
         rows={rows}
-        groups={groups}
-        onImport={bulkImportScreeners.bind(null, program.key)}
         onSetPassword={setStaffPassword.bind(null, program.key)}
         onGenerateMagicLink={generateScreenerMagicLink.bind(null, program.key)}
       />
