@@ -315,9 +315,16 @@ textarea.input { min-height: 90px; resize: vertical; }
 .sidebar-group-label:first-of-type { padding-top: var(--space-2); }
 
 /* — bottom-of-sidebar profile card — */
+/* The app shell scrolls as one document (no inner viewport-height scroll region), so on a
+   page whose main content is taller than the screen, the sidebar's own box grows to match —
+   margin-top: auto alone would then just push this to the bottom of that tall box, off the
+   bottom of the actual visible viewport. position: sticky keeps it pinned to the viewport's
+   bottom edge as the page scrolls; margin-top: auto still does the useful thing on a short
+   page, holding it at the bottom of a sidebar that's exactly viewport height. */
 .sidebar-profile {
   margin-top: auto; display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; border-top: 1px solid var(--color-divider);
+  position: sticky; bottom: 0; background: var(--color-bg);
 }
 .sidebar-profile-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-profile-role { font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); white-space: nowrap; }
