@@ -330,6 +330,21 @@ textarea.input { min-height: 90px; resize: vertical; }
 .sidebar-profile-role { font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); white-space: nowrap; }
 .admin-sidebar.collapsed .sidebar-profile { justify-content: center; padding: 10px; }
 
+/* — numbered pagination (page numbers + prev/next chevrons) — */
+.pagination { display: flex; align-items: center; gap: 4px; }
+.pagination-item {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 32px; height: 32px; padding: 0 8px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent); text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+a.pagination-item:hover { background: var(--color-surface-muted); color: var(--color-text); }
+.pagination-item-active { background: var(--color-accent); color: #ffffff; }
+a.pagination-item-active:hover { background: var(--color-accent); color: #ffffff; }
+.pagination-item-disabled { color: color-mix(in srgb, var(--color-text) 30%, transparent); cursor: default; }
+.pagination-ellipsis { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; color: color-mix(in srgb, var(--color-text) 45%, transparent); font-size: 13px; }
+
 .stepdot { width: 28px; height: 28px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 12px var(--font-heading); border: 2px solid var(--color-divider); background: var(--color-surface); transition: background 0.15s ease, border-color 0.15s ease; }
 .stepdot.done { background: var(--color-accent); border-color: var(--color-accent); color: #ffffff; }
 .stepdot.current { border-color: var(--color-accent); color: var(--color-accent); }
