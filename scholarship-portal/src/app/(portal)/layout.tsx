@@ -1,4 +1,5 @@
-import { getSession, getCurrentStudent, getCurrentStaff, initialsFor } from "@/lib/auth";
+import Link from "next/link";
+import { getSession, getCurrentStudent, getCurrentStaff, initialsFor, homeForRole } from "@/lib/auth";
 import { WelcomePrivacyModal } from "@/components/welcome-privacy-modal";
 import { TopBarIdentity } from "@/components/top-bar-identity";
 
@@ -30,6 +31,12 @@ export default async function PortalLayout({ children }: { children: React.React
       <h1 className="sr-only">Scholarship Systems — application portal</h1>
 
       <div className="nav" role="banner" style={{ borderBottom: "none" }}>
+        <Link href={homeForRole(session.role)} aria-label="Home" className="btn btn-icon btn-ghost" style={{ flex: "none" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+            <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          </svg>
+        </Link>
         <span className="nav-brand">Scholarship Management &amp; Application</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 18 }}>
           <button type="button" aria-label="Notifications, 2 unread" style={{ position: "relative", display: "flex", cursor: "pointer", background: "none", border: "none", padding: 0, color: "inherit" }}>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProgramByKey, getActiveCohort } from "@/lib/student-data";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
@@ -17,15 +16,7 @@ export default async function ProgramLayout({ children, params }: { children: Re
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-4)" }}>
         <div>
           <h6 style={{ color: "var(--color-accent)" }}>{cohort ? cohort.name.toUpperCase() : "NO ACTIVE BATCH"}</h6>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-1)" }}>
-            <Link href="/browse" aria-label="Back to scholarships" className="btn btn-icon btn-ghost" style={{ flex: "none" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
-                <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              </svg>
-            </Link>
-            <h2 style={{ marginBottom: 0 }}>{program.name}</h2>
-          </div>
+          <h2 style={{ marginBottom: 0 }}>{program.name}</h2>
         </div>
         <Tag variant="outline" style={{ flex: "none", whiteSpace: "nowrap" }}>{program.deadlineLabel}</Tag>
       </div>
