@@ -22,7 +22,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
-      <body>{children}</body>
+      {/* suppressHydrationWarning: browser extensions (Grammarly, etc.) inject attributes
+          like data-gr-ext-installed onto <body> before React hydrates — a real mismatch,
+          but not one caused by this app, and not one worth a scary console error over. This
+          only suppresses warnings for body's own attributes, not for anything inside it. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
