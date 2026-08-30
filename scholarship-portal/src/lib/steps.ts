@@ -1,6 +1,6 @@
 export const FORM_STEP_LABELS = ["Personal Info", "Family Info", "Academic Info", "Community", "Statement"];
 export const GENERIKA_STEP_LABELS = ["Personal Info", "Family Info", "Leadership", "Community", "Statement"];
-export const STAGE_LABELS = ["Submitted", "Under review", "Committee", "Decision"];
+export const STAGE_LABELS = ["Application", "Shortlisted", "Interview", "Decision"];
 // The admin-side review pipeline for the Applications Overview queue (distinct from the
 // applicant-facing Application.status tracker in STAGE_LABELS/statusMeta below). "Awarded"
 // is reached only through setApplicantDecision (src/lib/actions/decisions.ts) — the plain
@@ -78,14 +78,31 @@ export function buildSteps(currentIndex: number, labels: string[]): StepDot[] {
   });
 }
 
-export function statusMeta(appStatus: string) {
-  switch (appStatus) {
+// The program-tile/submission-history pill: mostly a function of Application.status, but a
+// "submitted" application also distinguishes Shortlisted from a still-actionable
+// "Recommendation Form Required" nudge — needs phaseIndex, recommendationFileName, and
+// whether the program even has a template to upload against (no template -> nothing to
+// nudge them to submit yet, same gate the Status page's own upload card uses).
+export function statusMeta(
+  app: { status: string; phaseIndex: number; recommendationFileName: string | null } | null,
+  hasRecommendationTemplate: boolean
+) {
+  const status = app?.status ?? "not_started";
+  switch (status) {
     case "in_progress":
-      return { label: "In progress", tagClass: "tag-accent", buttonLabel: "Continue application", buttonClass: "btn-primary" };
+      return { label: "Saved as draft", tagClass: "tag-accent", buttonLabel: "Continue application", buttonClass: "btn-primary" };
     case "ineligible":
       return { label: "Not eligible", tagClass: "tag-danger", buttonLabel: "View details", buttonClass: "btn-secondary" };
-    case "submitted":
+    case "submitted": {
+      const phaseIndex = app?.phaseIndex ?? 0;
+      if (phaseIndex === SHORTLISTED_PHASE_INDEX && hasRecommendationTemplate && !app?.recommendationFileName) {
+        return { label: "Recommendation Form Required", tagClass: "tag-danger", buttonLabel: "View status", buttonClass: "btn-secondary" };
+      }
+      if (phaseIndex >= SHORTLISTED_PHASE_INDEX) {
+        return { label: "Shortlisted", tagClass: "tag-accent", buttonLabel: "View status", buttonClass: "btn-secondary" };
+      }
       return { label: "Submitted", tagClass: "tag-accent", buttonLabel: "View status", buttonClass: "btn-secondary" };
+    }
     case "awarded":
       return { label: "Awarded", tagClass: "tag-neutral", buttonLabel: "View award letter", buttonClass: "btn-secondary" };
     case "declined":
@@ -95,15 +112,13 @@ export function statusMeta(appStatus: string) {
   }
 }
 
-// Maps an application's status to a position on the 4-stage status tracker.
-export function stageIndexForStatus(appStatus: string): number {
-  switch (appStatus) {
-    case "submitted":
-      return 1; // Submitted done, Under review current
-    case "awarded":
-    case "declined":
-      return 4; // all stages done, decision rendered separately
-    default:
-      return 0;
-  }
+// Maps an application's current phase (plus whether a final decision has landed) to a
+// position on the 4-stage status tracker (STAGE_LABELS: Application/Shortlisted/Interview/
+// Decision). Paper Screening has no stage of its own — from the applicant's side it's just
+// "still on the way to Shortlisted" — so phaseIndex 0 and 1 both read as "Application done,
+// Shortlisted next."
+export function stageIndexForApplication(phaseIndex: number, hasDecision: boolean): number {
+  if (hasDecision) return 4; // all stages done, decision rendered separately
+  if (phaseIndex >= SHORTLISTED_PHASE_INDEX) return 2; // Shortlisted done, Interview next/current
+  return 1; // Application done, Shortlisted next/current
 }

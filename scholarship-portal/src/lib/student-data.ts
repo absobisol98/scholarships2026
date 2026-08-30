@@ -42,7 +42,7 @@ export async function listProgramsForBrowse(studentId: number) {
   return programs.map((p) => {
     const app = pickDisplayApplication(applicationsByProgramId.get(p.id) ?? [], activeCohortIdByProgramId.get(p.id) ?? null);
     const status = app?.status ?? "not_started";
-    const meta = statusMeta(status);
+    const meta = statusMeta(app ?? null, !!p.recommendationTemplatePath);
     return {
       program: p,
       tags: JSON.parse(p.tagsJson) as string[],
@@ -66,7 +66,7 @@ export async function getSubmissionHistory(studentId: number) {
     orderBy: { createdAt: "desc" },
   });
   return applications.map((app) => {
-    const meta = statusMeta(app.status);
+    const meta = statusMeta(app, !!app.program.recommendationTemplatePath);
     return {
       application: app,
       program: app.program,

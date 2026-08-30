@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, resolveApplicationForDisplay } from "@/lib/student-data";
 import { uploadRecommendationForm } from "@/lib/actions/student";
-import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForStatus, SHORTLISTED_PHASE_INDEX } from "@/lib/steps";
+import { buildSteps, STAGE_LABELS, statusMeta, stageIndexForApplication, SHORTLISTED_PHASE_INDEX, FOR_INTERVIEW_PHASE_INDEX } from "@/lib/steps";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Stepper } from "@/components/ui/stepper";
@@ -26,8 +26,9 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
   const student = await getCurrentStudent();
   const application = await resolveApplicationForDisplay(student.id, program.id);
   const status = application?.status ?? "not_started";
-  const meta = statusMeta(status);
-  const stageIndex = stageIndexForStatus(status);
+  const meta = statusMeta(application ?? null, !!program.recommendationTemplatePath);
+  const hasDecision = status === "awarded" || status === "declined";
+  const stageIndex = stageIndexForApplication(application?.phaseIndex ?? 0, hasDecision);
   const stages = buildSteps(stageIndex, STAGE_LABELS);
   const onUploadRecommendation = uploadRecommendationForm.bind(null, program.key);
 
@@ -81,6 +82,27 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
             </Field>
             <Button type="submit" variant="secondary">Upload</Button>
           </form>
+        </Card>
+      )}
+
+      {/* Only once the applicant has actually reached For Interview — not shown while
+          merely Shortlisted. No real interview-scheduling feature exists in this app (no
+          date/time/location is ever set anywhere), so this is placeholder guidance rather
+          than a specific appointment; a future integration would also email this out (see
+          the "future function" note in the RFP) once real email infra exists. */}
+      {application && application.phaseIndex >= FOR_INTERVIEW_PHASE_INDEX && (
+        <Card style={{ marginTop: "var(--space-6)" }}>
+          <CardKicker>Interview</CardKicker>
+          <CardBody style={{ marginTop: -4 }}>
+            You&apos;ve been shortlisted for an interview. A program coordinator will reach out
+            with the schedule and format (in-person or online) — keep an eye on your email and
+            this page for updates.
+          </CardBody>
+          <ul style={{ margin: "var(--space-2) 0 0", paddingLeft: 18, fontSize: 13, color: "var(--color-text)", display: "flex", flexDirection: "column", gap: 4 }}>
+            <li>Have a valid ID and your submitted documents on hand.</li>
+            <li>Join a few minutes early if the interview is online, and test your camera/mic beforehand.</li>
+            <li>Reschedule requests should go through your program coordinator as soon as possible.</li>
+          </ul>
         </Card>
       )}
     </>
