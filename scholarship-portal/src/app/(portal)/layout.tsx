@@ -1,8 +1,6 @@
 import { getSession, getCurrentStudent, getCurrentStaff, initialsFor } from "@/lib/auth";
-import { logout } from "@/app/login/actions";
-import { AvatarBadge } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { WelcomePrivacyModal } from "@/components/welcome-privacy-modal";
+import { TopBarIdentity } from "@/components/top-bar-identity";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -48,12 +46,7 @@ export default async function PortalLayout({ children }: { children: React.React
             </svg>
             <span aria-hidden="true" style={{ position: "absolute", top: -4, right: -5, width: 14, height: 14, borderRadius: "50%", background: "var(--color-accent-2)", color: "#ffffff", font: "700 9px var(--font-heading)", display: "flex", alignItems: "center", justifyContent: "center" }}>2</span>
           </button>
-          <span aria-hidden="true" style={{ width: 1, height: 20, background: "var(--color-divider)" }} />
-          <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>{userLabel}</span>
-          <AvatarBadge aria-hidden="true">{userInitials}</AvatarBadge>
-          <form action={logout}>
-            <Button type="submit" variant="ghost" style={{ whiteSpace: "nowrap", flex: "none" }}>Log out</Button>
-          </form>
+          <TopBarIdentity role={session.role} userLabel={userLabel} userInitials={userInitials} />
         </div>
       </div>
 

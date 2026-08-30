@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { SideItem } from "@/components/ui/sidebar-item";
 import { AvatarBadge } from "@/components/ui/avatar";
+import { logout } from "@/app/login/actions";
 
 const NAV_ITEMS = [
   { href: "dashboard", label: "Dashboard", icon: <><rect x="3" y="3" width="7" height="9" /><rect x="14" y="3" width="7" height="5" /><rect x="14" y="12" width="7" height="9" /><rect x="3" y="16" width="7" height="5" /></> },
@@ -101,6 +102,15 @@ export function AdminSidebar({
           <div className="sidebar-profile-name">{profileName}</div>
           <div className="sidebar-profile-role">{profileRole}</div>
         </div>
+        <form action={logout} className="sidebar-profile-logout-form sidebar-text">
+          <button type="submit" className="sidebar-profile-logout" aria-label="Log out" title="Log out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
+          </button>
+        </form>
       </div>
     </nav>
   );
