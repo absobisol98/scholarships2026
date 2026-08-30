@@ -61,28 +61,38 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
         </Card>
       )}
 
+      {/* Once the form is on file, this becomes a plain view — the task is done, so there's
+          nothing left to act on here (matching the stepper's own Shortlisted-checked state).
+          Only while still missing does it show as an actionable upload task. */}
       {application && application.phaseIndex >= SHORTLISTED_PHASE_INDEX && program.recommendationTemplatePath && (
-        <Card style={{ marginTop: "var(--space-6)" }}>
-          <CardKicker>Recommendation form</CardKicker>
-          <CardBody style={{ marginTop: -4 }}>
-            Your application has been reviewed and shortlisted — you&apos;ll need a completed
-            recommendation form on file before moving on to an interview.
-          </CardBody>
-          <a href={`/api/documents/program/${program.id}/template`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
-            Download template ↗
-          </a>
-          {application?.recommendationFileName && (
-            <p className="text-muted" style={{ fontSize: 13, margin: "var(--space-2) 0 0" }}>
-              Currently on file: {displayFileName(application.recommendationFileName)}
-            </p>
-          )}
-          <form action={onUploadRecommendation} style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
-            <Field label={application?.recommendationFileName ? "Replace file" : "Upload completed form"} htmlFor="recommendation-upload" style={{ flex: 1, marginBottom: 0 }}>
-              <Input id="recommendation-upload" name="recommendation" type="file" accept=".pdf,.doc,.docx,.jpg,.png" required aria-required="true" />
-            </Field>
-            <Button type="submit" variant="secondary">Upload</Button>
-          </form>
-        </Card>
+        application.recommendationFileName ? (
+          <Card style={{ marginTop: "var(--space-6)" }}>
+            <CardKicker>Recommendation form</CardKicker>
+            <CardBody style={{ marginTop: -4 }}>
+              Your completed recommendation form is on file.
+            </CardBody>
+            <a href={`/api/documents/${application.id}/recommendation`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
+              {displayFileName(application.recommendationFileName)} ↗
+            </a>
+          </Card>
+        ) : (
+          <Card style={{ marginTop: "var(--space-6)" }}>
+            <CardKicker>Recommendation form</CardKicker>
+            <CardBody style={{ marginTop: -4 }}>
+              Your application has been reviewed and shortlisted — you&apos;ll need a completed
+              recommendation form on file before moving on to an interview.
+            </CardBody>
+            <a href={`/api/documents/program/${program.id}/template`} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600 }}>
+              Download template ↗
+            </a>
+            <form action={onUploadRecommendation} style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
+              <Field label="Upload completed form" htmlFor="recommendation-upload" style={{ flex: 1, marginBottom: 0 }}>
+                <Input id="recommendation-upload" name="recommendation" type="file" accept=".pdf,.doc,.docx,.jpg,.png" required aria-required="true" />
+              </Field>
+              <Button type="submit" variant="secondary">Upload</Button>
+            </form>
+          </Card>
+        )
       )}
 
       {/* Shows as soon as the applicant has cleared the one remaining requirement to reach
