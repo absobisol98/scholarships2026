@@ -8,7 +8,7 @@ import { formatDateLong } from "@/lib/date";
 import { getEnabledFields, parseCustomFields, STEPS_BY_FORM_KIND } from "@/lib/field-config";
 import { SHORTLISTED_PHASE_INDEX, MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
 import { getActiveCohortWithCriteria, evaluateCriteria } from "@/lib/admin-data";
-import { resolveApplicationForAward } from "@/lib/student-data";
+import { resolveApplicationForAward, resolveApplicationForDisplay } from "@/lib/student-data";
 import { nameSimilarity, normalizeName } from "@/lib/duplicate-check";
 import { uploadDocument } from "@/lib/storage";
 import { findMissingRequiredFields } from "@/lib/validation";
@@ -340,13 +340,25 @@ export async function submitCheckInResponse(programKey: string, wave: string, fd
 const MAX_RECOMMENDATION_BYTES = 10 * 1024 * 1024;
 
 // Uploads the applicant's completed recommendation form — required before promoteApplicant
-// (src/lib/actions/admin.ts) will move them out of Paper Screening into Interviews. Only
-// meaningful once an admin has actually reviewed and shortlisted the applicant (moved them
-// into Paper Screening) — a plain-submitted, not-yet-reviewed applicant has nothing to
-// upload yet, so this is rejected server-side too, not just hidden in the UI.
+// (src/lib/actions/admin.ts) will move them out of Shortlisted into For Interview. Only
+// meaningful once an admin has actually shortlisted the applicant — a plain-submitted,
+// not-yet-reviewed applicant has nothing to upload yet, so this is rejected server-side
+// too, not just hidden in the UI.
+//
+// Deliberately NOT getProgramAndApp: that resolves the CURRENTLY ACTIVE cohort's
+// application, which is correct for the drafting actions above (a student can only ever be
+// filling out the cycle that's actually open right now) but wrong here — a shortlisted
+// applicant is mid-review on WHATEVER cohort their application belongs to, which may no
+// longer be the active one if an admin has since opened a new batch. Using the
+// active-cohort-only lookup here made the upload throw (P2025, "no record found") for any
+// such applicant, even though the Status page — which uses this same resolution rule — was
+// happily showing them the upload card. Matching the display page's own resolveApplication-
+// ForDisplay is what keeps "what you see" and "what you can act on" in sync.
 export async function uploadRecommendationForm(programKey: string, fd: FormData) {
-  const { application } = await getProgramAndApp(programKey);
-  if (application.phaseIndex < SHORTLISTED_PHASE_INDEX) redirect(`/programs/${programKey}/status?error=not_shortlisted`);
+  const student = await getCurrentStudent();
+  const program = await db.program.findUniqueOrThrow({ where: { key: programKey } });
+  const application = await resolveApplicationForDisplay(student.id, program.id);
+  if (!application || application.phaseIndex < SHORTLISTED_PHASE_INDEX) redirect(`/programs/${programKey}/status?error=not_shortlisted`);
   const file = fd.get("recommendation");
   if (!(file instanceof File) || file.size === 0) redirect(`/programs/${programKey}/status?error=missing_file`);
   if (file.size > MAX_RECOMMENDATION_BYTES) redirect(`/programs/${programKey}/status?error=file_too_large`);
