@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { setScreenerPasswordViaToken } from "@/lib/actions/screenerGroups";
 
 export function SetPasswordForm({ token }: { token: string }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -19,13 +17,12 @@ export function SetPasswordForm({ token }: { token: string }) {
         e.preventDefault();
         setSubmitting(true);
         const fd = new FormData(e.currentTarget);
+        // On success this redirects (via loginAs in the action) straight to the screener's
+        // own dashboard, already logged in — it never returns here. Only the failure path
+        // (an expired token, a validation error) actually resolves this await.
         const result = await setScreenerPasswordViaToken(token, fd);
         setSubmitting(false);
-        if (result.ok) {
-          router.push("/screener?onboarded=1");
-        } else {
-          setError(result.error ?? "Something went wrong.");
-        }
+        setError(result.error ?? "Something went wrong.");
       }}
     >
       {error && (

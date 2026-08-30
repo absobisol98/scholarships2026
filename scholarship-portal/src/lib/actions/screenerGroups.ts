@@ -4,7 +4,7 @@ import Papa from "papaparse";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getEligibleUnassignedApplicants, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape, requireProgramAccess } from "@/lib/admin-data";
-import { requireAdminLike, getCurrentStaff } from "@/lib/auth";
+import { requireAdminLike, getCurrentStaff, loginAs } from "@/lib/auth";
 import { PAPER_SCREENING_PHASE_INDEX } from "@/lib/steps";
 import { logAudit } from "@/lib/actions/staff";
 
@@ -356,7 +356,9 @@ export async function generateScreenerMagicLink(programKey: string, staffId: str
 // an admin generated and sent manually (no email-sending infra exists in this app). The
 // token is single-use: a successful nomination clears it immediately, so revisiting the same
 // link afterward fails exactly like an expired one.
-export async function setScreenerPasswordViaToken(token: string, fd: FormData): Promise<{ ok: boolean; error?: string }> {
+// Only ever returns on failure — success redirects via loginAs (see below) instead of
+// returning {ok:true}, so the caller only needs to handle the error case.
+export async function setScreenerPasswordViaToken(token: string, fd: FormData): Promise<{ ok: false; error: string }> {
   const password = String(fd.get("password") ?? "");
   const confirm = String(fd.get("confirm") ?? "");
   if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
@@ -369,7 +371,7 @@ export async function setScreenerPasswordViaToken(token: string, fd: FormData): 
 
   const bcrypt = await import("bcryptjs");
   const passwordHash = await bcrypt.hash(password, 10);
-  await db.staffAccount.update({
+  const updated = await db.staffAccount.update({
     where: { id: staff.id },
     data: { passwordHash, inviteToken: null, inviteTokenExpiresAt: null, sessionVersion: { increment: 1 } },
   });
@@ -377,5 +379,19 @@ export async function setScreenerPasswordViaToken(token: string, fd: FormData): 
   // account nominating its own password is the actor, logged by name for the same reason
   // setStaffPassword is: this is a credential-management event.
   await logAudit(`Nominated own password via magic link: ${staff.name}`, undefined, staff.name);
-  return { ok: true };
+
+  // Security fix: this used to return {ok:true} and let the client redirect to /screener to
+  // log in separately. But /screener is a shared "login door" (src/proxy.ts) that bounces
+  // ANY existing session straight to that session's own home — so a screener finishing
+  // setup in a browser that still had someone else's session open (e.g. the admin who was
+  // just testing the magic link in the same browser) landed on THAT account's dashboard
+  // instead of ever reaching the screener login form. Logging them in directly here —
+  // exactly as loginForRole does for a real password login — sidesteps that entirely: the
+  // freshly-set cookie (tied to this specific staff.id, using the sessionVersion the
+  // increment above just bumped) overwrites whatever session was previously in the browser,
+  // and they land on their own /screener dashboard with no separate login step to trip over.
+  // This isn't a weaker guarantee than the old flow — possessing a valid, unexpired
+  // inviteToken already was the credential; typing a working password immediately after is
+  // no less proof of identity than logging in with it a second later would have been.
+  return loginAs("screener", undefined, updated.id);
 }
