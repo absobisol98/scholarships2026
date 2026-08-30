@@ -10,6 +10,7 @@ import { AutoSubmitSelect } from "@/components/auto-submit-select";
 import { FiltersPanel } from "@/components/ui/filters-panel";
 import { Field, Input } from "@/components/ui/field";
 import { Button, LinkButton } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { QueueTable, type QueueRow } from "./queue-table";
 
 const PAGE_SIZE = 50;
@@ -136,20 +137,8 @@ export default async function QueuePage({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-3)" }}>
         <span className="text-muted" style={{ fontSize: 12 }}>
           Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}-{(page - 1) * PAGE_SIZE + filtered.length} of {total} applicants
-          {totalPages > 1 && ` · Page ${page} of ${totalPages}`}
         </span>
-        <div style={{ display: "flex", gap: "var(--space-2)" }}>
-          {page > 1 ? (
-            <LinkButton href={pageHref(page - 1)} variant="ghost">Previous</LinkButton>
-          ) : (
-            <Button variant="ghost" disabled>Previous</Button>
-          )}
-          {page < totalPages ? (
-            <LinkButton href={pageHref(page + 1)} variant="ghost">Next</LinkButton>
-          ) : (
-            <Button variant="ghost" disabled>Next</Button>
-          )}
-        </div>
+        <Pagination page={page} totalPages={totalPages} hrefForPage={pageHref} />
       </div>
     </div>
   );

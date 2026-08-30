@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { AutoSaveTextInput } from "@/components/auto-save-text-input";
 import { Dialog, DialogActions } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,12 @@ import { Tag } from "@/components/ui/tag";
 
 type BoundAction = (formData: FormData) => void | Promise<void>;
 
+// Controlled — open/onClose live in the caller (a RowMenu "Edit" item sets them), rather
+// than this component owning its own trigger button and open state, so it fits inside a
+// dropdown menu instead of needing to render its own inline "Edit" link.
 export function EditUserModal({
+  open,
+  onClose,
   userName,
   role,
   email,
@@ -22,6 +26,8 @@ export function EditUserModal({
   onRemoveAssignment,
   onEmailChange,
 }: {
+  open: boolean;
+  onClose: () => void;
   userName: string;
   role: "admin" | "screener";
   email: string;
@@ -34,18 +40,9 @@ export function EditUserModal({
   onRemoveAssignment: BoundAction;
   onEmailChange: (value: string) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
     <>
-      <button type="button" className="link-edit" onClick={() => setOpen(true)}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-        </svg>
-        Edit
-      </button>
-
-      <Dialog open={open} onClose={() => setOpen(false)} titleId="edit-user-title" title={`Edit ${userName}`} width={480}>
+      <Dialog open={open} onClose={onClose} titleId="edit-user-title" title={`Edit ${userName}`} width={480}>
         <div>
           <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Email (login)</span>
           <div style={{ marginTop: 6 }}>
@@ -98,7 +95,7 @@ export function EditUserModal({
         </div>
 
         <DialogActions>
-          <Button type="button" variant="primary" autoFocus onClick={() => setOpen(false)}>Done</Button>
+          <Button type="button" variant="primary" autoFocus onClick={onClose}>Done</Button>
         </DialogActions>
       </Dialog>
     </>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { AutoSaveTextInput } from "@/components/auto-save-text-input";
 import { AutoToggleCheckbox } from "@/components/auto-toggle-checkbox";
 import { FieldTypeSelect } from "@/components/field-type-select";
@@ -8,7 +7,11 @@ import { Dialog, DialogActions } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { OptionsEditor } from "./options-editor";
 
+// Controlled — open/onClose live in the caller (FieldRowActions' RowMenu "Edit" item),
+// rather than this component owning its own trigger button, so it fits inside a dropdown.
 export function EditFieldModal({
+  open,
+  onClose,
   label,
   fieldType,
   enabled,
@@ -21,6 +24,8 @@ export function EditFieldModal({
   onAddOption,
   onRemoveOption,
 }: {
+  open: boolean;
+  onClose: () => void;
   label: string;
   fieldType: string;
   enabled: boolean;
@@ -33,18 +38,9 @@ export function EditFieldModal({
   onAddOption: (option: string) => Promise<void>;
   onRemoveOption: (option: string) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
     <>
-      <button type="button" className="link-edit" onClick={() => setOpen(true)}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-        </svg>
-        Edit
-      </button>
-
-      <Dialog open={open} onClose={() => setOpen(false)} titleId="edit-field-title" title="Edit field" width={420}>
+      <Dialog open={open} onClose={onClose} titleId="edit-field-title" title="Edit field" width={420}>
         <div>
           <span className="text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Label</span>
           <div style={{ marginTop: 6 }}>
@@ -68,7 +64,7 @@ export function EditFieldModal({
         </div>
 
         <DialogActions>
-          <Button type="button" variant="primary" autoFocus onClick={() => setOpen(false)}>Done</Button>
+          <Button type="button" variant="primary" autoFocus onClick={onClose}>Done</Button>
         </DialogActions>
       </Dialog>
     </>

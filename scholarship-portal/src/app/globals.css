@@ -195,6 +195,18 @@ textarea.input { min-height: 90px; resize: vertical; }
 /* — navigation — */
 .nav { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-4); background: var(--color-surface); border-bottom: 1px solid var(--color-divider); }
 .nav-brand { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 18px; margin-right: auto; white-space: nowrap; }
+.nav-search {
+  position: relative; display: flex; align-items: center; width: min(320px, 100%);
+}
+.nav-search svg { position: absolute; left: 12px; pointer-events: none; color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.nav-search input {
+  width: 100%; height: 38px; padding: 0 12px 0 36px; font: inherit; font-size: 13px;
+  color: var(--color-text); background: var(--color-surface-muted);
+  border: 1.5px solid transparent; border-radius: var(--radius-md);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.nav-search input::placeholder { color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.nav-search input:focus-visible { outline: none; background: var(--color-surface); border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-100); }
 
 /* — tables — */
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -233,6 +245,10 @@ textarea.input { min-height: 90px; resize: vertical; }
 .row-menu-item-danger { color: var(--color-danger-text); }
 .row-menu-item-danger:hover { background: var(--color-danger-bg); }
 .row-menu-item-danger svg { opacity: 0.85; }
+.row-menu-item-warning { color: var(--color-warning-text); }
+.row-menu-item-warning:hover { background: var(--color-warning-bg); }
+.row-menu-item-warning svg { opacity: 0.85; }
+.row-menu-divider { height: 1px; margin: 4px 6px; background: var(--color-divider); }
 
 /* — status dot (leading indicator inside a Tag) — */
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
@@ -280,12 +296,63 @@ textarea.input { min-height: 90px; resize: vertical; }
   transition: background 0.15s ease, color 0.15s ease;
 }
 .side-item:hover { background: var(--color-surface-muted); color: var(--color-text); }
-.side-item.active { color: var(--color-accent-700); background: var(--color-accent-100); font-weight: 700; }
+.side-item.active { color: var(--color-accent-700); background: var(--color-accent-100); font-weight: 700; box-shadow: inset 3px 0 0 0 var(--color-accent-700); }
 .admin-sidebar { width: 220px; transition: width 0.15s ease; flex: none; padding: var(--space-4) 0; display: flex; flex-direction: column; gap: 2px; }
 .admin-sidebar.collapsed { width: 60px !important; }
 .admin-sidebar.collapsed .side-item-label,
-.admin-sidebar.collapsed .sidebar-text { display: none; }
+.admin-sidebar.collapsed .sidebar-text,
+.admin-sidebar.collapsed .sidebar-group-label,
+.admin-sidebar.collapsed .sidebar-profile-text { display: none; }
 .admin-sidebar.collapsed .side-item { justify-content: center; padding: 10px; }
+.admin-sidebar.collapsed .side-item.active { box-shadow: none; }
+
+/* — sidebar group labels (CONTENT / MANAGEMENT / SYSTEM-style sections) — */
+.sidebar-group-label {
+  padding: var(--space-4) 14px var(--space-1);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+.sidebar-group-label:first-of-type { padding-top: var(--space-2); }
+
+/* — bottom-of-sidebar profile card — */
+/* The app shell scrolls as one document (no inner viewport-height scroll region), so on a
+   page whose main content is taller than the screen, the sidebar's own box grows to match —
+   margin-top: auto alone would then just push this to the bottom of that tall box, off the
+   bottom of the actual visible viewport. position: sticky keeps it pinned to the viewport's
+   bottom edge as the page scrolls; margin-top: auto still does the useful thing on a short
+   page, holding it at the bottom of a sidebar that's exactly viewport height. */
+.sidebar-profile {
+  margin-top: auto; display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-top: 1px solid var(--color-divider);
+  position: sticky; bottom: 0; background: var(--color-bg);
+}
+.sidebar-profile-text { flex: 1; min-width: 0; }
+.sidebar-profile-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-profile-role { font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); white-space: nowrap; }
+.admin-sidebar.collapsed .sidebar-profile { justify-content: center; padding: 10px; }
+.sidebar-profile-logout-form { flex: none; }
+.sidebar-profile-logout {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: 30px; height: 30px; border-radius: var(--radius-sm); border: none; cursor: pointer;
+  background: none; color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sidebar-profile-logout:hover { background: var(--color-danger-bg); color: var(--color-danger-text); }
+
+/* — numbered pagination (page numbers + prev/next chevrons) — */
+.pagination { display: flex; align-items: center; gap: 4px; }
+.pagination-item {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 32px; height: 32px; padding: 0 8px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent); text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+a.pagination-item:hover { background: var(--color-surface-muted); color: var(--color-text); }
+.pagination-item-active { background: var(--color-accent); color: #ffffff; }
+a.pagination-item-active:hover { background: var(--color-accent); color: #ffffff; }
+.pagination-item-disabled { color: color-mix(in srgb, var(--color-text) 30%, transparent); cursor: default; }
+.pagination-ellipsis { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; color: color-mix(in srgb, var(--color-text) 45%, transparent); font-size: 13px; }
 
 .stepdot { width: 28px; height: 28px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 12px var(--font-heading); border: 2px solid var(--color-divider); background: var(--color-surface); transition: background 0.15s ease, border-color 0.15s ease; }
 .stepdot.done { background: var(--color-accent); border-color: var(--color-accent); color: #ffffff; }
@@ -331,9 +398,16 @@ textarea.input { min-height: 90px; resize: vertical; }
 .table-toolbar .input { max-width: 320px; }
 
 /* — filters panel — */
-.filters-panel-header { display: flex; justify-content: space-between; align-items: center; }
-.filters-row { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-3); }
-.filters-row .field { margin-bottom: 0; min-width: 160px; }
+/* — compact filter toolbar (search + dropdown filters + Search + Reset, one line) — */
+.filters-panel {
+  padding: 10px var(--space-4); border-radius: var(--radius-md);
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+}
+.filters-row { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.filters-row .field { flex-direction: row; align-items: center; gap: 8px; margin-bottom: 0; }
+.filters-row .field > label { margin-bottom: 0; white-space: nowrap; }
+.filters-row .input { min-height: 36px; width: auto; min-width: 140px; padding: 6px 10px; font-size: 13px; }
+.filters-reset { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--color-accent); white-space: nowrap; }
 
 @media (max-width: 860px) {
   .app-body { flex-direction: column; }

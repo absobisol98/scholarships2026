@@ -1,6 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
+
+// Auto-inserts a divider before the first "warning" or "danger" item — the reference pattern
+// is View/Edit/Duplicate (plain), then a rule, then Deactivate(orange)/Delete(red). Callers
+// just mark severity per-item; the panel itself decides where the line goes.
+function withAutoDivider(children: ReactNode): ReactNode {
+  const items = Children.toArray(children);
+  const firstFlagged = items.findIndex(
+    (child) => isValidElement(child) && ((child.props as { danger?: boolean; warning?: boolean }).danger || (child.props as { danger?: boolean; warning?: boolean }).warning)
+  );
+  if (firstFlagged <= 0) return children;
+  return [
+    ...items.slice(0, firstFlagged),
+    <div key="row-menu-divider" className="row-menu-divider" role="separator" />,
+    ...items.slice(firstFlagged),
+  ];
+}
 
 export function RowMenu({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -38,7 +54,7 @@ export function RowMenu({ label, children }: { label: string; children: ReactNod
       </button>
       {open && (
         <div className="row-menu-panel" role="menu" onClick={() => setOpen(false)}>
-          {children}
+          {withAutoDivider(children)}
         </div>
       )}
     </div>
@@ -47,12 +63,14 @@ export function RowMenu({ label, children }: { label: string; children: ReactNod
 
 export function RowMenuItem({
   danger,
+  warning,
   icon,
   children,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean; icon: ReactNode }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean; warning?: boolean; icon: ReactNode }) {
+  const className = danger ? "row-menu-item row-menu-item-danger" : warning ? "row-menu-item row-menu-item-warning" : "row-menu-item";
   return (
-    <button type="button" role="menuitem" className={danger ? "row-menu-item row-menu-item-danger" : "row-menu-item"} {...rest}>
+    <button type="button" role="menuitem" className={className} {...rest}>
       {icon}
       {children}
     </button>
