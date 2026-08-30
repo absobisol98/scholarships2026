@@ -98,6 +98,11 @@ model Student {
   initials  String
   email     String   @unique
   createdAt DateTime @default(now())
+  // Embedded in the signed session cookie at login; bumped on logout. A cookie whose
+  // embedded version no longer matches this column is treated as revoked even though its
+  // signature is still valid — the app's only real session-revocation mechanism, since
+  // there's no separate server-side session store to delete from.
+  sessionVersion Int @default(0)
 
   applications Application[]
 }
@@ -270,6 +275,10 @@ model StaffAccount {
   inviteToken          String?   @unique // opaque, single-use magic-link token to nominate a password
   inviteTokenExpiresAt DateTime?
   privacyAcceptedAt    DateTime? // set once a screener clicks "Proceed" on the first-login PH Data Privacy Act modal
+  // Same mechanism as Student.sessionVersion — see that field's comment. Also bumped when
+  // this account is deactivated, so an already-issued cookie stops working immediately
+  // rather than staying valid for the rest of its 7-day lifetime.
+  sessionVersion       Int       @default(0)
 
   programAssignments   StaffProgramAssignment[]
   screenerAssignments  ScreenerAssignment[]

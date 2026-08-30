@@ -14,7 +14,24 @@ import { createSessionCookieValue, SESSION_COOKIE, verifySessionCookieValue, typ
 // one real lookup per request, however many components ask.
 export const getSession = cache(async (): Promise<SessionData | null> => {
   const jar = await cookies();
-  return verifySessionCookieValue(jar.get(SESSION_COOKIE)?.value);
+  const session = await verifySessionCookieValue(jar.get(SESSION_COOKIE)?.value);
+  if (!session) return null;
+
+  // Revocation check (see session.ts's comment on sessionVersion): a correctly-signed
+  // cookie is still treated as logged-out if the account's live version has moved past the
+  // version this cookie was minted with (logout, a password change, or the account being
+  // deactivated all bump it) — or if the account it points to no longer exists. This is the
+  // one DB round trip that makes revocation real; cache()-wrapped, so it's paid once per
+  // request no matter how many components call getSession().
+  if (session.studentId != null) {
+    const student = await db.student.findUnique({ where: { id: session.studentId }, select: { sessionVersion: true } });
+    if (!student || student.sessionVersion !== session.sessionVersion) return null;
+  } else if (session.staffId) {
+    const staff = await db.staffAccount.findUnique({ where: { id: session.staffId }, select: { sessionVersion: true, active: true } });
+    if (!staff || staff.sessionVersion !== session.sessionVersion || !staff.active) return null;
+  }
+
+  return session;
 });
 
 // Where a logged-in session belongs when it lands somewhere it doesn't have access to.
@@ -55,10 +72,25 @@ const ONE_WEEK = 60 * 60 * 24 * 7;
 // sign-in — so they all finalize a session identically. Used from both Server Actions
 // and Route Handlers; `redirect()` works in both per Next's docs.
 export async function loginAs(role: Role, studentId?: number, staffId?: string): Promise<never> {
+  // Read the account's current sessionVersion so this new cookie carries it — see
+  // session.ts's comment on sessionVersion for why. Every loginAs caller passes a real
+  // studentId or staffId (this app has no anonymous/roleless session), so exactly one of
+  // these branches runs.
+  let sessionVersion = 0;
+  if (studentId != null) {
+    sessionVersion = (await db.student.findUnique({ where: { id: studentId }, select: { sessionVersion: true } }))?.sessionVersion ?? 0;
+  } else if (staffId) {
+    sessionVersion = (await db.staffAccount.findUnique({ where: { id: staffId }, select: { sessionVersion: true } }))?.sessionVersion ?? 0;
+  }
+
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, await createSessionCookieValue(role, studentId, staffId), {
+  jar.set(SESSION_COOKIE, await createSessionCookieValue(role, sessionVersion, studentId, staffId), {
     httpOnly: true,
     sameSite: "lax",
+    // Skipped only in dev, where the app is served over plain http://localhost — a cookie
+    // marked secure would never round-trip there. Any real deployment terminates TLS in
+    // front of the app, so this is "secure everywhere except local dev," not "insecure."
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: ONE_WEEK,
   });

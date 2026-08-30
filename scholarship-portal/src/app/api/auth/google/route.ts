@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     // Google's redirect back is a top-level cross-site navigation — "strict" would drop
     // this cookie before the callback can read it.
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/api/auth/google",
     maxAge: 600,
   });

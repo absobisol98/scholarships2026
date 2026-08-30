@@ -10,8 +10,11 @@ export const LOGIN_ERRORS: Record<string, string> = {
   admin_deactivated: "This Program Admin account has been deactivated by a Super Admin.",
   screener_deactivated: "This Paper Screener account has been deactivated by a Super Admin.",
   super_admin_deactivated: "This Super Admin account has been deactivated.",
-  no_account: "No account found with that email.",
-  wrong_door: "That account exists, but it isn't this kind of account. Use the sign-in page for your role.",
+  // One generic message for "no account", "account exists under a different role", and
+  // "account exists but this isn't the right door" — deliberately not distinguished, so an
+  // anonymous visitor can't use this form to probe which emails have accounts (see
+  // loginForRole in src/app/login/actions.ts for the full reasoning).
+  no_match: "We couldn't sign you in with that email on this page. If you have an account, double-check the email or try the sign-in page for your role.",
   missing_email: "Enter your email to log in.",
   google_auth_failed: "Google sign-in didn't complete. Please try again.",
   rate_limited: "Too many attempts. Please wait a moment and try again.",
