@@ -39,11 +39,15 @@ async function getProgramAndApp(programKey: string) {
   const program = await db.program.findUniqueOrThrow({ where: { key: programKey } });
   // A write action only ever targets the in-progress cycle — the currently active cohort,
   // never "whichever application is most recent" the way the read-side display rules do.
+  // Returned alongside program/application so callers (checkDuplicateAndEligibility,
+  // checkGwaEligibility) can reuse this same fetch instead of re-querying it themselves —
+  // getActiveCohortWithCriteria isn't cache()-wrapped, so a second call is a real extra
+  // DB round trip within the same request, not a free dedupe.
   const activeCohort = await getActiveCohortWithCriteria(program.id);
   const application = await db.application.findFirstOrThrow({
     where: { studentId: student.id, programId: program.id, cohortId: activeCohort?.id ?? null },
   });
-  return { student, program, application };
+  return { student, program, application, activeCohort };
 }
 
 function stepNameFor(formKind: string, step: number): string {
@@ -116,7 +120,8 @@ async function checkDuplicateAndEligibility(
   programId: number,
   programKey: string,
   application: { id: number; studentId: number; ineligibleAttempts: number },
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  activeCohort: Awaited<ReturnType<typeof getActiveCohortWithCriteria>>
 ) {
   const dob = (data.dob as string) ?? "";
   const newName = normalizeName((data.fullName as string) ?? "");
@@ -152,7 +157,6 @@ async function checkDuplicateAndEligibility(
     redirect(`/programs/${programKey}/application?error=too_many_attempts`);
   }
 
-  const activeCohort = await getActiveCohortWithCriteria(programId);
   const flags = evaluateCriteria(
     {
       nationality: (data.nationality as string) ?? "",
@@ -182,7 +186,8 @@ async function checkGwaEligibility(
   programId: number,
   programKey: string,
   application: { id: number; ineligibleAttempts: number },
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  activeCohort: Awaited<ReturnType<typeof getActiveCohortWithCriteria>>
 ) {
   const gwa = Number(data.gpa);
   if (Number.isNaN(gwa)) return; // can't evaluate unparseable data — don't block on it
@@ -191,7 +196,6 @@ async function checkGwaEligibility(
     redirect(`/programs/${programKey}/application?error=too_many_attempts`);
   }
 
-  const activeCohort = await getActiveCohortWithCriteria(programId);
   const flags = evaluateCriteria({ nationality: "", sex: "", yearLevel: "", institutionType: "", gwa }, activeCohort, { onlyGwa: true });
   if (flags.length > 0) {
     const newAttempts = application.ineligibleAttempts + 1;
@@ -205,7 +209,7 @@ async function checkGwaEligibility(
 }
 
 export async function saveStepAndContinue(programKey: string, step: number, fd: FormData) {
-  const { program, application } = await getProgramAndApp(programKey);
+  const { program, application, activeCohort } = await getProgramAndApp(programKey);
   const isGenerika = program.formKind === "generika";
   const stepName = stepNameFor(program.formKind, step);
 
@@ -227,8 +231,8 @@ export async function saveStepAndContinue(programKey: string, step: number, fd: 
     redirect(`/programs/${programKey}/application?error=missing_required`);
   }
 
-  if (stepName === "personal") await checkDuplicateAndEligibility(program.id, programKey, application, data);
-  if (stepName === "academic") await checkGwaEligibility(program.id, programKey, application, data);
+  if (stepName === "personal") await checkDuplicateAndEligibility(program.id, programKey, application, data, activeCohort);
+  if (stepName === "academic") await checkGwaEligibility(program.id, programKey, application, data, activeCohort);
   if (step < STEP_DONE_FLAGS.length) data[STEP_DONE_FLAGS[step]] = true;
 
   await db.application.update({
