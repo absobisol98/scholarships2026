@@ -316,31 +316,6 @@ export async function declineAward(programKey: string) {
   revalidatePath(`/programs/${programKey}/award`);
 }
 
-// A scholar can only answer a wave actually sent to them (a real SurveySend row for their
-// own awarded application), not any wave the program happens to have deployed — that's the
-// authorization rule, checked by looking the row up rather than trusting the URL. Each
-// question is upserted independently (stable SurveyQuestion ids), so resubmitting edits
-// existing answers in place instead of duplicating rows.
-export async function submitCheckInResponse(programKey: string, wave: string, fd: FormData) {
-  const application = await getAwardedApplication(programKey);
-  const send = await db.surveySend.findUnique({ where: { applicationId_wave: { applicationId: application.id, wave } } });
-  if (!send) redirect(`/programs/${programKey}/award`);
-
-  const questions = await db.surveyQuestion.findMany({ where: { surveyWave: { programId: application.programId, wave } } });
-  for (const q of questions) {
-    const answer = str(fd, `q_${q.id}`).trim();
-    if (!answer) continue;
-    await db.surveyResponse.upsert({
-      where: { applicationId_surveyQuestionId: { applicationId: application.id, surveyQuestionId: q.id } },
-      update: { answer },
-      create: { applicationId: application.id, surveyQuestionId: q.id, answer },
-    });
-  }
-  await db.surveySend.update({ where: { id: send.id }, data: { completedAt: new Date() } });
-  revalidatePath(`/programs/${programKey}/award`);
-  redirect(`/programs/${programKey}/award`);
-}
-
 const MAX_RECOMMENDATION_BYTES = 10 * 1024 * 1024;
 
 // Uploads the applicant's completed recommendation form — required before promoteApplicant
@@ -374,4 +349,36 @@ export async function uploadRecommendationForm(programKey: string, fd: FormData)
   // navigation happens to refetch them.
   revalidatePath(`/admin/${programKey}/queue`);
   revalidatePath(`/admin/${programKey}/queue/${application.id}`);
+}
+
+const MAX_GRADE_CERT_BYTES = 10 * 1024 * 1024;
+
+// A scholar can only submit against a period actually sent to them (a real
+// GradeCheckSubmission row for their own awarded application), not any period the program
+// happens to have deployed. Resubmitting over a previously-reviewed row resets reviewStatus
+// back to "pending" since new information needs re-review — an admin's earlier Compliant/
+// Probation/Revoked call shouldn't silently keep applying to a different upload.
+export async function submitGradeCheck(programKey: string, periodId: string, fd: FormData) {
+  const application = await getAwardedApplication(programKey);
+  const submission = await db.gradeCheckSubmission.findUnique({ where: { applicationId_periodId: { applicationId: application.id, periodId } } });
+  if (!submission) redirect(`/programs/${programKey}/award`);
+
+  const file = fd.get("gradeCert");
+  if (!(file instanceof File) || file.size === 0) redirect(`/programs/${programKey}/grade-check/${periodId}?error=missing_file`);
+  if (file.size > MAX_GRADE_CERT_BYTES) redirect(`/programs/${programKey}/grade-check/${periodId}?error=file_too_large`);
+  const reportedGwa = str(fd, "reportedGwa").trim();
+  if (!reportedGwa) redirect(`/programs/${programKey}/grade-check/${periodId}?error=missing_gwa`);
+
+  const path = await uploadDocument(application.id, "gradeCert", file);
+  await db.gradeCheckSubmission.update({
+    where: { id: submission.id },
+    data: { gwaFileName: path, reportedGwa, submittedAt: new Date(), reviewStatus: "pending", reviewNote: null, reviewedBy: null, reviewedAt: null },
+  });
+  revalidatePath(`/programs/${programKey}/award`);
+  // Without these, the admin grade-checks review table and the applicant detail page's
+  // Grade Check Compliance card keep showing the pre-submission state until some unrelated
+  // navigation happens to refetch them — same reasoning as uploadRecommendationForm above.
+  revalidatePath(`/admin/${programKey}/grade-checks`);
+  revalidatePath(`/admin/${programKey}/queue/${application.id}`);
+  redirect(`/programs/${programKey}/award`);
 }

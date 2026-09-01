@@ -23,7 +23,7 @@ function sanitizeFileName(name: string): string {
 // timestamp keeps re-uploads from colliding, and the sanitized name tail stays readable so
 // certFileName/videoFileName/recommendationFileName can still recover a display name from
 // the path alone.
-export async function uploadDocument(applicationId: number, field: "cert" | "video" | "recommendation", file: File): Promise<string> {
+export async function uploadDocument(applicationId: number, field: "cert" | "video" | "recommendation" | "gradeCert", file: File): Promise<string> {
   const path = `app-${applicationId}/${field}/${Date.now()}-${sanitizeFileName(file.name)}`;
   const { error } = await client().storage.from(bucket()).upload(path, file, {
     contentType: file.type || undefined,

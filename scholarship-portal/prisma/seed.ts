@@ -125,23 +125,9 @@ const ELIGIBILITY_OPTIONS_BY_PROGRAM: Record<string, Record<string, string[]>> =
   },
 };
 
-const SURVEY_QUESTIONS = {
-  midYear: [
-    "How is your academic term going so far?",
-    "Any challenges affecting your studies?",
-    "Do you still meet the scholarship's eligibility conditions?",
-  ],
-  yearEnd: [
-    "Summarize your key achievements this year.",
-    "Did you complete the required units/credits?",
-    "Any support you need for next year?",
-  ],
-};
-
 async function main() {
-  await db.surveySend.deleteMany();
-  await db.surveyQuestion.deleteMany();
-  await db.surveyWave.deleteMany();
+  await db.gradeCheckSubmission.deleteMany();
+  await db.gradeCheckPeriod.deleteMany();
   await db.fieldConfig.deleteMany();
   await db.rubricScore.deleteMany();
   await db.recommendation.deleteMany();
@@ -231,7 +217,6 @@ async function main() {
     cohortsByProgramId[cs.program.id] = cohort.id;
   }
 
-  let ugoMidYearWave: { id: string; questions: { id: string; label: string }[] } | undefined;
   for (const [key, program] of Object.entries({ ugo, generika, eo })) {
     for (const step of STEPS_BY_PROGRAM[key]) {
       const labels = DEFAULT_FIELDS_BY_STEP[step];
@@ -273,21 +258,6 @@ async function main() {
           fieldKey: "familyMembers",
         },
       });
-    }
-    for (const wave of ["midYear", "yearEnd"] as const) {
-      const createdWave = await db.surveyWave.create({
-        data: {
-          programId: program.id,
-          // U-GO's midYear wave is deployed and sent to a real awarded scholar below, so
-          // the check-in flow (banner, form, admin "responded" count) has something real
-          // to demo without needing a live send first.
-          status: key === "ugo" && wave === "midYear" ? "deployed" : "draft",
-          wave,
-          questions: { create: SURVEY_QUESTIONS[wave].map((label, i) => ({ label, order: i })) },
-        },
-        include: { questions: { orderBy: { order: "asc" } } },
-      });
-      if (key === "ugo" && wave === "midYear") ugoMidYearWave = createdWave;
     }
   }
 
@@ -448,25 +418,29 @@ async function main() {
     },
   });
 
-  // Check-in survey demo: U-GO's Mid-Year wave is deployed and sent to both awarded
-  // scholars — Diego hasn't answered yet (exercises the "pending" banner + student form),
-  // Malik already has (exercises the admin detail page's Check-in responses card).
-  if (ugoMidYearWave) {
-    await db.surveySend.createMany({
-      data: [
-        { applicationId: createdApplicants["Diego Ramirez"].id, wave: "midYear", sentDate: "Feb 1, 2027" },
-        { applicationId: createdApplicants["Malik Owusu"].id, wave: "midYear", sentDate: "Feb 1, 2027", completedAt: new Date("2027-02-05") },
-      ],
-    });
-    const malikAnswers = ["Going well — on track with my coursework this term.", "Yes, still meeting all eligibility conditions."];
-    await db.surveyResponse.createMany({
-      data: ugoMidYearWave.questions.map((q, i) => ({
+  // Grade-check demo: a deployed U-GO period sent to both awarded scholars — Diego hasn't
+  // submitted yet (exercises the "pending" banner + student upload form), Malik already has
+  // and was reviewed compliant (exercises the admin review table's reviewed state and the
+  // applicant detail page's Grade Check Compliance card).
+  const gradeCheckPeriod = await db.gradeCheckPeriod.create({
+    data: { programId: ugo.id, label: "Q1 2027", dueDate: "March 31, 2027", status: "deployed" },
+  });
+  await db.gradeCheckSubmission.createMany({
+    data: [
+      { applicationId: createdApplicants["Diego Ramirez"].id, periodId: gradeCheckPeriod.id, sentDate: "Feb 1, 2027" },
+      {
         applicationId: createdApplicants["Malik Owusu"].id,
-        surveyQuestionId: q.id,
-        answer: malikAnswers[i] ?? "N/A",
-      })),
-    });
-  }
+        periodId: gradeCheckPeriod.id,
+        sentDate: "Feb 1, 2027",
+        gwaFileName: "app-seed/gradeCert/malik-gradecert.pdf",
+        reportedGwa: "89",
+        submittedAt: new Date("2027-02-10"),
+        reviewStatus: "compliant",
+        reviewedBy: "Dr. R. Okafor",
+        reviewedAt: new Date("2027-02-12"),
+      },
+    ],
+  });
 
   // — Staff accounts (RBAC demo) —
   // Exactly one seeded StaffAccount per staff role is isDemo:true — that's who "Log in as

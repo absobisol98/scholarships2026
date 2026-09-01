@@ -37,17 +37,6 @@ async function requireFieldAccess(fieldId: string) {
   return field;
 }
 
-async function requireSurveyWaveAccess(surveyWaveId: string) {
-  const wave = await db.surveyWave.findUniqueOrThrow({ where: { id: surveyWaveId } });
-  await requireProgramAccess(wave.programId);
-  return wave;
-}
-
-async function requireSurveyQuestionAccess(questionId: string) {
-  const question = await db.surveyQuestion.findUniqueOrThrow({ where: { id: questionId }, include: { surveyWave: true } });
-  await requireProgramAccess(question.surveyWave.programId);
-  return question;
-}
 
 function defaultCriteria(gwaMin: number) {
   return [
@@ -281,55 +270,6 @@ export async function removeFieldOption(programKey: string, fieldId: string, opt
   await db.fieldConfig.update({ where: { id: fieldId }, data: { optionsJson: JSON.stringify(options) } });
   revalidatePath(`/admin/${programKey}/fields`);
 }
-
-// — Surveys —
-
-export async function updateSurveyQuestion(programKey: string, questionId: string, label: string) {
-  await requireSurveyQuestionAccess(questionId);
-  await db.surveyQuestion.update({ where: { id: questionId }, data: { label } });
-  revalidatePath(`/admin/${programKey}/surveys`);
-}
-
-export async function addSurveyQuestion(programKey: string, surveyWaveId: string) {
-  await requireSurveyWaveAccess(surveyWaveId);
-  const count = await db.surveyQuestion.count({ where: { surveyWaveId } });
-  await db.surveyQuestion.create({ data: { surveyWaveId, label: "New question", order: count } });
-  revalidatePath(`/admin/${programKey}/surveys`);
-}
-
-export async function removeSurveyQuestion(programKey: string, questionId: string) {
-  await requireSurveyQuestionAccess(questionId);
-  await db.surveyQuestion.delete({ where: { id: questionId } });
-  revalidatePath(`/admin/${programKey}/surveys`);
-}
-
-export async function toggleSurveyDeployed(programKey: string, surveyWaveId: string) {
-  const wave = await requireSurveyWaveAccess(surveyWaveId);
-  await db.surveyWave.update({ where: { id: surveyWaveId }, data: { status: wave.status === "deployed" ? "draft" : "deployed" } });
-  revalidatePath(`/admin/${programKey}/surveys`);
-}
-
-// Batched rather than one upsert per applicant — same end result (every applicant gets a
-// SurveySend row for this wave, sentDate refreshed even on a repeat send) in 2 queries
-// instead of N: createMany for whoever doesn't have one yet, updateMany to (re)stamp the
-// date on all of them, new and pre-existing alike.
-export async function sendSurveyToGroup(programKey: string, wave: string, applicationIds: number[]) {
-  if (applicationIds.length === 0) return;
-  // No programId is passed in for this one — derive it from the applications themselves and
-  // refuse a mixed/empty set rather than trust the caller's program scope implicitly.
-  const apps = await db.application.findMany({ where: { id: { in: applicationIds } }, select: { programId: true } });
-  const programIds = new Set(apps.map((a) => a.programId));
-  if (programIds.size !== 1) return;
-  await requireProgramAccess([...programIds][0]);
-  const sentDate = formatDateLong();
-  await db.surveySend.createMany({
-    data: applicationIds.map((applicationId) => ({ applicationId, wave, sentDate })),
-    skipDuplicates: true,
-  });
-  await db.surveySend.updateMany({ where: { applicationId: { in: applicationIds }, wave }, data: { sentDate } });
-  revalidatePath(`/admin/${programKey}/surveys`);
-}
-
 
 export async function goToWorkspace(programKey: string) {
   redirect(`/admin/${programKey}/dashboard`);

@@ -98,7 +98,7 @@ export async function deleteProgram(programId: number) {
   // the audit trail, just detach it from the deleted program rather than deleting it.
   await db.$transaction([
     db.cohort.deleteMany({ where: { programId } }),
-    db.surveyWave.deleteMany({ where: { programId } }),
+    db.gradeCheckPeriod.deleteMany({ where: { programId } }),
     db.fieldConfig.deleteMany({ where: { programId } }),
     db.staffProgramAssignment.deleteMany({ where: { programId } }),
     db.screenerGroup.deleteMany({ where: { programId } }),

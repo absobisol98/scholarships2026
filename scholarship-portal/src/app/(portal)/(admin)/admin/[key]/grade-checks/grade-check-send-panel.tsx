@@ -6,12 +6,13 @@ import { Tag } from "@/components/ui/tag";
 
 type Recipient = { id: number; name: string; alreadySent: boolean };
 
-export function SurveySendPanel({
-  waveKey,
+// Send-mode picker: all awarded scholars at once, or hand-pick a subset.
+export function GradeCheckSendPanel({
+  periodId,
   recipients,
   sendToIds,
 }: {
-  waveKey: string;
+  periodId: string;
   recipients: Recipient[];
   sendToIds: (ids: number[]) => Promise<void>;
 }) {
@@ -23,11 +24,11 @@ export function SurveySendPanel({
     <div>
       <div className="seg" role="radiogroup" aria-label="Send mode" style={{ marginBottom: "var(--space-3)" }}>
         <label className="seg-opt">
-          <input type="radio" name={`sendmode-${waveKey}`} checked={mode === "group"} onChange={() => setMode("group")} />
+          <input type="radio" name={`sendmode-${periodId}`} checked={mode === "group"} onChange={() => setMode("group")} />
           All awarded ({recipients.length})
         </label>
         <label className="seg-opt">
-          <input type="radio" name={`sendmode-${waveKey}`} checked={mode === "individual"} onChange={() => setMode("individual")} />
+          <input type="radio" name={`sendmode-${periodId}`} checked={mode === "individual"} onChange={() => setMode("individual")} />
           Choose individually
         </label>
       </div>

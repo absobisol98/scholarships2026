@@ -445,19 +445,23 @@ export async function getPipelineStats(programId: number) {
   };
 }
 
-export async function getSurveyWaves(programId: number) {
-  return db.surveyWave.findMany({
-    where: { programId },
-    include: { questions: { orderBy: { order: "asc" } } },
-  });
+export async function getGradeCheckPeriods(programId: number) {
+  return db.gradeCheckPeriod.findMany({ where: { programId }, orderBy: { createdAt: "desc" } });
 }
 
-export async function getSurveySends(applicationIds: number[]) {
-  const rows = await db.surveySend.findMany({ where: { applicationId: { in: applicationIds } } });
-  const byApplication = new Map<number, Record<string, { sentDate: string; completedAt: Date | null }>>();
+// A grade-check period is admin-typed/open-ended (not a fixed enum), so this returns one
+// array per applicant — used both by the review table (all submissions for a period) and
+// the applicant detail page's Grade Check Compliance card (all periods for one applicant).
+export async function getGradeCheckSubmissions(applicationIds: number[]) {
+  const rows = await db.gradeCheckSubmission.findMany({
+    where: { applicationId: { in: applicationIds } },
+    include: { period: true },
+    orderBy: { sentDate: "desc" },
+  });
+  const byApplication = new Map<number, typeof rows>();
   for (const r of rows) {
-    if (!byApplication.has(r.applicationId)) byApplication.set(r.applicationId, {});
-    byApplication.get(r.applicationId)![r.wave] = { sentDate: r.sentDate, completedAt: r.completedAt };
+    if (!byApplication.has(r.applicationId)) byApplication.set(r.applicationId, []);
+    byApplication.get(r.applicationId)!.push(r);
   }
   return byApplication;
 }

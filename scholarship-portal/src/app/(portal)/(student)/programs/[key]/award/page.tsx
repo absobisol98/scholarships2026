@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, resolveApplicationForAward } from "@/lib/student-data";
 import { acceptAward, declineAward } from "@/lib/actions/student";
-import { WAVE_TITLES } from "@/lib/steps";
 import { db } from "@/lib/db";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { AwardActions } from "./award-actions";
@@ -41,20 +40,20 @@ export default async function AwardPage({ params }: { params: Promise<{ key: str
         ? "You've declined this award. Thank you for letting us know."
         : "";
 
-  const pendingCheckIns = application
-    ? await db.surveySend.findMany({ where: { applicationId: application.id, completedAt: null } })
+  const pendingGradeChecks = application
+    ? await db.gradeCheckSubmission.findMany({ where: { applicationId: application.id, submittedAt: null }, include: { period: true } })
     : [];
 
   return (
     <>
-      {pendingCheckIns.map((send) => (
-        <Card key={send.id} role="status" style={{ marginTop: "var(--space-2)", background: "var(--color-accent-2-100)" }}>
+      {pendingGradeChecks.map((submission) => (
+        <Card key={submission.id} role="status" style={{ marginTop: "var(--space-2)", background: "var(--color-accent-2-100)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
             <span style={{ fontWeight: 600, fontSize: 14, color: "var(--color-accent-2-800)" }}>
-              Your {WAVE_TITLES[send.wave] ?? "check-in"} is waiting for a response.
+              Your {submission.period.label} grade check is waiting — upload your certificate of grades.
             </span>
-            <Link href={`/programs/${program.key}/check-in/${send.wave}`} style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-              Answer now →
+            <Link href={`/programs/${program.key}/grade-check/${submission.periodId}`} style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+              Submit now →
             </Link>
           </div>
         </Card>
