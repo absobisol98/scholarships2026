@@ -2,22 +2,9 @@ import { notFound } from "next/navigation";
 import { getProgramByKey } from "@/lib/admin-data";
 import { getSexBreakdown, getYearLevelBreakdown, getInstitutionTypeBreakdown, getRegionBreakdown, getIncomeBreakdown, getAgeBreakdown, type Bucket } from "@/lib/reporting";
 import { Card, CardKicker } from "@/components/ui/card";
-
-function BarRow({ label, count, max }: { label: string; count: number; max: number }) {
-  const pct = max === 0 ? 0 : Math.round((count / max) * 100);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0" }}>
-      <span style={{ width: 160, fontSize: 12, flex: "none" }}>{label}</span>
-      <div style={{ flex: 1, height: 8, background: "var(--color-neutral-200)", borderRadius: 4, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: "var(--color-accent)" }} />
-      </div>
-      <span style={{ width: 32, textAlign: "right", fontSize: 12, flex: "none" }}>{count}</span>
-    </div>
-  );
-}
+import { BreakdownBarChart } from "@/components/ui/breakdown-chart";
 
 function BreakdownCard({ title, buckets }: { title: string; buckets: Bucket[] }) {
-  const max = Math.max(1, ...buckets.map((b) => b.count));
   return (
     <Card elevation="sm">
       <CardKicker>{title}</CardKicker>
@@ -25,7 +12,7 @@ function BreakdownCard({ title, buckets }: { title: string; buckets: Bucket[] })
         {buckets.length === 0 ? (
           <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>No submitted applications yet.</p>
         ) : (
-          buckets.map((b) => <BarRow key={b.label} label={b.label} count={b.count} max={max} />)
+          <BreakdownBarChart buckets={buckets} />
         )}
       </div>
     </Card>
