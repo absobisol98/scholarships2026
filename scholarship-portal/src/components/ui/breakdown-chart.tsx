@@ -12,24 +12,59 @@ import type { Bucket } from "@/lib/reporting";
 const BAR_FILL = "var(--color-accent)";
 const BAR_HOVER_FILL = "var(--color-accent-600)";
 
-const ROW_HEIGHT = 32; // one bar's share of vertical space, incl. its gap to the next
+const LINE_HEIGHT = 14; // px between wrapped label lines
+const ROW_PADDING = 14; // breathing room above/below each row's tallest label
 const CHART_PADDING = 40; // room for the x-axis tick band below the bars
-const MAX_LABEL_CHARS = 22; // category labels are free-text (admin-configured dropdown
-// options) and can run arbitrarily long — truncate rather than let them overlap each
-// other or run into the bars; the full label is still reachable via the native title
-// tooltip on the tick itself and via the bar's own hover tooltip.
+const MAX_CHARS_PER_LINE = 26; // category labels are free-text (admin-configured dropdown
+// options, sometimes a full sentence) — wrapped across lines rather than truncated, so the
+// complete label stays visible without hovering; capped at MAX_LINES with a final ellipsis
+// for the rare label too long even for that, whose full text still reaches the bar's own
+// hover tooltip.
+const MAX_LINES = 3;
+const Y_AXIS_WIDTH = 172;
 
-function truncateLabel(label: string): string {
-  return label.length > MAX_LABEL_CHARS ? `${label.slice(0, MAX_LABEL_CHARS - 1)}…` : label;
+// Greedy word-wrap with no line cap, then sliced down to MAX_LINES — simpler and less
+// error-prone than trying to stop wrapping early, and wrapLabel's full output length is
+// exactly what decides whether a label needed truncating at all.
+function wrapAllLines(label: string): string[] {
+  const words = label.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= MAX_CHARS_PER_LINE) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// The last line gets an ellipsis instead of silently dropping the remaining lines.
+function wrapLabel(label: string): string[] {
+  const allLines = wrapAllLines(label);
+  if (allLines.length <= MAX_LINES) return allLines;
+  const shown = allLines.slice(0, MAX_LINES);
+  const last = shown[MAX_LINES - 1];
+  shown[MAX_LINES - 1] = last.length > MAX_CHARS_PER_LINE - 1 ? `${last.slice(0, MAX_CHARS_PER_LINE - 1)}…` : `${last}…`;
+  return shown;
 }
 
 function CategoryTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
   const label = payload?.value ?? "";
-  const truncated = truncateLabel(label);
+  const lines = wrapLabel(label);
+  const startDy = -((lines.length - 1) * LINE_HEIGHT) / 2 + 4;
   return (
-    <text x={x} y={y} dy={4} textAnchor="end" fontSize={12} fill="var(--color-text)">
-      {truncated !== label && <title>{label}</title>}
-      {truncated}
+    <text x={x} y={y} textAnchor="end" fontSize={12} fill="var(--color-text)">
+      {lines.length > 1 && <title>{label}</title>}
+      {lines.map((line, i) => (
+        <tspan key={i} x={x} dy={i === 0 ? startDy : LINE_HEIGHT}>
+          {line}
+        </tspan>
+      ))}
     </text>
   );
 }
@@ -55,7 +90,14 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
 }
 
 export function BreakdownBarChart({ buckets }: { buckets: Bucket[] }) {
-  const height = buckets.length * ROW_HEIGHT + CHART_PADDING;
+  // Every row is sized to fit the tallest wrapped label in this particular chart — a
+  // uniform row height (Recharts lays out categorical rows evenly, it has no per-row
+  // height API), but sized per-chart rather than one fixed constant for every chart, so a
+  // chart with only short labels (Sex, Region) stays compact instead of inheriting the
+  // extra height a long-label chart (Year Level) needs.
+  const maxLines = Math.max(1, ...buckets.map((b) => wrapLabel(b.label).length));
+  const rowHeight = maxLines * LINE_HEIGHT + ROW_PADDING;
+  const height = buckets.length * rowHeight + CHART_PADDING;
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -77,7 +119,7 @@ export function BreakdownBarChart({ buckets }: { buckets: Bucket[] }) {
           <YAxis
             type="category"
             dataKey="label"
-            width={150}
+            width={Y_AXIS_WIDTH}
             tick={<CategoryTick />}
             axisLine={false}
             tickLine={false}
