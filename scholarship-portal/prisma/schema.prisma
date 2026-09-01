@@ -36,7 +36,6 @@ model Program {
   cohorts      Cohort[]
   applications Application[]
   fieldConfigs FieldConfig[]
-  surveyWaves  SurveyWave[]
   gradeCheckPeriods GradeCheckPeriod[]
   staffAssignments StaffProgramAssignment[]
   auditLogEntries  AuditLogEntry[]
@@ -231,8 +230,6 @@ model Application {
   screenerAssignments ScreenerAssignment[]
   rubricScores        RubricScore[]
   recommendations     Recommendation[]
-  surveySends         SurveySend[]
-  surveyResponses     SurveyResponse[]
   gradeCheckSubmissions GradeCheckSubmission[]
 
   // Includes cohortId (not just studentId+programId) so a scholar can have a separate
@@ -399,60 +396,6 @@ model FieldConfig {
   fieldKey String?
 
   @@index([programId, step])
-}
-
-// A check-in survey wave (Mid-Year / Year-End) for a program.
-model SurveyWave {
-  id        String @id @default(cuid())
-  programId Int
-  program   Program @relation(fields: [programId], references: [id])
-  wave      String // "midYear" | "yearEnd"
-  status    String  @default("draft") // "draft" | "deployed"
-
-  questions SurveyQuestion[]
-
-  @@unique([programId, wave])
-}
-
-model SurveyQuestion {
-  id           String     @id @default(cuid())
-  surveyWaveId String
-  surveyWave   SurveyWave @relation(fields: [surveyWaveId], references: [id], onDelete: Cascade)
-  label        String
-  order        Int        @default(0)
-
-  responses SurveyResponse[]
-
-  @@index([surveyWaveId])
-}
-
-// Records that a survey wave was sent to a given applicant. completedAt is set once every
-// question in the wave has a SurveyResponse on file (see submitCheckInResponse in
-// src/lib/actions/student.ts) — null means sent but not yet answered.
-model SurveySend {
-  id            Int         @id @default(autoincrement())
-  applicationId Int
-  application   Application @relation(fields: [applicationId], references: [id])
-  wave          String // "midYear" | "yearEnd"
-  sentDate      String
-  completedAt   DateTime?
-
-  @@unique([applicationId, wave])
-}
-
-// One scholar's answer to one check-in survey question. Upserted per question (stable
-// SurveyQuestion ids), so a resubmission edits in place rather than duplicating rows —
-// mirrors the RubricScore.upsert pattern in src/lib/assessment.ts.
-model SurveyResponse {
-  id               String         @id @default(cuid())
-  applicationId    Int
-  application      Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  surveyQuestionId String
-  surveyQuestion   SurveyQuestion @relation(fields: [surveyQuestionId], references: [id], onDelete: Cascade)
-  answer           String
-  updatedAt        DateTime       @updatedAt
-
-  @@unique([applicationId, surveyQuestionId])
 }
 
 // An admin-opened post-award grade-check period for a program (e.g. "Q1 2027" or "January

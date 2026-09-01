@@ -6,9 +6,7 @@ import { Tag } from "@/components/ui/tag";
 
 type Recipient = { id: number; name: string; alreadySent: boolean };
 
-// Independent copy of the check-in survey system's SurveySendPanel (same component, same
-// conventions) rather than a shared import — the grade-check feature is deliberately
-// self-contained so removing Check-in Surveys later doesn't touch this feature's files.
+// Send-mode picker: all awarded scholars at once, or hand-pick a subset.
 export function GradeCheckSendPanel({
   periodId,
   recipients,
