@@ -37,6 +37,7 @@ model Program {
   applications Application[]
   fieldConfigs FieldConfig[]
   surveyWaves  SurveyWave[]
+  gradeCheckPeriods GradeCheckPeriod[]
   staffAssignments StaffProgramAssignment[]
   auditLogEntries  AuditLogEntry[]
   screenerGroups   ScreenerGroup[]
@@ -232,6 +233,7 @@ model Application {
   recommendations     Recommendation[]
   surveySends         SurveySend[]
   surveyResponses     SurveyResponse[]
+  gradeCheckSubmissions GradeCheckSubmission[]
 
   // Includes cohortId (not just studentId+programId) so a scholar can have a separate
   // Application per renewal cycle — see getApplication/resolveApplicationForDisplay/
@@ -451,6 +453,47 @@ model SurveyResponse {
   updatedAt        DateTime       @updatedAt
 
   @@unique([applicationId, surveyQuestionId])
+}
+
+// An admin-opened post-award grade-check period for a program (e.g. "Q1 2027" or "January
+// 2027") — admin-typed label, not a fixed enum, since periods recur indefinitely across a
+// scholar's multi-year renewal at whatever monthly/quarterly cadence the program runs on
+// (this app has no scheduler/cron infra, so periods open manually, one at a time).
+model GradeCheckPeriod {
+  id        String @id @default(cuid())
+  programId Int
+  program   Program @relation(fields: [programId], references: [id])
+  label     String
+  dueDate   String?
+  status    String  @default("draft") // "draft" | "deployed"
+  createdAt DateTime @default(now())
+
+  submissions GradeCheckSubmission[]
+
+  @@unique([programId, label])
+}
+
+// Records that a grade-check period was sent to a given awarded application, and (once
+// submitted) the applicant's uploaded certificate of grades + self-reported GWA, plus the
+// admin's review outcome. One row per (applicationId, periodId) — a resubmission (over a
+// previously-reviewed row) resets reviewStatus back to "pending" since new information needs
+// re-review; see submitGradeCheck in src/lib/actions/student.ts.
+model GradeCheckSubmission {
+  id            Int      @id @default(autoincrement())
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id])
+  periodId      String
+  period        GradeCheckPeriod @relation(fields: [periodId], references: [id])
+  sentDate      String
+  gwaFileName   String?
+  reportedGwa   String?
+  submittedAt   DateTime?
+  reviewStatus  String  @default("pending") // "pending" | "compliant" | "probation" | "revoked"
+  reviewNote    String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+
+  @@unique([applicationId, periodId])
 }
 
 // Self-contained, Postgres-backed rate limiting (no external service) — one row per

@@ -462,3 +462,25 @@ export async function getSurveySends(applicationIds: number[]) {
   return byApplication;
 }
 
+export async function getGradeCheckPeriods(programId: number) {
+  return db.gradeCheckPeriod.findMany({ where: { programId }, orderBy: { createdAt: "desc" } });
+}
+
+// Unlike getSurveySends (fixed wave enum, so a Record<wave, ...> per applicant works), a
+// grade-check period is admin-typed/open-ended, so this returns one array per applicant
+// instead — used both by the review table (all submissions for a period) and the applicant
+// detail page's Grade Check Compliance card (all periods for one applicant).
+export async function getGradeCheckSubmissions(applicationIds: number[]) {
+  const rows = await db.gradeCheckSubmission.findMany({
+    where: { applicationId: { in: applicationIds } },
+    include: { period: true },
+    orderBy: { sentDate: "desc" },
+  });
+  const byApplication = new Map<number, typeof rows>();
+  for (const r of rows) {
+    if (!byApplication.has(r.applicationId)) byApplication.set(r.applicationId, []);
+    byApplication.get(r.applicationId)!.push(r);
+  }
+  return byApplication;
+}
+

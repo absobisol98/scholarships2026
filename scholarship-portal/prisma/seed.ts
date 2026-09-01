@@ -142,6 +142,8 @@ async function main() {
   await db.surveySend.deleteMany();
   await db.surveyQuestion.deleteMany();
   await db.surveyWave.deleteMany();
+  await db.gradeCheckSubmission.deleteMany();
+  await db.gradeCheckPeriod.deleteMany();
   await db.fieldConfig.deleteMany();
   await db.rubricScore.deleteMany();
   await db.recommendation.deleteMany();
@@ -467,6 +469,30 @@ async function main() {
       })),
     });
   }
+
+  // Grade-check demo: a deployed U-GO period sent to both awarded scholars — Diego hasn't
+  // submitted yet (exercises the "pending" banner + student upload form), Malik already has
+  // and was reviewed compliant (exercises the admin review table's reviewed state and the
+  // applicant detail page's Grade Check Compliance card).
+  const gradeCheckPeriod = await db.gradeCheckPeriod.create({
+    data: { programId: ugo.id, label: "Q1 2027", dueDate: "March 31, 2027", status: "deployed" },
+  });
+  await db.gradeCheckSubmission.createMany({
+    data: [
+      { applicationId: createdApplicants["Diego Ramirez"].id, periodId: gradeCheckPeriod.id, sentDate: "Feb 1, 2027" },
+      {
+        applicationId: createdApplicants["Malik Owusu"].id,
+        periodId: gradeCheckPeriod.id,
+        sentDate: "Feb 1, 2027",
+        gwaFileName: "app-seed/gradeCert/malik-gradecert.pdf",
+        reportedGwa: "89",
+        submittedAt: new Date("2027-02-10"),
+        reviewStatus: "compliant",
+        reviewedBy: "Dr. R. Okafor",
+        reviewedAt: new Date("2027-02-12"),
+      },
+    ],
+  });
 
   // — Staff accounts (RBAC demo) —
   // Exactly one seeded StaffAccount per staff role is isDemo:true — that's who "Log in as

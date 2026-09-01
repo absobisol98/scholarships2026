@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminLike } from "@/lib/auth";
-import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
+import { getProgramByKey, getApplicationForReview, getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape, getGradeCheckSubmissions } from "@/lib/admin-data";
 import { getFieldsConfig } from "@/lib/field-config";
 import { SHORTLISTED_PHASE_INDEX, MAX_INELIGIBLE_ATTEMPTS } from "@/lib/steps";
 import { db } from "@/lib/db";
@@ -9,10 +9,17 @@ import { overrideFlag, clearFlagOverride, setApplicantDecision, overrideAssessme
 import { RUBRIC_CRITERIA } from "@/lib/rubric";
 import { WAVE_TITLES } from "@/lib/steps";
 import { Card, CardKicker } from "@/components/ui/card";
-import { Tag } from "@/components/ui/tag";
+import { Tag, type TagVariant } from "@/components/ui/tag";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { ReadOnlyApplicationView } from "@/components/application-view";
+
+const GRADE_CHECK_STATUS_TAGS: Record<string, { label: string; variant: TagVariant }> = {
+  pending: { label: "Pending review", variant: "neutral" },
+  compliant: { label: "Compliant", variant: "success" },
+  probation: { label: "On probation", variant: "warning" },
+  revoked: { label: "Revoked", variant: "danger" },
+};
 
 const DECISION_LABELS: Record<string, string> = { awarded: "Awarded", waitlisted: "Waitlisted", declined: "Declined" };
 
@@ -24,14 +31,16 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
   const application = await getApplicationForReview(Number(applicantId));
   if (!application || application.programId !== program.id) notFound();
 
-  const [activeCohort, fieldsByStep, recommendations, rubricScores, screenerGroups, surveyResponses] = await Promise.all([
+  const [activeCohort, fieldsByStep, recommendations, rubricScores, screenerGroups, surveyResponses, gradeCheckSubmissionsByApplication] = await Promise.all([
     getActiveCohortWithCriteria(program.id),
     getFieldsConfig(program.id),
     db.recommendation.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
     db.rubricScore.findMany({ where: { applicationId: application.id }, include: { screener: true } }),
     db.screenerGroup.findMany({ where: { programId: program.id }, include: { members: true } }),
     db.surveyResponse.findMany({ where: { applicationId: application.id }, include: { surveyQuestion: { include: { surveyWave: true } } } }),
+    getGradeCheckSubmissions([application.id]),
   ]);
+  const gradeCheckSubmissions = gradeCheckSubmissionsByApplication.get(application.id) ?? [];
   // A screener's assignment is always a byproduct of screener-group membership now (see
   // screenerGroups.ts) — resolve which group(s) explain each assigned screener so this
   // read-only card can say "assigned via <group>" instead of offering its own assign control.
@@ -275,6 +284,32 @@ export default async function ViewApplicationPage({ params }: { params: Promise<
                 </div>
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {gradeCheckSubmissions.length > 0 && (
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <CardKicker>Grade Check Compliance</CardKicker>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: 8 }}>
+            {gradeCheckSubmissions.map((s) => {
+              const statusMeta = GRADE_CHECK_STATUS_TAGS[s.reviewStatus] ?? GRADE_CHECK_STATUS_TAGS.pending;
+              return (
+                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, paddingBottom: 8, borderBottom: "1px solid var(--color-divider)" }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{s.period.label}</span>
+                    {s.reportedGwa && <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>GWA: {s.reportedGwa}</span>}
+                    {s.gwaFileName && (
+                      <>
+                        {" · "}
+                        <a href={`/api/documents/grade-check/${s.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600 }}>Open ↗</a>
+                      </>
+                    )}
+                  </div>
+                  <Tag variant={statusMeta.variant}>{statusMeta.label}</Tag>
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}
