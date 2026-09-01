@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { SideItem } from "@/components/ui/sidebar-item";
 import { AvatarBadge } from "@/components/ui/avatar";
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
 export function AdminSidebar({
   programKey,
   workspaceName,
+  workspaces,
   isSuperAdmin,
   profileName,
   profileInitials,
@@ -27,13 +28,18 @@ export function AdminSidebar({
 }: {
   programKey: string;
   workspaceName: string;
+  workspaces?: { key: string; name: string }[];
   isSuperAdmin?: boolean;
   profileName: string;
   profileInitials: string;
   profileRole: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  // Preserve the current tab (Dashboard/Queue/Reports/...) across the switch, e.g. staying
+  // on Reports when moving from one program's workspace to another's.
+  const subPath = pathname.split(`/admin/${programKey}`)[1] ?? "";
 
   return (
     <nav className={`admin-sidebar ${collapsed ? "collapsed" : ""}`} aria-label="Admin navigation" style={{ flex: "none", padding: "var(--space-4) 0", display: "flex", flexDirection: "column", gap: 2 }}>
@@ -52,9 +58,35 @@ export function AdminSidebar({
       <Link href={isSuperAdmin ? "/super_admin" : "/admin"} style={{ background: "none", border: "none", textAlign: "left", font: "inherit", cursor: "pointer", padding: "0 14px 12px", fontSize: 12, fontWeight: 600, color: "var(--color-accent)", textDecoration: "none" }}>
         <span className="sidebar-text">← All workspaces</span>
       </Link>
-      <div className="sidebar-text" style={{ padding: "0 14px 10px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
-        {workspaceName}
-      </div>
+      {workspaces && workspaces.length > 1 ? (
+        <div className="sidebar-text sidebar-workspace-switcher" style={{ padding: "0 14px 10px" }}>
+          <label htmlFor="workspace-switcher" className="sr-only">Switch workspace</label>
+          <select
+            id="workspace-switcher"
+            value={programKey}
+            onChange={(e) => router.push(`/admin/${e.target.value}${subPath}`)}
+            style={{
+              width: "100%",
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: "var(--color-text)",
+              background: "var(--color-surface-muted)",
+              border: "1px solid var(--color-divider)",
+              borderRadius: "var(--radius-sm)",
+              padding: "6px 8px",
+              cursor: "pointer",
+            }}
+          >
+            {workspaces.map((w) => (
+              <option key={w.key} value={w.key}>{w.name}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="sidebar-text" style={{ padding: "0 14px 10px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "color-mix(in srgb, var(--color-text) 55%, transparent)" }}>
+          {workspaceName}
+        </div>
+      )}
       <div className="sidebar-group-label sidebar-text">Content</div>
       {NAV_ITEMS.map((item) => {
         const href = `/admin/${programKey}/${item.href}`;

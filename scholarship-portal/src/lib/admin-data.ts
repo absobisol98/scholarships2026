@@ -257,13 +257,17 @@ function statusesForSubmitted(submitted: string): string[] {
 // Shared by getApplicantsPage and getApplicantsForExport so the export always matches
 // exactly what the queue page's filters currently show — one place that decides what
 // "submitted"/"draft"/a search term mean, not two copies that could drift.
-function buildApplicantsWhere(programId: number, opts: { q?: string; phase?: string; submitted?: string }) {
-  const { q = "", phase = "all", submitted = "all" } = opts;
+function buildApplicantsWhere(programId: number, opts: { q?: string; phase?: string; submitted?: string; from?: string; to?: string }) {
+  const { q = "", phase = "all", submitted = "all", from, to } = opts;
+  // `to` is a plain YYYY-MM-DD from a date-input query param — treat it as end-of-day so a
+  // range ending "today" includes everything submitted today, not just before midnight.
+  const createdAt = from || to ? { gte: from ? new Date(from) : undefined, lte: to ? new Date(`${to}T23:59:59.999`) : undefined } : undefined;
   return {
     programId,
     status: { in: statusesForSubmitted(submitted) },
     ...(phase !== "all" ? { phaseIndex: Number(phase) } : {}),
     ...(q ? { fullName: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(createdAt ? { createdAt } : {}),
   };
 }
 
@@ -363,7 +367,7 @@ const EXPORT_SELECT = {
 // functions the queue page's own data source uses.
 export async function getApplicantsForExport(
   programId: number,
-  opts: { q?: string; phase?: string; submitted?: string; flag?: string; assessed?: string; submitTime?: string }
+  opts: { q?: string; phase?: string; submitted?: string; flag?: string; assessed?: string; submitTime?: string; from?: string; to?: string }
 ) {
   const where = buildApplicantsWhere(programId, opts);
   const [rows, activeCohort] = await Promise.all([

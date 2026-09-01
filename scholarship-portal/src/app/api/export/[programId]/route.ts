@@ -45,6 +45,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ programI
     submitted: url.searchParams.get("submitted") ?? undefined,
     assessed: url.searchParams.get("assessed") ?? undefined,
     submitTime: url.searchParams.get("submitTime") ?? undefined,
+    from: url.searchParams.get("from") ?? undefined,
+    to: url.searchParams.get("to") ?? undefined,
   });
   const csv = toCsv(COLUMNS, rows);
   return new NextResponse(csv, {
