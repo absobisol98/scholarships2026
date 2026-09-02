@@ -449,6 +449,50 @@ export async function getGradeCheckPeriods(programId: number) {
   return db.gradeCheckPeriod.findMany({ where: { programId }, orderBy: { createdAt: "desc" } });
 }
 
+// Sent/submitted counts per period, aggregated in the database (2 groupBy queries total,
+// not one row-per-submission fetch) — the periods list page only needs these two numbers
+// per period, not the submissions themselves, so this stays cheap regardless of how many
+// scholars a period was sent to.
+export async function getGradeCheckPeriodStats(programId: number): Promise<Map<string, { sent: number; submitted: number }>> {
+  const periodIds = (await db.gradeCheckPeriod.findMany({ where: { programId }, select: { id: true } })).map((p) => p.id);
+  if (periodIds.length === 0) return new Map();
+  const [sentGroups, submittedGroups] = await Promise.all([
+    db.gradeCheckSubmission.groupBy({ by: ["periodId"], where: { periodId: { in: periodIds } }, _count: { id: true } }),
+    db.gradeCheckSubmission.groupBy({ by: ["periodId"], where: { periodId: { in: periodIds }, submittedAt: { not: null } }, _count: { id: true } }),
+  ]);
+  const sentByPeriod = new Map(sentGroups.map((g) => [g.periodId, g._count.id]));
+  const submittedByPeriod = new Map(submittedGroups.map((g) => [g.periodId, g._count.id]));
+  return new Map(periodIds.map((id) => [id, { sent: sentByPeriod.get(id) ?? 0, submitted: submittedByPeriod.get(id) ?? 0 }]));
+}
+
+// The per-period submissions review table's data source — same paginated/filtered shape as
+// getApplicantsPage, so this scales to a program with hundreds or thousands of awarded
+// scholars the same way Applications Overview already does, instead of rendering every
+// submission for a period on one page.
+export async function getGradeCheckSubmissionsPage(
+  periodId: string,
+  opts: { q?: string; status?: string; submitted?: string; page?: number; pageSize?: number }
+) {
+  const { q = "", status = "all", submitted = "all", page = 1, pageSize = 50 } = opts;
+  const where = {
+    periodId,
+    ...(q ? { application: { fullName: { contains: q, mode: "insensitive" as const } } } : {}),
+    ...(status !== "all" ? { reviewStatus: status } : {}),
+    ...(submitted === "submitted" ? { submittedAt: { not: null } } : submitted === "pending" ? { submittedAt: null } : {}),
+  };
+  const [total, rows] = await Promise.all([
+    db.gradeCheckSubmission.count({ where }),
+    db.gradeCheckSubmission.findMany({
+      where,
+      include: { application: { select: { id: true, fullName: true } } },
+      orderBy: { application: { fullName: "asc" } },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+  return { rows, total, page, pageSize };
+}
+
 // A grade-check period is admin-typed/open-ended (not a fixed enum), so this returns one
 // array per applicant — used both by the review table (all submissions for a period) and
 // the applicant detail page's Grade Check Compliance card (all periods for one applicant).

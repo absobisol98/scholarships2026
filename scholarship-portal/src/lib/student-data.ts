@@ -104,6 +104,10 @@ export async function getApplication(studentId: number, programId: number, cohor
   });
 }
 
+// cohort is only fetched by the two resolvers below (not this raw lookup or ensureApplication) —
+// they're the ones that can return an application from a cohort other than whichever one is
+// currently active, so the caller needs a way to say which cycle it's actually showing.
+
 // Status page's resolution rule: "where is my application right now" — prefer the
 // application tied to the currently active cohort, else the most recent application
 // overall (so a scholar between cycles, or one whose account predates cohorts, still sees
@@ -114,7 +118,7 @@ export async function resolveApplicationForDisplay(studentId: number, programId:
     db.application.findMany({
       where: { studentId, programId },
       orderBy: { createdAt: "desc" },
-      include: { familyMembers: { orderBy: { order: "asc" } } },
+      include: { familyMembers: { orderBy: { order: "asc" } }, cohort: true },
     }),
   ]);
   return pickDisplayApplication(applications, activeCohort?.id ?? null);
@@ -129,7 +133,7 @@ export async function resolveApplicationForAward(studentId: number, programId: n
   const decided = await db.application.findFirst({
     where: { studentId, programId, status: { in: ["awarded", "declined"] } },
     orderBy: { createdAt: "desc" },
-    include: { familyMembers: { orderBy: { order: "asc" } } },
+    include: { familyMembers: { orderBy: { order: "asc" } }, cohort: true },
   });
   if (decided) return decided;
   return resolveApplicationForDisplay(studentId, programId);

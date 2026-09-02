@@ -1,38 +1,31 @@
 import { notFound } from "next/navigation";
-import { getProgramByKey, getGradeCheckPeriods, getGradeCheckSubmissions } from "@/lib/admin-data";
+import Link from "next/link";
+import { getProgramByKey, getGradeCheckPeriods, getGradeCheckPeriodStats } from "@/lib/admin-data";
 import { db } from "@/lib/db";
-import { createGradeCheckPeriod, toggleGradeCheckDeployed, sendGradeCheckToGroup, reviewGradeCheckSubmission } from "@/lib/actions/gradeChecks";
-import { displayFileName } from "@/lib/storage";
+import { createGradeCheckPeriod, toggleGradeCheckDeployed } from "@/lib/actions/gradeChecks";
+import { Breadcrumb } from "@/components/breadcrumb";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Tag, type TagVariant } from "@/components/ui/tag";
-import { Field, Input, Select } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
+import { Field, Input } from "@/components/ui/field";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Table, TableScroll } from "@/components/ui/table";
-import { GradeCheckSendPanel } from "./grade-check-send-panel";
-
-const REVIEW_STATUS_TAGS: Record<string, { label: string; variant: TagVariant }> = {
-  pending: { label: "Pending review", variant: "neutral" },
-  compliant: { label: "Compliant", variant: "success" },
-  probation: { label: "On probation", variant: "warning" },
-  revoked: { label: "Revoked", variant: "danger" },
-};
 
 export default async function GradeChecksPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
   const program = await getProgramByKey(key);
   if (!program) notFound();
 
-  const [periods, awardedApplicants] = await Promise.all([
+  const [periods, stats, awardedCount] = await Promise.all([
     getGradeCheckPeriods(program.id),
-    db.application.findMany({ where: { programId: program.id, decision: "awarded" }, orderBy: { id: "asc" } }),
+    getGradeCheckPeriodStats(program.id),
+    db.application.count({ where: { programId: program.id, decision: "awarded" } }),
   ]);
-  const submissionsByApplication = await getGradeCheckSubmissions(awardedApplicants.map((a) => a.id));
-  const nameById = new Map(awardedApplicants.map((a) => [a.id, a.fullName]));
 
   const onCreatePeriod = createGradeCheckPeriod.bind(null, program.key, program.id);
 
   return (
     <div className="page-wrap">
+      <Breadcrumb items={[{ label: program.name, href: `/admin/${program.key}/dashboard` }, { label: "Grade checks" }]} />
       <h6 style={{ color: "var(--color-accent)" }}>{program.name} workspace</h6>
       <h2 style={{ marginBottom: 4 }}>Grade checks</h2>
       <p className="text-muted" style={{ maxWidth: 640 }}>
@@ -54,112 +47,57 @@ export default async function GradeChecksPage({ params }: { params: Promise<{ ke
         </form>
       </Card>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
-        {periods.map((period) => {
-          const onToggleDeploy = toggleGradeCheckDeployed.bind(null, program.key, period.id);
-          const sendToIds = sendGradeCheckToGroup.bind(null, program.key, period.id);
-          const submissionsForPeriod = awardedApplicants
-            .map((a) => submissionsByApplication.get(a.id)?.find((s) => s.periodId === period.id))
-            .filter((s): s is NonNullable<typeof s> => !!s);
-          const recipients = awardedApplicants.map((a) => ({
-            id: a.id,
-            name: a.fullName,
-            alreadySent: !!submissionsByApplication.get(a.id)?.some((s) => s.periodId === period.id),
-          }));
-          const submittedCount = submissionsForPeriod.filter((s) => s.submittedAt).length;
-
-          return (
-            <Card key={period.id} elevation="sm">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <CardTitle>{period.label}</CardTitle>
-                  {period.dueDate && <span className="text-muted" style={{ fontSize: 12 }}>Due {period.dueDate}</span>}
-                </div>
-                <Tag variant={period.status === "deployed" ? "accent" : "outline"} style={{ whiteSpace: "nowrap" }}>
-                  {period.status === "deployed" ? "Deployed" : "Draft"}
-                </Tag>
-              </div>
-
-              <div style={{ marginTop: "var(--space-3)" }}>
-                <form action={onToggleDeploy}>
-                  <Button type="submit" variant={period.status === "deployed" ? "secondary" : "primary"}>
-                    {period.status === "deployed" ? "Unpublish" : "Deploy"}
-                  </Button>
-                </form>
-              </div>
-
-              <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "2px solid var(--color-divider)" }}>
-                <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px" }}>Send to awarded scholars</p>
-                <GradeCheckSendPanel periodId={period.id} recipients={recipients} sendToIds={sendToIds} />
-                <p className="text-muted" style={{ fontSize: 12, margin: "var(--space-2) 0 0" }}>
-                  Sent to {recipients.filter((r) => r.alreadySent).length} of {awardedApplicants.length} awarded applicants — {submittedCount} submitted
-                </p>
-              </div>
-
-              {submissionsForPeriod.length > 0 && (
-                <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-4)", borderTop: "2px solid var(--color-divider)" }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px" }}>Submissions</p>
-                  <TableScroll>
-                    <Table aria-label="Grade check submissions">
-                      <thead>
-                        <tr>
-                          <th scope="col">Applicant</th>
-                          <th scope="col">Reported GWA</th>
-                          <th scope="col">Certificate</th>
-                          <th scope="col">Status</th>
-                          <th scope="col">Review</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {submissionsForPeriod.map((s) => {
-                          const statusMeta = REVIEW_STATUS_TAGS[s.reviewStatus] ?? REVIEW_STATUS_TAGS.pending;
-                          const onReview = reviewGradeCheckSubmission.bind(null, program.key, s.id);
-                          return (
-                            <tr key={s.id}>
-                              <td style={{ fontWeight: 700 }}>{nameById.get(s.applicationId) ?? "—"}</td>
-                              <td>{s.reportedGwa ?? <span className="text-muted">—</span>}</td>
-                              <td>
-                                {s.gwaFileName ? (
-                                  <a href={`/api/documents/grade-check/${s.id}`} target="_blank" rel="noreferrer">
-                                    {displayFileName(s.gwaFileName)} ↗
-                                  </a>
-                                ) : (
-                                  <span className="text-muted">Not yet submitted</span>
-                                )}
-                              </td>
-                              <td><Tag variant={statusMeta.variant}>{statusMeta.label}</Tag></td>
-                              <td>
-                                {s.submittedAt ? (
-                                  <form action={onReview} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                                    <Select name="reviewStatus" defaultValue={s.reviewStatus === "pending" ? "compliant" : s.reviewStatus} style={{ minWidth: 120 }}>
-                                      <option value="compliant">Compliant</option>
-                                      <option value="probation">On probation</option>
-                                      <option value="revoked">Revoked</option>
-                                    </Select>
-                                    <Input name="reviewNote" placeholder="Note (optional)" defaultValue={s.reviewNote ?? ""} style={{ minWidth: 140 }} />
-                                    <Button type="submit" variant="secondary">Save</Button>
-                                  </form>
-                                ) : (
-                                  <span className="text-muted">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </Table>
-                  </TableScroll>
-                </div>
-              )}
-            </Card>
-          );
-        })}
-        {periods.length === 0 && (
-          <Card elevation="sm">
-            <p className="text-muted" style={{ margin: 0 }}>No grade-check periods yet — open one above.</p>
-          </Card>
-        )}
-      </div>
+      {periods.length === 0 ? (
+        <Card elevation="sm" style={{ marginTop: "var(--space-4)" }}>
+          <p className="text-muted" style={{ margin: 0 }}>No grade-check periods yet — open one above.</p>
+        </Card>
+      ) : (
+        <TableScroll style={{ marginTop: "var(--space-4)" }}>
+          <Table aria-label="Grade check periods">
+            <thead>
+              <tr>
+                <th scope="col">Period</th>
+                <th scope="col">Due date</th>
+                <th scope="col">Status</th>
+                <th scope="col">Sent</th>
+                <th scope="col">Submitted</th>
+                <th scope="col" aria-label="Actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {periods.map((period) => {
+                const onToggleDeploy = toggleGradeCheckDeployed.bind(null, program.key, period.id);
+                const periodStats = stats.get(period.id) ?? { sent: 0, submitted: 0 };
+                return (
+                  <tr key={period.id}>
+                    <td>
+                      <Link href={`/admin/${program.key}/grade-checks/${period.id}`} style={{ fontWeight: 700 }}>
+                        {period.label}
+                      </Link>
+                    </td>
+                    <td>{period.dueDate ?? <span className="text-muted">—</span>}</td>
+                    <td>
+                      <Tag variant={period.status === "deployed" ? "accent" : "outline"}>
+                        {period.status === "deployed" ? "Deployed" : "Draft"}
+                      </Tag>
+                    </td>
+                    <td>{periodStats.sent} of {awardedCount} awarded</td>
+                    <td>{periodStats.submitted}</td>
+                    <td style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
+                      <form action={onToggleDeploy}>
+                        <Button type="submit" variant="secondary">
+                          {period.status === "deployed" ? "Unpublish" : "Deploy"}
+                        </Button>
+                      </form>
+                      <LinkButton href={`/admin/${program.key}/grade-checks/${period.id}`} variant="secondary">Open →</LinkButton>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        </TableScroll>
+      )}
     </div>
   );
 }

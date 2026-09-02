@@ -34,10 +34,16 @@ export default async function GradeCheckIndexPage({ params }: { params: Promise<
   return (
     <div>
       <h6 style={{ color: "var(--color-accent)" }}>Grade Check</h6>
-      <p className="text-muted" style={{ maxWidth: 560, marginBottom: "var(--space-4)" }}>
+      <p className="text-muted" style={{ maxWidth: 560, marginBottom: "var(--space-2)" }}>
         As a condition of keeping your scholarship, we periodically ask you to confirm you&apos;re
         still maintaining the required grades. Any open request appears here.
       </p>
+      {application.cohort && (
+        <p className="text-muted" style={{ fontSize: 12, marginBottom: "var(--space-4)" }}>
+          For your {application.cohort.name} award — this applies regardless of any other
+          application you may currently have in progress for this program.
+        </p>
+      )}
 
       {submissions.length === 0 && (
         <Card role="status">
