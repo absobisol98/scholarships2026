@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentStudent } from "@/lib/auth";
-import { getProgramByKey, resolveApplicationForAward } from "@/lib/student-data";
+import { getProgramByKey, resolveApplicationForAward, isAwardedAndEligible } from "@/lib/student-data";
 import { submitGradeCheck } from "@/lib/actions/student";
 import { db } from "@/lib/db";
 import { Card, CardBody } from "@/components/ui/card";
@@ -36,6 +36,10 @@ export default async function GradeCheckPage({
   const student = await getCurrentStudent();
   const application = await resolveApplicationForAward(student.id, program.id);
   if (!application) notFound();
+  // Same "awarded and not currently red-flagged" gate the tab itself is hidden behind (see
+  // isAwardedAndEligible, student-data.ts) — an admin sending a period doesn't itself
+  // re-check flag status, so this is the actual enforcement point.
+  if (!(await isAwardedAndEligible(application, program.id))) notFound();
 
   // A scholar can only reach a period actually sent to them — not reachable by guessing a
   // URL for a period the program happens to have deployed but never sent to this applicant.

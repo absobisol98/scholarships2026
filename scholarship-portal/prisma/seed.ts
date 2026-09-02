@@ -330,20 +330,33 @@ async function main() {
   // gpa is the percentage value that's actually eligibility-checked (gte threshold), not a
   // cosmetic 4.0-scale number — same reasoning as Amara's fix above.
   const applicationSeeds = [
-    // Flagged: wrong sex, graduating this cycle (excluded), private institution, GWA below threshold.
-    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: 82, submitted: "Aug 11, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Incoming 4th year, graduating in SY 2026–2027", institutionType: "Private university/college", phaseIndex: 3, region: "Luzon", province: "Batangas", city: "Batangas City", income: "₱60,000–₱100,000", recommendationFileName: "app-seed/recommendation/diego-recommendation.pdf" },
+    // Cleanly eligible, awarded — a submitted application can never actually reach this
+    // status while failing a hard-filter criterion (see checkDuplicateAndEligibility /
+    // checkGwaEligibility in src/lib/actions/student.ts, which hard-block intake on exactly
+    // these same nat/sex/year/inst/gwa checks), so an "awarded" seed row must genuinely pass
+    // them too — used for the grade-check "pending submission" demo.
+    { programId: ugo.id, name: "Diego Ramirez", school: "Eastview Academy", gpa: 88, submitted: "Aug 11, 2026", decision: "awarded", nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3, region: "Luzon", province: "Batangas", city: "Batangas City", income: "₱60,000–₱100,000", recommendationFileName: "app-seed/recommendation/diego-recommendation.pdf" },
     // Flagged: not a Filipino citizen, private institution — year and GWA otherwise pass.
+    // Held at Application phase (phaseIndex 0) — a red flag blocks any further promotion
+    // until it's resolved (promoteApplicant, src/lib/actions/admin.ts).
     { programId: ugo.id, name: "Priya Nair", school: "Jefferson High", gpa: 96, submitted: "Aug 9, 2026", decision: null, nationality: "Indian", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: "Private university/college", phaseIndex: 0, region: "NCR", province: "Metro Manila", city: "Makati City", income: "Above ₱250,000" },
-    // Flagged: wrong sex, graduating this cycle (excluded) — institution and GWA otherwise pass.
-    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: 88, submitted: "Aug 13, 2026", decision: "awarded", nationality: "Filipino", sex: "Male", yearLevel: "Graduating in SY 2026–2027", institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3, region: "Mindanao", province: "Davao del Sur", city: "Davao City", income: "₱20,000–₱40,000", recommendationFileName: "app-seed/recommendation/malik-recommendation.pdf" },
+    // Cleanly eligible, awarded — see Diego above; used for the grade-check "already
+    // submitted, reviewed compliant" demo, and the scholar-renewal example below.
+    { programId: ugo.id, name: "Malik Owusu", school: "Northside Prep", gpa: 88, submitted: "Aug 13, 2026", decision: "awarded", nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, phaseIndex: 3, region: "Mindanao", province: "Davao del Sur", city: "Davao City", income: "₱20,000–₱40,000", recommendationFileName: "app-seed/recommendation/malik-recommendation.pdf" },
     // Cleanly eligible, second example for the "randomly assign eligible applicants" demo.
     { programId: ugo.id, name: "Grace Delacruz", school: "Cordillera State College", gpa: 89, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: UGO_YEAR_ELIGIBLE, institutionType: UGO_INST_ELIGIBLE, phaseIndex: 0, region: "Luzon", province: "Benguet", city: "Baguio City", income: "Below ₱10,000" },
     // Cleanly eligible for Generika: right nationality, right year, GWA above its 85% threshold.
     { programId: generika.id, name: "Sofia Petrov", school: "Riverdale High", gpa: 87, submitted: "Aug 12, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", phaseIndex: 1, region: "Visayas", province: "Cebu", city: "Cebu City", income: "₱40,000–₱60,000" },
     // Flagged: GWA well below Generika's 85% threshold.
     { programId: generika.id, name: "Jamal Reed", school: "Central High", gpa: 79, submitted: "Aug 14, 2026", decision: null, nationality: "Filipino", sex: "Male", yearLevel: GENERIKA_YEAR_ELIGIBLE, institutionType: "Public school", phaseIndex: 0, region: "Luzon", province: "Pampanga", city: "Angeles City", income: "₱10,000–₱20,000" },
-    { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: 91, submitted: "Aug 8, 2026", decision: "awarded", nationality: "Japanese", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", phaseIndex: 3, region: "NCR", province: "Metro Manila", city: "Pasig City", income: "₱100,000–₱250,000" },
-    { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: 87, submitted: "Aug 15, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Private school", phaseIndex: 2, region: "Visayas", province: "Iloilo", city: "Iloilo City", income: "₱20,000–₱40,000" },
+    // Cleanly eligible, awarded — EO Skolar requires Filipino nationality (see
+    // defaultCriteria above); year/institution/GWA already passed.
+    { programId: eo.id, name: "Yuki Tanaka", school: "Westbrook Academy", gpa: 91, submitted: "Aug 8, 2026", decision: "awarded", nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", phaseIndex: 3, region: "NCR", province: "Metro Manila", city: "Pasig City", income: "₱100,000–₱250,000" },
+    // Cleanly eligible, Shortlisted — a submitted application can only advance past
+    // Application while flagged if a Super Admin overrides (see promoteApplicant,
+    // src/lib/actions/admin.ts), so a plain "Shortlisted, no override" row must genuinely
+    // pass every hard-filter criterion.
+    { programId: eo.id, name: "Elena Popescu", school: "Riverside High", gpa: 87, submitted: "Aug 15, 2026", decision: null, nationality: "Filipino", sex: "Female", yearLevel: "Grade 11 or higher", institutionType: "Public school", phaseIndex: 2, region: "Visayas", province: "Iloilo", city: "Iloilo City", income: "₱20,000–₱40,000" },
   ];
 
   const programByIdForCohort: Record<number, string> = cohortsByProgramId;
@@ -414,14 +427,14 @@ async function main() {
       fullName: "Malik Owusu",
       email: "malik@example.com",
       nationality: "Filipino",
-      sex: "Male",
+      sex: "Female",
     },
   });
 
   // Grade-check demo: a deployed U-GO period sent to both awarded scholars — Diego hasn't
-  // submitted yet (exercises the "pending" banner + student upload form), Malik already has
-  // and was reviewed compliant (exercises the admin review table's reviewed state and the
-  // applicant detail page's Grade Check Compliance card).
+  // submitted yet (exercises the Grade Check tab's pending state + student upload form),
+  // Malik already has and was reviewed compliant (exercises the admin review table's
+  // reviewed state and the applicant detail page's Grade Check Compliance card).
   const gradeCheckPeriod = await db.gradeCheckPeriod.create({
     data: { programId: ugo.id, label: "Q1 2027", dueDate: "March 31, 2027", status: "deployed" },
   });

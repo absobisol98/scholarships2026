@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getProgramByKey, getActiveCohort } from "@/lib/student-data";
+import { getProgramByKey, getActiveCohort, resolveApplicationForAward, isAwardedAndEligible } from "@/lib/student-data";
+import { getCurrentStudent } from "@/lib/auth";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { DocumentsCard } from "./documents-card";
@@ -10,6 +11,13 @@ export default async function ProgramLayout({ children, params }: { children: Re
   const program = await getProgramByKey(key);
   if (!program) notFound();
   const cohort = await getActiveCohort(program.id);
+
+  // The Grade Check tab only ever shows for a scholar who is both actually awarded and not
+  // currently red-flagged — see isAwardedAndEligible (student-data.ts). A student browsing a
+  // program they haven't applied to yet, or one still under review, simply never sees it.
+  const student = await getCurrentStudent();
+  const application = await resolveApplicationForAward(student.id, program.id);
+  const showGradeCheck = application ? await isAwardedAndEligible(application, program.id) : false;
 
   return (
     <div className="page-wrap">
@@ -39,7 +47,7 @@ export default async function ProgramLayout({ children, params }: { children: Re
         </div>
       </div>
 
-      <ProgramTabs programKey={program.key} />
+      <ProgramTabs programKey={program.key} showGradeCheck={showGradeCheck} />
       <div className="hr" />
 
       {children}

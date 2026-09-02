@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentStudent } from "@/lib/auth";
 import { getProgramByKey, resolveApplicationForAward } from "@/lib/student-data";
 import { acceptAward, declineAward } from "@/lib/actions/student";
-import { db } from "@/lib/db";
 import { Card, CardKicker, CardBody } from "@/components/ui/card";
 import { AwardActions } from "./award-actions";
 
@@ -40,25 +38,8 @@ export default async function AwardPage({ params }: { params: Promise<{ key: str
         ? "You've declined this award. Thank you for letting us know."
         : "";
 
-  const pendingGradeChecks = application
-    ? await db.gradeCheckSubmission.findMany({ where: { applicationId: application.id, submittedAt: null }, include: { period: true } })
-    : [];
-
   return (
     <>
-      {pendingGradeChecks.map((submission) => (
-        <Card key={submission.id} role="status" style={{ marginTop: "var(--space-2)", background: "var(--color-accent-2-100)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
-            <span style={{ fontWeight: 600, fontSize: 14, color: "var(--color-accent-2-800)" }}>
-              Your {submission.period.label} grade check is waiting — upload your certificate of grades.
-            </span>
-            <Link href={`/programs/${program.key}/grade-check/${submission.periodId}`} style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-              Submit now →
-            </Link>
-          </div>
-        </Card>
-      ))}
-
       <Card elevation="md" style={{ marginTop: "var(--space-2)", padding: "var(--space-8)", gap: "var(--space-4)" }}>
         <span className="text-muted" style={{ fontSize: 12 }}>{application?.submittedDate ? `Awarded following your ${application.submittedDate} submission` : ""}</span>
         <h3 style={{ marginTop: "var(--space-2)" }}>Dear {student.name.split(" ")[0]},</h3>

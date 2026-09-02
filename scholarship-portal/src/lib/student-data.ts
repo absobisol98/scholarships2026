@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
 import { statusMeta } from "@/lib/steps";
+import { getActiveCohortWithCriteria, evaluateCriteria, toEligibilityShape } from "@/lib/admin-data";
 
 function hrefFor(programKey: string, status: string): string {
   return status === "awarded" || status === "declined"
@@ -132,6 +133,22 @@ export async function resolveApplicationForAward(studentId: number, programId: n
   });
   if (decided) return decided;
   return resolveApplicationForDisplay(studentId, programId);
+}
+
+// Post-award obligations (currently: grade-check compliance) only ever apply to a scholar
+// who is both actually awarded and not currently red-flagged — mirrors the exact "eligible"
+// definition promoteApplicant/the admin queue already use (src/lib/actions/admin.ts,
+// src/lib/admin-data.ts): flagOverridden short-circuits a real failing flag, since a Super
+// Admin choosing to override is the same "not blocking" outcome as never having failed a
+// criterion in the first place.
+export async function isAwardedAndEligible(
+  application: { status: string; flagOverridden: boolean; nationality: string; sex: string; yearLevel: string; institutionType: string; gpa: string },
+  programId: number
+): Promise<boolean> {
+  if (application.status !== "awarded") return false;
+  if (application.flagOverridden) return true;
+  const activeCohort = await getActiveCohortWithCriteria(programId);
+  return evaluateCriteria(toEligibilityShape(application), activeCohort).length === 0;
 }
 
 // Starting a new application prefills Full name/Email from the applicant's own account
